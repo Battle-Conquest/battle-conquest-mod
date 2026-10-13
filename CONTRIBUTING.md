@@ -1,70 +1,72 @@
-# Contribuer
+# Contributing
 
-Ce dépôt suit les conventions de [Battle-Conquest](https://github.com/Battle-Conquest/Battle-Conquest)
-(`docs/CONVENTIONS.md`), adaptées à un mod client en Python 2.7.
+This repository follows the conventions of
+[Battle-Conquest](https://github.com/Battle-Conquest/Battle-Conquest)
+(`docs/CONVENTIONS.md`), adapted to a client mod written in Python 2.7.
 
-Lire [`AGENTS.md`](./AGENTS.md) d'abord : il contient les règles non évidentes qui
-comptent pour un changement sûr, avant tout la façon dont le rechargement à chaud
-reste sûr.
+Read [`AGENTS.md`](./AGENTS.md) first. It holds the non-obvious rules that matter
+for a safe change, above all how hot reload stays safe.
 
-## Langues
+## Language
 
-- **Français** : commits, titres et descriptions de PR, issues, ce fichier.
-- **Anglais** : le code, ses commentaires, et tout ce que le joueur voit dans le
-  client (la page de réglages, les messages du garage). Le mod n'a pas d'i18n.
+Everything in this repository is in **English**: code, comments, commits, pull
+requests, release notes, and everything the player sees in the client (the
+settings page, the garage messages). The mod has no i18n.
 
 ## Issues
 
-Les issues du mod sont suivies dans le dépôt
-[Battle-Conquest/Battle-Conquest](https://github.com/Battle-Conquest/Battle-Conquest/issues),
-avec le label **Mod Battle-Conquest** : une évolution du mod va presque toujours de
-pair avec le serveur (contrat `/api/mod/battles`, stockage, preuve des quêtes).
-Ce qu'il faut au mod est décrit dans la section « Côté mod » de l'issue.
+The mod's issues are tracked in
+[Battle-Conquest/Battle-Conquest](https://github.com/Battle-Conquest/Battle-Conquest/issues)
+under the **Mod Battle-Conquest** label: a change to the mod nearly always goes
+with one on the server (the `/api/mod/battles` contract, storage, quest proof).
+What the mod needs is described in the issue's "Côté mod" section. Those issues
+are written in French, like the rest of that repository.
 
-## Mise en place
+## Setup
 
-Suivre la section Development du [`README.md`](./README.md) : lancer
-`tools/install_dev.py`, démarrer le client une fois. Ensuite, enregistrer un fichier
-sous `src/` recharge le mod sans redémarrer le jeu.
+Follow the Development section of [`README.md`](./README.md): run
+`tools/install_dev.py`, start the client once. After that, saving a file under
+`src/` reloads the mod in place, without restarting the game.
 
 ## Branches
 
-- Ne jamais travailler sur `main` ; ne jamais supprimer `main`.
-- Une branche par issue, créée depuis `main`, avec le numéro de l'issue :
+- Never work on `main`; never delete `main`.
+- One branch per issue, created from `main`, named after it:
   `feat/<num>-<slug>`, `fix/<num>-<slug>`, `chore/<num>-<slug>`.
 
 ## Commits
 
-Format : `<type>(#<num>): <description>`, où `<num>` est le numéro de l'issue dans
+Format: `<type>(#<num>): <description>`, where `<num>` is the issue's number in
 Battle-Conquest/Battle-Conquest.
 
 ```text
-feat(#813): ajouter le char joué à chaque rapport de bataille
-fix(#842): ne plus renvoyer une bataille après une reconnexion
-chore(#819): adopter les conventions de commit de Battle-Conquest
+feat(#813): add the tank played to each battle report
+fix(#842): stop sending a battle again after a reconnect
+chore(#819): adopt Battle-Conquest's contribution conventions
 ```
 
-- Types : `feat` (nouvelle capacité), `fix` (correctif), `perf` (amélioration
-  sensible pour le joueur), `refactor`, `docs`, `test`, `chore`.
-- Description en minuscule, à l'infinitif ou au présent, qui dit ce qui change.
-- Un commit par changement logique ; plusieurs commits par PR si les étapes sont
-  distinctes.
-- Sans issue (rare), `<type>: <description>`.
+- Types: `feat` (a new capability), `fix` (a bug fix), `perf` (an improvement the
+  player notices), `refactor`, `docs`, `test`, `chore`.
+- Lowercase, imperative description that says what changes.
+- One commit per logical change; several commits per PR when the steps are
+  distinct.
+- Without an issue (rare): `<type>: <description>`.
 
-`tools/release.py` lit ces sujets : `feat` fait monter la version mineure, le reste
-la version de correctif, et `feat` / `perf` / `fix` alimentent le changelog. Un sujet
-qui ne suit pas le format compte quand même, mais n'apparaît pas au changelog.
+`tools/release.py` reads these subjects: `feat` bumps the minor version,
+anything else the patch version, and `feat` / `perf` / `fix` make the changelog.
+A subject that does not follow the format still counts, but stays out of the
+changelog.
 
-## Vérifications (avant tout commit)
+## Checks (before every commit)
 
 ```bash
 python2.7 tools/selftest.py
 ```
 
-- La suite doit passer : tout changement vient avec un check dans `tools/checks/`.
-- Après un changement rechargé dans le client, relire `game.log`.
-- Packaging touché (`tools/build_release.py`, `res/`, `vendor/`, points d'entrée) :
-  construire puis contrôler le paquet.
+- The suite must pass: every change comes with a check in `tools/checks/`.
+- Once a change has reloaded in the client, read `game.log`.
+- When packaging is touched (`tools/build_release.py`, `res/`, `vendor/`, the
+  entry points), build the package and check it:
 
 ```bash
 python tools/build_release.py --version x.y.z
@@ -73,22 +75,23 @@ python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
 
 ## Pull requests
 
-- Titre au format des commits : `<type>(#<num>): <description>`.
-- Le corps contient :
-  - `Closes Battle-Conquest/Battle-Conquest#<num>` (l'issue vit dans l'autre dépôt) ;
-  - un résumé des changements ;
-  - le **résultat réel** des vérifications (selftest, et build + release check si
-    concerné), pas une promesse générique ;
-  - ce qui reste à tester en jeu, le cas échéant.
-- Fusion en **squash** : le titre de la PR devient le commit sur `main`.
-- Un changement du contrat d'API se fait d'abord côté serveur (Battle-Conquest,
-  `docs/mod-battles-api.md`), puis ici.
+- Title in the commit format: `<type>(#<num>): <description>`.
+- The description holds:
+  - `Closes Battle-Conquest/Battle-Conquest#<num>` (the issue lives in the other
+    repository);
+  - a summary of the changes;
+  - the **actual results** of the checks (selftest, and build + release check when
+    relevant), not a generic promise;
+  - what is left to test in game, if anything.
+- Merged with **squash**: the PR title becomes the commit on `main`.
+- A change to the API contract lands on the server first (Battle-Conquest,
+  `docs/mod-battles-api.md`), then here.
 
-## Versions et releases
+## Versions and releases
 
-- La version n'est **pas** bumpée dans les PR : `tools/release.py` la déduit des
-  commits depuis le dernier tag `vX.Y.Z`, prépare le changelog (en anglais, pour les
-  joueurs : il s'ouvre dans un éditeur pour être relu et traduit), construit, tague
-  et crée la release GitHub **en brouillon**.
-- Une release n'est publiée qu'après avoir capturé une bataille dans un vrai
-  client : `gh release edit vX.Y.Z --draft=false`.
+- Pull requests do **not** bump the version. `tools/release.py` derives it from
+  the commits since the last `vX.Y.Z` tag, drafts the changelog (opened in an
+  editor to be read over), builds, tags, and creates the GitHub release as a
+  **draft**.
+- A release is published only once it has captured a battle in a real client:
+  `gh release edit vX.Y.Z --draft=false`.

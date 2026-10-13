@@ -11,8 +11,8 @@ convention (`<type>(#<issue>): <description>`, see CONTRIBUTING.md), so a
 release needs no second place to write down what changed and no file to
 remember to add. What the commits cannot decide is left to a person: the level
 can be forced, and the changelog is opened in an editor before anything is
-built -- the subjects are in French, the changelog is read by players in
-English.
+built -- the subjects were written for whoever reads the log, the changelog is
+read by whoever plays.
 
 Runs on Python 3. The checks it calls run on the client's Python 2.7, which it
 finds the way `build_release.py` does.
