@@ -2,38 +2,27 @@
 
     python tools/build_release.py --version 1.0.0
 
-Writes dist/gg.unicum_<version>.wotmod, and dist/unicum.gg_<version>.zip laid
-out as the game folder, which is what is published:
+Writes dist/eu.battle-conquest_<version>.wotmod, and
+dist/battle-conquest-mod_<version>.zip laid out as the game folder, which is
+what is published:
 
-  mods/<game version>/gg.unicum_<version>.wotmod
-  mods/<game version>/net.openwg/net.openwg.gameface_<its version>.wotmod
+  mods/<game version>/eu.battle-conquest_<version>.wotmod
+  mods/<game version>/<every .wotmod in vendor/>
 
-openwg_gameface is what the garage features need. It is bundled from
-vendor/openwg/ (MIT, its license beside it) under net.openwg/, the folder every
-mod that ships it uses, so a copy from another mod is overwritten rather than
-loaded twice. Update it by replacing that file.
+vendor/ holds the two mods the settings page needs, modsSettingsApi (the page)
+and modsListApi (the menu entry that opens it), under their own file names, so
+a copy another mod or a modpack installed is overwritten rather than loaded
+twice. Update one by replacing its file. A build with an empty vendor/ ships
+the mod alone, and says so.
 
 The .wotmod holds:
 
-  res/scripts/client/gui/mods/mod_unicum.pyc   the entry point (dev/mod_unicum.py.in)
-  res/scripts/client/unicum/...                the package, compiled with the client's
-                                               Python 2.7, and its resources (web/,
-                                               badge_glyphs.json), read through ResMgr
-                                               there (src/unicum/resources.py)
-  res/gui/flash/*.swf                          the AS3 views and the patched markers app
-  res/gui/maps/icons/unicum/...                flags, the mod's icons
-  res/gui/gameface/..., res/mods/configs/...   res/ as it is: the Gameface modules (the hangar
-                                               button, the Twitch window) and their res_map entries
+  res/scripts/client/gui/mods/mod_battle_conquest.pyc   the entry point (dev/mod_battle_conquest.py.in)
+  res/scripts/client/battle_conquest/...                the package, compiled with the
+                                                        client's Python 2.7
+  res/...                                               res/ as it is: the menu icon
 
-Build its inputs first, as for development:
-
-    cd tools/flags && npm install && npm run build && cd ../..
-    cd tools/badges && npm install && npm run icon && cd ../..
-    python tools/build_as3.py --game "C:/Games/World_of_Tanks_EU"
-
-Stored, never deflated, like the dev bootstrap's package: the client rejected
-deflated members in 2.3.1.3. The rating badges are not in it: the client
-draws them (src/unicum/badge_png.py).
+Stored, never deflated: the client rejected deflated members in 2.3.1.3.
 
 Runs on Python 3; compiling needs the client's Python 2.7 (--python27).
 """
@@ -47,42 +36,24 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from install_dev import AS3_BUILD, FLAGS_BUILD, ICON_BUILD, PYTHON27_CANDIDATES, RES
+from install_dev import PYTHON27_CANDIDATES, RES
 
 REPO = Path(__file__).resolve().parent.parent
-SRC = REPO / 'src' / 'unicum'
-ENTRY = REPO / 'dev' / 'mod_unicum.py.in'
+SRC = REPO / 'src' / 'battle_conquest'
+ENTRY = REPO / 'dev' / 'mod_battle_conquest.py.in'
 DIST = REPO / 'dist'
+VENDOR = REPO / 'vendor'
 
-MOD_ID = 'gg.unicum'
+MOD_ID = 'eu.battle-conquest'
+ARCHIVE = 'battle-conquest-mod'
 
 # The client the package is built for: its mods/ folder in the zip.
 GAME_VERSION = '2.4.0.1'
-GAMEFACE = REPO / 'vendor' / 'openwg'
-NAME = 'unicum.gg'
-DESCRIPTION = ('Player ratings and language flags across the game, the unicum.gg tank menu in the '
-               'garage, and your Twitch chat in battle and in the garage.')
+NAME = 'Battle-Conquest'
+DESCRIPTION = 'Sends your battles to Battle-Conquest, for the tournaments and quests that score them.'
 
 # Never shipped: a developer's own settings, compiled leftovers.
 EXCLUDED = {'local_settings.py'}
-
-# The two folders the rating and Twitch badges are written into used to be
-# shipped here, each holding a 1x1 marker, because the client indexes its
-# resource folders as it starts: an image written into a folder it knew draws
-# at once, one in a folder created later draws only from the next start on.
-#
-# They are not shipped any more, and nothing was lost. `badges.py` creates
-# them itself on the first run (its `_write` makes the directory), so the only
-# thing the shipped folders ever bought was one client start -- and that start
-# already happens, because openwg_gameface restarts the client once on a fresh
-# install when it puts the hangar button in the resource map. The flags are
-# unaffected either way: all 252 of them ride inside the .wotmod, under
-# res/gui/maps/icons, where ResMgr has them from the first second.
-#
-# What it buys is the instruction a player reads. Unzipping used to lay down
-# `mods/`, `mods/net.openwg/` AND two folders under `res_mods/`, which had to
-# be spelled out and made this mod look harder to install than every other one
-# on the hub. Now the archive is two .wotmod files and nothing else.
 
 VERSION = re.compile(r'^\d+\.\d+\.\d+$')
 
@@ -97,20 +68,20 @@ def python27(given: str | None) -> list[str]:
 
 def stage_package(stage: Path, version: str) -> Path:
     """The package's sources in a scratch tree, with the release's version in it."""
-    package = stage / 'unicum'
+    package = stage / 'battle_conquest'
     shutil.copytree(SRC, package, ignore=shutil.ignore_patterns('*.pyc', '*.pyo', '__pycache__', *EXCLUDED))
     init = package / '__init__.py'
     text = init.read_text(encoding='utf-8')
     text, count = re.subn(r"^VERSION = '[^']*'$", f"VERSION = '{version}'", text, flags=re.M)
     if count != 1:
-        raise SystemExit('VERSION not found in src/unicum/__init__.py')
+        raise SystemExit('VERSION not found in src/battle_conquest/__init__.py')
     init.write_text(text, encoding='utf-8')
-    entry = stage / 'mod_unicum.py'
+    entry = stage / 'mod_battle_conquest.py'
     shutil.copy2(ENTRY, entry)
     text, count = re.subn(r"^__version__ = '[^']*'$", f"__version__ = '{version}'",
                           entry.read_text(encoding='utf-8'), flags=re.M)
     if count != 1:
-        raise SystemExit('__version__ not found in dev/mod_unicum.py.in')
+        raise SystemExit('__version__ not found in dev/mod_battle_conquest.py.in')
     entry.write_text(text, encoding='utf-8')
     return package
 
@@ -129,32 +100,12 @@ def compile_all(py27: list[str], stage: Path) -> None:
 def members(stage: Path) -> list[tuple[Path, str]]:
     """(file on disk, path inside the .wotmod), in a stable order."""
     out: list[tuple[Path, str]] = []
-    out.append((stage / 'mod_unicum.pyc', 'res/scripts/client/gui/mods/mod_unicum.pyc'))
-    package = stage / 'unicum'
+    out.append((stage / 'mod_battle_conquest.pyc', 'res/scripts/client/gui/mods/mod_battle_conquest.pyc'))
+    package = stage / 'battle_conquest'
     for path in sorted(package.rglob('*')):
         if not path.is_file() or path.suffix == '.py':
             continue
-        out.append((path, 'res/scripts/client/unicum/' + path.relative_to(package).as_posix()))
-
-    swfs = [swf for swf in AS3_BUILD.glob('unicum.*.swf') if not swf.name.endswith('.boot.swf')]
-    swfs += list(AS3_BUILD.glob('battleVehicleMarkersApp.swf'))
-    if not swfs:
-        raise SystemExit('no SWFs in build/as3: run tools/build_as3.py first')
-    out += [(swf, f'res/gui/flash/{swf.name}') for swf in sorted(swfs)]
-
-    flags = sorted(FLAGS_BUILD.glob('*.png'))
-    if not flags:
-        raise SystemExit('no flags in build/flags: run npm run build in tools/flags first')
-    out += [(flag, f'res/gui/maps/icons/unicum/flags/{flag.name}') for flag in flags]
-
-    icons = {'unicum.png': 'icon.png', 'twitch.png': 'twitch.png'}
-    for name, inside in icons.items():
-        if not (ICON_BUILD / name).is_file():
-            raise SystemExit(f'no build/icon/{name}: run npm run icon in tools/badges first')
-        out.append((ICON_BUILD / name, f'res/gui/maps/icons/unicum/{inside}'))
-    out += [(icon, f'res/gui/maps/icons/unicum/tankButton/{icon.name}')
-            for icon in sorted((ICON_BUILD / 'tankButton').glob('*.png'))]
-
+        out.append((path, 'res/scripts/client/battle_conquest/' + path.relative_to(package).as_posix()))
     out += [(path, 'res/' + path.relative_to(RES).as_posix()) for path in sorted(RES.rglob('*')) if path.is_file()]
     return out
 
@@ -169,7 +120,7 @@ def meta(version: str) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Build the released unicum.gg .wotmod.')
+    parser = argparse.ArgumentParser(description='Build the released Battle-Conquest .wotmod.')
     parser.add_argument('--version', required=True, help='x.y.z')
     parser.add_argument('--python27', help='path to Python 2.7 (the client\'s version)')
     args = parser.parse_args()
@@ -194,16 +145,16 @@ def main() -> None:
 
 
 def bundle(package: Path, version: str) -> None:
-    """The zip a player unzips into the game folder: the mod and openwg_gameface."""
-    gameface = sorted(GAMEFACE.glob('net.openwg.gameface_*.wotmod'))
-    if len(gameface) != 1:
-        raise SystemExit(f'expected one net.openwg.gameface_*.wotmod in {GAMEFACE}, found {len(gameface)}')
-    target = DIST / f'{NAME}_{version}.zip'
+    """The zip a player unzips into the game folder: the mod and the mods its page needs."""
+    apis = sorted(VENDOR.glob('*.wotmod')) if VENDOR.is_dir() else []
+    target = DIST / f'{ARCHIVE}_{version}.zip'
     folder = f'mods/{GAME_VERSION}'
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
         archive.write(package, f'{folder}/{package.name}')
-        archive.write(gameface[0], f'{folder}/net.openwg/{gameface[0].name}')
-    print(f'wrote {target} ({target.stat().st_size / 1024:.0f} KB, with {gameface[0].name})')
+        for api in apis:
+            archive.write(api, f'{folder}/{api.name}')
+    with_apis = ', '.join(api.name for api in apis) or 'no settings page API: vendor/ is empty'
+    print(f'wrote {target} ({target.stat().st_size / 1024:.0f} KB, with {with_apis})')
 
 
 if __name__ == '__main__':
