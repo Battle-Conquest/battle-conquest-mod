@@ -14,7 +14,7 @@ out what they do would be this mod running code it knows nothing about.
 import inspect
 import logging
 
-_logger = logging.getLogger('unicum.service_hooks')
+_logger = logging.getLogger('battle_conquest.service_hooks')
 
 # What a client calls the moment a battle's results arrive from the server,
 # on the account rather than on the results service.

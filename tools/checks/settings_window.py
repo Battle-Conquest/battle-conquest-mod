@@ -74,7 +74,7 @@ def _install_api():
 
 
 def _places():
-    from unicum.destinations import Destinations
+    from battle_conquest.destinations import Destinations
 
     return Destinations(('random', 'ranked', 'onslaught'), store=os.path.join(tempfile.mkdtemp(), 'link.json'),
                         url='https://example.test/api/mod/battles')
@@ -89,7 +89,7 @@ def _buttons(column):
 
 
 def check_settings_window_labels():
-    from unicum.settings_window import last_sent_label, link_label, modes_label, waiting_label
+    from battle_conquest.settings_window import last_sent_label, link_label, modes_label, waiting_label
 
     check('an unlinked game says so', link_label(False, False) == u'Account: not linked')
     check('a linking under way sends the player to the browser',
@@ -108,14 +108,14 @@ def check_settings_window_labels():
 
 
 def check_settings_window():
-    from unicum.settings_window import (LINK_VAR, LINKAGE, PAGE_VAR, UNLINK_VAR, SettingsWindow)
+    from battle_conquest.settings_window import (LINK_VAR, LINKAGE, PAGE_VAR, UNLINK_VAR, SettingsWindow)
 
     api = _install_api()
     try:
         places = _places()
         site = _Site(places)
         opened = []
-        from unicum import site_link
+        from battle_conquest import site_link
         standing = site_link.open_url
         site_link.open_url = opened.append
         try:
@@ -167,7 +167,7 @@ def check_settings_window():
 
 
 def check_settings_window_without_api():
-    from unicum.settings_window import SettingsWindow
+    from battle_conquest.settings_window import SettingsWindow
 
     places = _places()
     session = _Session()

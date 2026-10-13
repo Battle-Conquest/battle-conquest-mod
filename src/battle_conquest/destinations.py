@@ -32,9 +32,9 @@ import json
 import logging
 import os
 
-from unicum import config
+from battle_conquest import config
 
-_logger = logging.getLogger('unicum.destinations')
+_logger = logging.getLogger('battle_conquest.destinations')
 
 STORE = os.path.join(config.CONFIG_DIR, 'link.json')
 

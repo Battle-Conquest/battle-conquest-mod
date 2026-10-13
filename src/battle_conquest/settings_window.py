@@ -21,7 +21,7 @@ Two behaviours of the API (1.7) shape this:
 import logging
 import time
 
-_logger = logging.getLogger('unicum.settings_window')
+_logger = logging.getLogger('battle_conquest.settings_window')
 
 LINKAGE = 'eu.battle-conquest'
 
@@ -222,7 +222,7 @@ class SettingsWindow(object):
         elif var_name in (UNLINK_VAR, CANCEL_VAR):
             self._site.unlink()
         elif var_name == PAGE_VAR:
-            from unicum.site_link import open_url
+            from battle_conquest.site_link import open_url
             open_url(self._site.page)
         else:
             return

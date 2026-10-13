@@ -26,7 +26,7 @@ ORIGINAL_PLAIN = _Holder.__dict__['plain']
 
 
 def check_session_patches():
-    from unicum.runtime.session import Session
+    from battle_conquest.runtime.session import Session
 
     session = Session(0)
 

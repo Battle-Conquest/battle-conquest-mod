@@ -44,7 +44,7 @@ class _Link(object):
 
 
 def _destinations(known=('random', 'ranked', 'other')):
-    from unicum.destinations import Destinations
+    from battle_conquest.destinations import Destinations
 
     return Destinations(known, store=os.path.join(tempfile.mkdtemp(), 'link.json'),
                         url='https://example.test/api/mod/battles')
@@ -60,8 +60,8 @@ def _opened(monkey):
 
 
 def check_site_link_url():
-    from unicum.destinations import secret_hash
-    from unicum.site_link import Attempt
+    from battle_conquest.destinations import secret_hash
+    from battle_conquest.site_link import Attempt
 
     places = _destinations()
     attempt = Attempt(_Session(), places, '500123456', site='https://example.test')
@@ -78,7 +78,7 @@ def check_site_link_url():
 
 
 def check_site_link_waiting():
-    from unicum.site_link import read_me
+    from battle_conquest.site_link import read_me
 
     # 401 is the ordinary waiting state: the player has not clicked yet.
     check('a 401 is not a link', read_me(_Response(401)) is None)
@@ -97,7 +97,7 @@ def check_site_link_waiting():
 
 
 def check_site_link_writes_the_destination():
-    from unicum.site_link import SiteLink
+    from battle_conquest.site_link import SiteLink
 
     places = _destinations()
     session = _Session()
@@ -135,7 +135,7 @@ def check_site_link_writes_the_destination():
 
     # Written to disk, not just held in memory: the next client start has to
     # find it, or the player links again every session.
-    from unicum.destinations import Destinations
+    from battle_conquest.destinations import Destinations
 
     reopened = Destinations(('random', 'ranked', 'other'), store=places._store,
                             url='https://example.test/api/mod/battles')
@@ -146,7 +146,7 @@ def check_site_link_writes_the_destination():
 
 
 def check_site_link_needs_an_account():
-    from unicum.site_link import SiteLink
+    from battle_conquest.site_link import SiteLink
 
     places = _destinations()
     session = _Session()
@@ -164,7 +164,7 @@ def check_site_link_needs_an_account():
 
 
 def check_site_link_gives_up():
-    from unicum.site_link import SiteLink
+    from battle_conquest.site_link import SiteLink
 
     session = _Session()
     sites = SiteLink(session, _destinations(), _Link(), site='https://example.test')
@@ -184,7 +184,7 @@ def check_site_link_gives_up():
 
 
 def _linked_site(session=None):
-    from unicum.site_link import SiteLink
+    from battle_conquest.site_link import SiteLink
 
     places = _destinations()
     places.remember('Battle-Conquest', ['ranked'], 'b' * 64)
@@ -204,7 +204,7 @@ def check_site_link_unlinks():
           sites.page == 'https://example.test/my-mod')
 
     session = _Session()
-    from unicum.site_link import SiteLink
+    from battle_conquest.site_link import SiteLink
 
     waiting = SiteLink(session, _destinations(), _Link(), site='https://example.test')
     standing = _opened(lambda url: None)

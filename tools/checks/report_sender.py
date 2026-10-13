@@ -71,12 +71,12 @@ def _places(*destinations):
 
 
 def _destination(url=HERE, modes=('ranked', ), enabled=True, secret=SECRET, label=None):
-    from unicum.destinations import Destination
+    from battle_conquest.destinations import Destination
     return Destination(url=url, label=label or url, enabled=enabled, modes=modes, secret=secret)
 
 
 def _queue(store=None, count=1, mode='ranked', account=ACCOUNT, first=1):
-    from unicum.report_queue import Queue
+    from battle_conquest.report_queue import Queue
     queue = Queue(store=store or os.path.join(tempfile.mkdtemp(), 'q.json'))
     for index in range(count):
         queue.add({'arena_unique_id': str(first + index), 'mode': mode,
@@ -87,7 +87,7 @@ def _queue(store=None, count=1, mode='ranked', account=ACCOUNT, first=1):
 
 def _sender(queue, places=None, secret=SECRET, account=ACCOUNT, refused=None):
     """A sender over this queue, linked to the site unless `places` says otherwise."""
-    from unicum.report_sender import Sender
+    from battle_conquest.report_sender import Sender
     if places is None:
         places = _places(_destination(secret=secret))
     session = _Session()
@@ -120,7 +120,7 @@ def check_report_sender_targets():
 
 
 def check_report_sender_payload():
-    from unicum.report_sender import wire
+    from battle_conquest.report_sender import wire
 
     queue = _queue(count=1)
     _, sender = _sender(queue)
@@ -228,7 +228,7 @@ def check_report_sender_account():
 
 
 def check_report_sender_refusals():
-    from unicum.report_sender import retry_later
+    from battle_conquest.report_sender import retry_later
 
     check('no answer at all is worth asking again', retry_later(None))
     check('so is a server that is down', retry_later(503))
@@ -299,7 +299,7 @@ def check_report_sender_refusals():
 
 
 def check_report_sender_batching():
-    from unicum.report_sender import BATCH
+    from battle_conquest.report_sender import BATCH
 
     queue = _queue(count=BATCH + 5)
     session, sender = _sender(queue)
@@ -357,7 +357,7 @@ def check_report_sender_startup():
     used to mean five minutes with the battles sitting there. The event is the
     answer; the timers stay as the net under it.
     """
-    from unicum import report_sender as module
+    from battle_conquest import report_sender as module
 
     event = _Event()
     before = module.service_hooks.account_events

@@ -70,8 +70,8 @@ def _hooked(service, queue=None, on=True):
     the watcher reschedules itself, so one left pending runs long after the
     package is purged -- against module globals that are gone by then.
     """
-    from unicum.battle_reports import BattleReports
-    from unicum.runtime.session import Session
+    from battle_conquest.battle_reports import BattleReports
+    from battle_conquest.runtime.session import Session
 
     class _Reports(BattleReports):
         def _service(self):
@@ -83,7 +83,7 @@ def _hooked(service, queue=None, on=True):
 
 
 def _queue():
-    from unicum.report_queue import Queue
+    from battle_conquest.report_queue import Queue
 
     return Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json'))
 

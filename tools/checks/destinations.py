@@ -25,13 +25,13 @@ def _file(payload):
 
 
 def _places(store):
-    from unicum.destinations import Destinations
+    from battle_conquest.destinations import Destinations
 
     return Destinations(MODES, store=store, url=URL)
 
 
 def check_destination_urls():
-    from unicum.destinations import battles_url, valid_url
+    from battle_conquest.destinations import battles_url, valid_url
 
     check('an https URL is accepted', valid_url('https://battle-conquest.eu/api/mod/battles'))
     # Refused rather than upgraded or sent anyway: a report names a Wargaming
@@ -47,7 +47,7 @@ def check_destination_urls():
 
 
 def check_destination_modes():
-    from unicum.destinations import clean_modes
+    from battle_conquest.destinations import clean_modes
 
     check('a mode the mod knows is kept', clean_modes(['ranked'], MODES) == ['ranked'])
     # An unknown mode is dropped rather than carried: the capture never produces
@@ -58,7 +58,7 @@ def check_destination_modes():
 
 
 def check_destination_reading():
-    from unicum.destinations import read
+    from battle_conquest.destinations import read
 
     place = read(GOOD, MODES, URL)
     check('a well-formed link is read', place is not None)
@@ -94,7 +94,7 @@ def check_destination_reading():
 
 
 def check_destination_secrets():
-    from unicum.destinations import new_secret, secret_hash
+    from battle_conquest.destinations import new_secret, secret_hash
 
     store = os.path.join(tempfile.mkdtemp(), 'nested', 'link.json')
     places = _places(store)
@@ -135,8 +135,8 @@ def check_destination_pause_and_forget():
 
 
 def check_destination_capture():
-    from unicum.battle_reports import BattleReports
-    from unicum.report_queue import Queue
+    from battle_conquest.battle_reports import BattleReports
+    from battle_conquest.report_queue import Queue
 
     places = _places(_file(GOOD))
 
@@ -166,10 +166,10 @@ class _Capture(logging.Handler):
 
 def _loading(store):
     """What destinations.install() says while it loads this store."""
-    from unicum import destinations as module
+    from battle_conquest import destinations as module
 
     captured = _Capture()
-    logger = logging.getLogger('unicum.destinations')
+    logger = logging.getLogger('battle_conquest.destinations')
     logger.addHandler(captured)
     original = module.battles_url
     module.battles_url = lambda site=None: URL

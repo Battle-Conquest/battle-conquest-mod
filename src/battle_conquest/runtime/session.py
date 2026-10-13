@@ -12,7 +12,7 @@ import logging
 
 import BigWorld
 
-_logger = logging.getLogger('unicum.runtime')
+_logger = logging.getLogger('battle_conquest.runtime')
 
 # Distinguishes "the attribute was inherited" from "it was None".
 _ABSENT = object()

@@ -94,7 +94,7 @@ class _Clock(object):
 
 
 def _requests(cache, garage=True, deliver=None, limit=None, clock=None, taking=None):
-    from unicum.results_request import LIMIT, Requests
+    from battle_conquest.results_request import LIMIT, Requests
 
     taken = [] if deliver is None else deliver
     requests = Requests(_Session(), lambda results, source: taken.append((results, source)),
@@ -119,7 +119,7 @@ def check_results_request_filter():
     clan news. Without the filter the mod would ask the server about the arena
     id of a server reboot, once per message, for the whole session.
     """
-    from unicum.results_request import arena_id_of, arrival_types
+    from battle_conquest.results_request import arena_id_of, arrival_types
 
     battle = sorted(arrival_types())[0]
     check('the message type is a number this client owns', isinstance(battle, int))
@@ -152,7 +152,7 @@ def check_results_request_mode_message_types():
     The client keeps every mode's type in one mapping, so the filter is that
     mapping's values rather than a number.
     """
-    from unicum.results_request import BATTLE_RESULTS, arena_id_of, arrival_types
+    from battle_conquest.results_request import BATTLE_RESULTS, arena_id_of, arrival_types
 
     check('with nothing to read, the random battle type is still followed',
           arrival_types() == {BATTLE_RESULTS})
@@ -188,7 +188,7 @@ def check_results_request_names_the_type():
     they were. The enumeration can be read by index, so the answer belongs in
     the line rather than in someone's reading of the client's sources.
     """
-    from unicum.results_request import type_name
+    from battle_conquest.results_request import type_name
 
     class _Item(object):
         def __init__(self, label):
@@ -230,7 +230,7 @@ def check_results_request_only_when_taking():
     the capture would have kept -- and it swallows it where nobody is looking.
     """
     _constants()
-    from unicum.results_request import announced_mode, arrival_types
+    from battle_conquest.results_request import announced_mode, arrival_types
 
     battle = sorted(arrival_types())[0]
     ranked = _Message(battle, {'arenaUniqueID': 81, 'bonusType': Bonus.RANKED})
@@ -257,7 +257,7 @@ def check_results_request_only_when_taking():
 def check_results_request_anything_wanted():
     """The capture's own answer to "is anything taking reports right now?"."""
     _constants()
-    from unicum.battle_reports import BattleReports
+    from battle_conquest.battle_reports import BattleReports
 
     def reports(places):
         return BattleReports(_Session(), destinations=places, account=Player())
@@ -265,7 +265,7 @@ def check_results_request_anything_wanted():
     check('a site owed battles is enough', reports(Places()).anything_wanted() is True)
     check('with nothing owed, nothing is', reports(Places(False)).anything_wanted() is False)
 
-    from unicum.destinations import Destinations
+    from battle_conquest.destinations import Destinations
 
     places = Destinations(('random', 'ranked'),
                           store=os.path.join(tempfile.mkdtemp(), 'link.json'),
@@ -343,9 +343,9 @@ def check_results_request_delivers():
     the shape the client posts, and the only thing proving that is a report.
     """
     _constants()
-    from unicum.battle_reports import BattleReports
-    from unicum.report_queue import Queue
-    from unicum.results_request import Requests
+    from battle_conquest.battle_reports import BattleReports
+    from battle_conquest.report_queue import Queue
+    from battle_conquest.results_request import Requests
 
     queue = Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json'))
     reports = BattleReports(_Session(), queue=queue, destinations=Places(), account=Player())
@@ -364,7 +364,7 @@ def check_results_request_delivers():
 
 def check_results_request_refusals():
     """A refusal that means "later" is retried; one that means "never" is not."""
-    from unicum.results_request import retryable
+    from battle_conquest.results_request import retryable
 
     # -5 is RES_COOLDOWN, -1 is RES_FAILURE. Read from the client when it is
     # there, so the numbers here are the fallback being checked.
@@ -445,7 +445,7 @@ def check_results_request_install():
     The private method every other mod patches is name-mangled and cannot be
     wrapped by two mods safely; the event is handed to subscribers by name.
     """
-    from unicum.results_request import Requests, arrival_types
+    from battle_conquest.results_request import Requests, arrival_types
 
     event = _Event()
     channel = type('ServiceChannel', (object,), {'onChatMessageReceived': event})()
@@ -478,7 +478,7 @@ def check_results_request_install():
 
 def check_results_request_no_channel():
     """A client with no service channel is said to capture less, not crashed."""
-    from unicum.results_request import Requests
+    from battle_conquest.results_request import Requests
 
     standing = sys.modules.get('messenger.proto.events')
     sys.modules.pop('messenger.proto.events', None)

@@ -23,10 +23,10 @@ capture without the player linking again.
 import json
 import logging
 
-from unicum import config
-from unicum.destinations import LABEL, new_secret, secret_hash
+from battle_conquest import config
+from battle_conquest.destinations import LABEL, new_secret, secret_hash
 
-_logger = logging.getLogger('unicum.site_link')
+_logger = logging.getLogger('battle_conquest.site_link')
 
 LINK_PATH = '%s/mod/link?key=%s&account=%s'
 ME_PATH = '%s/api/mod/me'

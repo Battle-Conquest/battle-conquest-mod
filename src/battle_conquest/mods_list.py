@@ -32,10 +32,10 @@ import time
 
 import BigWorld
 
-from unicum import config
-from unicum.settings_window import LINKAGE
+from battle_conquest import config
+from battle_conquest.settings_window import LINKAGE
 
-_logger = logging.getLogger('unicum.mods_list')
+_logger = logging.getLogger('battle_conquest.mods_list')
 
 # Not the settings page's linkage: the Mod Menu keeps menu entries and
 # settings pages in step by id, and an entry that opens its own page under
@@ -53,9 +53,9 @@ _SETTINGS_ENTRY = 'modsSettingsApi'
 # Its own empty globals: BigWorld runs callbacks without a frame, and eval
 # has none to borrow then. __import__ still comes from the builtins.
 _CALLBACK = functools.partial(
-    eval, "__import__('unicum.mods_list', None, None, ['open_settings']).open_settings()", {})
+    eval, "__import__('battle_conquest.mods_list', None, None, ['open_settings']).open_settings()", {})
 _OPEN_NOW = functools.partial(
-    eval, "__import__('unicum.mods_list', None, None, ['open_now']).open_now()", {})
+    eval, "__import__('battle_conquest.mods_list', None, None, ['open_now']).open_now()", {})
 
 # The menu the entry sits in is itself one of the Mod Menu's windows, still
 # open when the click arrives, and the Mod Menu ignores an open request while

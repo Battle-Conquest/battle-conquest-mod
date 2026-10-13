@@ -1,24 +1,25 @@
 """Entry point for the reloadable half of the mod.
 
-The released client loads `mod_unicum.py`, which calls start() once. In
-development the client loads `mod_unicum_dev.py` instead: that stub calls
-start() and stop() here and reimports this package whenever a source file
-under src/ changes, which is what lets the game stay running across edits.
+The released client loads `mod_battle_conquest.py`, which calls start()
+once. In development the client loads `mod_battle_conquest_dev.py` instead:
+that stub calls start() and stop() here and reimports this package whenever a
+source file under src/ changes, which is what lets the game stay running
+across edits.
 
 Both functions must be safe to call at any time and in any order: a reload
 is nothing more than stop() followed by a fresh start().
 """
 import logging
 
-from unicum import (account, battle_reports, destinations, mods_list, report_sender, results_request,
+from battle_conquest import (account, battle_reports, destinations, mods_list, report_sender, results_request,
                     settings_window, site_link)
-from unicum.modes import MODES
-from unicum.report_queue import Queue
-from unicum.runtime.session import Session
+from battle_conquest.modes import MODES
+from battle_conquest.report_queue import Queue
+from battle_conquest.runtime.session import Session
 
-VERSION = '0.1.0-dev'
+VERSION = '1.0.0'
 
-_logger = logging.getLogger('unicum')
+_logger = logging.getLogger('battle_conquest')
 
 _session = None
 

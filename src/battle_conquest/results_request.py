@@ -39,10 +39,10 @@ the one thing this module would have to be rewritten for.
 import logging
 import time
 
-from unicum import service_hooks
-from unicum.report_sender import at_garage
+from battle_conquest import service_hooks
+from battle_conquest.report_sender import at_garage
 
-_logger = logging.getLogger('unicum.results_request')
+_logger = logging.getLogger('battle_conquest.results_request')
 
 # `SYS_MESSAGE_TYPE.battleResults` on a 2.4 client, and the random battle's own
 # type rather than the only one -- see `arrival_types`. Kept here so a client
@@ -195,7 +195,7 @@ def announced_mode(message):
     if bonus_type is None:
         return None
     try:
-        from unicum.modes import mode_of
+        from battle_conquest.modes import mode_of
         return mode_of(bonus_type)
     except Exception:
         _logger.debug('could not name the mode of an announced battle', exc_info=True)

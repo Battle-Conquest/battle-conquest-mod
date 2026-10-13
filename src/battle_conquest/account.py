@@ -10,7 +10,7 @@ garage, and a report naming nobody could not be attributed by the site.
 """
 import logging
 
-_logger = logging.getLogger('unicum.account')
+_logger = logging.getLogger('battle_conquest.account')
 
 # How often the account logged in is looked at, to follow a switch.
 _ACCOUNT_SECONDS = 2.0

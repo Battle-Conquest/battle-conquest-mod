@@ -12,9 +12,9 @@ import json
 import logging
 import os
 
-from unicum import config
+from battle_conquest import config
 
-_logger = logging.getLogger('unicum.report_queue')
+_logger = logging.getLogger('battle_conquest.report_queue')
 
 # Beside the other things the mod keeps per installation rather than in the
 # resource tree: plain data, plain file I/O.

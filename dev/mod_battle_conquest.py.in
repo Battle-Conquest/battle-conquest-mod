@@ -1,10 +1,10 @@
-"""unicum.gg for World of Tanks: the released mod's entry point.
+"""Battle-Conquest for World of Tanks: the released mod's entry point.
 
 Packaged by tools/build_release.py into scripts/client/gui/mods/ of the
-.wotmod, beside the unicum package in scripts/client/unicum/. The client's
-mod loader imports this module and calls init() and fini(); everything else
+.wotmod, beside the battle_conquest package in scripts/client/battle_conquest/.
+The client's mod loader imports this module and calls init() and fini(); everything else
 is the package, loaded once, with no source watching (that is the dev
-bootstrap's, dev/mod_unicum_dev.py.in).
+bootstrap's, dev/mod_battle_conquest_dev.py.in).
 """
 import logging
 
@@ -13,7 +13,7 @@ import logging
 # of a mod: they name it by this file and read nothing of the package.
 __version__ = '0.0.0'
 
-_logger = logging.getLogger('unicum.bootstrap')
+_logger = logging.getLogger('battle_conquest.bootstrap')
 
 _loaded = None
 
@@ -21,11 +21,11 @@ _loaded = None
 def init():
     global _loaded
     try:
-        import unicum
-        unicum.start()
-        _loaded = unicum
+        import battle_conquest
+        battle_conquest.start()
+        _loaded = battle_conquest
     except Exception:
-        _logger.exception('unicum.gg failed to start')
+        _logger.exception('Battle-Conquest failed to start')
 
 
 def fini():
@@ -35,6 +35,6 @@ def fini():
     try:
         _loaded.stop()
     except Exception:
-        _logger.exception('unicum.gg failed to stop')
+        _logger.exception('Battle-Conquest failed to stop')
     finally:
         _loaded = None

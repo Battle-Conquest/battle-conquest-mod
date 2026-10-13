@@ -38,12 +38,12 @@ import logging
 import os
 import time
 
-from unicum import config
-from unicum import service_hooks
-from unicum.modes import MODES
-from unicum.report_queue import Queue
+from battle_conquest import config
+from battle_conquest import service_hooks
+from battle_conquest.modes import MODES
+from battle_conquest.report_queue import Queue
 
-_logger = logging.getLogger('unicum.report_sender')
+_logger = logging.getLogger('battle_conquest.report_sender')
 
 SCHEMA = 1
 MOD_NAME = 'battle-conquest-mod'

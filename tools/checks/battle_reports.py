@@ -14,7 +14,7 @@ from checks.common import check
 
 
 def check_battle_report_reading():
-    from unicum.battle_report import (metrics_of, missing_metrics, outcome_of, own_vehicles,
+    from battle_conquest.battle_report import (metrics_of, missing_metrics, outcome_of, own_vehicles,
                                        report_of, survived)
 
     check('the avatar entry is not taken for a vehicle',
@@ -70,7 +70,7 @@ def check_battle_report_reading():
 
 
 def check_battle_report_arena_id():
-    from unicum.battle_report import arena_id_of, report_of, why_not
+    from battle_conquest.battle_report import arena_id_of, report_of, why_not
 
     # The whole reason this is a string: 2^64-1 sent as a JSON number comes back
     # a float, and the low-order digits are gone without a word.
@@ -119,8 +119,8 @@ def check_battle_report_arena_id():
 
 
 def check_battle_report_queue():
-    from unicum.battle_report import report_of
-    from unicum.report_queue import Queue, deduplicate, trim
+    from battle_conquest.battle_report import report_of
+    from battle_conquest.report_queue import Queue, deduplicate, trim
 
     first = {'arena_unique_id': '1'}
     second = {'arena_unique_id': '2'}
@@ -165,7 +165,7 @@ def check_battle_report_queue():
 
 def _check_delivery():
     """A report leaves only once every destination owed it has taken it."""
-    from unicum.report_queue import Queue
+    from battle_conquest.report_queue import Queue
 
     here, there = 'https://one.test/in', 'https://two.test/in'
     shared = os.path.join(tempfile.mkdtemp(), 'battle-reports.json')
@@ -204,8 +204,8 @@ def _check_delivery():
 
 
 def check_battle_report_capture():
-    from unicum.battle_reports import BattleReports
-    from unicum.report_queue import Queue
+    from battle_conquest.battle_reports import BattleReports
+    from battle_conquest.report_queue import Queue
 
     store = os.path.join(tempfile.mkdtemp(), 'battle-reports.json')
     reports = BattleReports(None, queue=Queue(store=store), destinations=Places(), account=Player())

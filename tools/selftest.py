@@ -82,7 +82,7 @@ def main():
 
         bigworld = FakeBigWorld()
         service = install_fake_client(bigworld)
-        stub = imp.load_source('mod_unicum_dev', render_stub(workdir, src_root))
+        stub = imp.load_source('mod_battle_conquest_dev', render_stub(workdir, src_root))
 
         def hooked():
             return FakeBattleResultsService.__dict__['postResult'] is not ORIGINAL_POST_RESULT
@@ -158,7 +158,7 @@ def main():
         generation_before = stub._generation
 
         # Touch a source file the way an editor would.
-        edited = os.path.join(src_root, 'unicum', 'battle_reports.py')
+        edited = os.path.join(src_root, 'battle_conquest', 'battle_reports.py')
         os.utime(edited, (os.path.getatime(edited), os.path.getmtime(edited) + 10))
 
         bigworld.run_pending()
@@ -193,7 +193,7 @@ def main():
         check('fini cancelled every callback', not bigworld.scheduled)
         # Beside another mod's configs, not among them: a player running
         # Unicum too must find each mod's files in its own folder.
-        from unicum import config
+        from battle_conquest import config
         configs = os.path.join(workdir, 'mods', 'configs')
         written = os.listdir(configs) if os.path.isdir(configs) else []
         check('nothing is written outside the mod\'s own config folder',

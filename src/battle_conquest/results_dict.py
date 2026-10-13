@@ -20,7 +20,7 @@ next release spends one line here instead of somebody's evening.
 """
 import logging
 
-_logger = logging.getLogger('unicum.results_dict')
+_logger = logging.getLogger('battle_conquest.results_dict')
 
 # The key every server results dict carries, and the cheapest proof that what
 # we hold is that dict rather than a view of it.

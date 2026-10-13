@@ -28,7 +28,7 @@ _DEFAULT_SITE = 'https://battle-conquest.eu'
 # gitignored local_settings.py wins over it: dropping one in redirects the
 # site on the next reload, without restarting anything.
 try:
-    from unicum import local_settings
+    from battle_conquest import local_settings
 except ImportError:
     local_settings = None
 
@@ -42,8 +42,8 @@ API_TIMEOUT = 10.0
 
 # The mod's icon in the modsListApi menu, a resource file indexed when the
 # client starts; modsListApi draws its default icon when it is not there.
-ICON_RES_PATH = 'gui/maps/icons/unicum/icon.png'
+ICON_RES_PATH = 'gui/maps/icons/battle_conquest/icon.png'
 
 # Everything the mod writes, in one folder of its own beside the other mods'
 # configs: the link to the site and the battles waiting to be sent.
-CONFIG_DIR = os.path.join('mods', 'configs', 'unicum')
+CONFIG_DIR = os.path.join('mods', 'configs', 'battle_conquest')

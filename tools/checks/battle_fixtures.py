@@ -69,7 +69,7 @@ class Places(object):
     """
 
     def __init__(self, on=True):
-        from unicum.modes import MODES
+        from battle_conquest.modes import MODES
 
         self._modes = list(MODES) if on else []
 

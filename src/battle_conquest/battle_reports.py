@@ -79,12 +79,12 @@ later is free, not on the frame the results arrive on.
 """
 import logging
 
-from unicum import service_hooks
-from unicum.battle_report import missing_metrics, own_vehicles, report_of, why_not
-from unicum.report_queue import Queue
-from unicum.results_dict import describe, raw_results
+from battle_conquest import service_hooks
+from battle_conquest.battle_report import missing_metrics, own_vehicles, report_of, why_not
+from battle_conquest.report_queue import Queue
+from battle_conquest.results_dict import describe, raw_results
 
-_logger = logging.getLogger('unicum.battle_reports')
+_logger = logging.getLogger('battle_conquest.battle_reports')
 
 
 class BattleReports(object):

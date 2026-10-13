@@ -12,7 +12,7 @@ counts. So every reading here refuses rather than approximates.
 """
 import time
 
-from unicum import modes
+from battle_conquest import modes
 
 
 # The seven counters that travel per battle, and the key each one is read from
