@@ -2,8 +2,8 @@
 
 Renders dev/mod_battle_conquest_dev.py.in with this checkout's src/ path and
 installs it, so the client loads a stub that watches src/ and reloads it in
-place. Also copies res/ (the menu icon) and the settings page's APIs from
-vendor/. Run once per client, or again after moving the checkout.
+place. Also copies res/ (the menu icon). Run once per client, or again after
+moving the checkout.
 
     python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"
 
@@ -41,7 +41,6 @@ MOD_VERSION = '0.1.0'
 MODS_SUBPATH = Path('scripts') / 'client' / 'gui' / 'mods'
 
 RES = REPO / 'res'
-VENDOR = REPO / 'vendor'
 
 PYTHON27_CANDIDATES = [
     Path(os.path.expanduser('~/scoop/apps/python27/current/python.exe')),
@@ -139,17 +138,6 @@ def build_wotmod(pyc: Path, target: Path) -> None:
         archive.write(pyc, str(Path('res') / MODS_SUBPATH / pyc.name).replace('\\', '/'))
 
 
-def install_apis(game: Path, version: str) -> list[str]:
-    """Copy the settings page's APIs from vendor/, as the release archive lays them out."""
-    installed = []
-    for api in sorted(VENDOR.glob('*.wotmod')) if VENDOR.is_dir() else []:
-        target = game / 'mods' / version / api.name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(api, target)
-        installed.append(api.name)
-    return installed
-
-
 def install_res(game: Path, version: str) -> int:
     """Copy res/ as it is: the menu icon, indexed when the client starts."""
     count = 0
@@ -200,9 +188,6 @@ def main() -> None:
         package = game / 'mods' / version / f'{MOD_ID}_{MOD_VERSION}.wotmod'
         build_wotmod(pyc, package)
         print(f'wotmod   {package}')
-
-    apis = install_apis(game, version)
-    print(f'apis     {", ".join(apis) or "none in vendor/: the settings page needs modsSettingsApi and modsListApi"}')
 
     print('\nRestart the client once. After that, saving a file under src/ is enough.')
 

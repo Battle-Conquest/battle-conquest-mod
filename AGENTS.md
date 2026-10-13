@@ -13,19 +13,19 @@ Derived from unicum.gg-mod (AGPL-3.0, see `NOTICE`), reduced to its battle captu
   - The capture: `battle_reports.py` (where a battle is captured from, and whether anything wants it), `battle_report.py` (one report read out of the results dict), `results_dict.py` (finding that dict in whatever the client hands over), `results_request.py` (asking the server for the battles whose results screen was never opened), `service_hooks.py` (what the client offers to sit on, logged by name), `modes.py` (`MODES`, and which mode an arena bonus type is).
   - The sending: `report_queue.py` (the queue on disk, one report per arena), `report_sender.py` (batches to the site, what a refusal costs, the status the page shows).
   - The link: `destinations.py` (the one destination, its secret, modes and pause, in `link.json`), `site_link.py` (linking in one click through the player's browser, unlinking, and checking the link with `/api/mod/me`), `account.py` (the Wargaming account logged in).
-  - The page: `settings_window.py` (the modsSettingsApi page), `mods_list.py` (the modsListApi entry that opens it).
+  - The page: `settings_window.py` (the modsSettingsApi page), `mods_list.py` (the modsListApi entry that opens it). Both APIs are optional and never shipped.
+  - `notices.py`: the garage's notification while the game is not linked, whose link starts the linking (a patched notification actions handler), and the word on how linking ended. It is how a client without modsSettingsApi links at all.
   - `config.py`: the site's address, the region, the config folder. `local_settings.py`, gitignored, points `SITE` at a local server.
 - **`res/`**: shipped as it is inside the `.wotmod` (the menu icon).
-- **`vendor/`**: the `.wotmod` files of modsSettingsApi and modsListApi, bundled in the release archive.
 - **`tools/`**: `install_dev.py`, `build_release.py`, `release_check.py`, `release.py`, `selftest.py` + `checks/`.
 
 # Commands
 
 | Command | What it does |
 |---|---|
-| `python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"` | Installs the bootstrap, `res/` and the vendored APIs into a client. Python 3. |
+| `python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"` | Installs the bootstrap and `res/` into a client. Python 3. |
 | `python2.7 tools/selftest.py` | The test suite, Python 2.7, against fake client modules. Offline. |
-| `python tools/build_release.py --version x.y.z` | Builds `dist/eu.battle-conquest_<version>.wotmod` (the package compiled with Python 2.7, `res/`) and `dist/battle-conquest-mod_<version>.zip` (it and `vendor/`). |
+| `python tools/build_release.py --version x.y.z` | Builds `dist/eu.battle-conquest_<version>.wotmod` (the package compiled with Python 2.7, `res/`) and `dist/battle-conquest-mod_<version>.zip` (it, laid out as the game folder). |
 | `python2.7 tools/release_check.py dist/eu.battle-conquest_<version>.wotmod` | Loads the built package the way the client does, and checks nothing in it is named after unicum.gg-mod. |
 | `python tools/release.py` | Version and changelog from the commits since the last tag, build, checks, tag, and a **draft** GitHub release, published by hand after an in-game test. |
 

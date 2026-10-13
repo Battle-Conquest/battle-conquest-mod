@@ -65,8 +65,8 @@ python2.7 tools/selftest.py
 
 - The suite must pass: every change comes with a check in `tools/checks/`.
 - Once a change has reloaded in the client, read `game.log`.
-- When packaging is touched (`tools/build_release.py`, `res/`, `vendor/`, the
-  entry points), build the package and check it:
+- When packaging is touched (`tools/build_release.py`, `res/`, the entry
+  points), build the package and check it:
 
 ```bash
 python tools/build_release.py --version x.y.z

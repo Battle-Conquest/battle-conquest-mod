@@ -5,9 +5,9 @@ Battle-Conquest account, see that battles are leaving, pause sending, or
 unlink. There is nothing else to set -- what is sent is decided by the site,
 which says which modes it scores when the link is made.
 
-The release archive carries modsSettingsApi and modsListApi beside the mod, so
-the page is there on a fresh client. Without them this does nothing, and the
-mod still captures and sends once linked.
+Optional, as both APIs are: they come with most modpacks and are not shipped
+with this mod. Without them this does nothing, and the garage notice
+(notices.py) is how the player links instead.
 
 Two behaviours of the API (1.7) shape this:
 
@@ -161,6 +161,11 @@ class SettingsWindow(object):
         self._state = None
         self._alive = True
         self._api = None
+
+    @property
+    def available(self):
+        """Whether the page exists, which is to say modsSettingsApi is installed."""
+        return self._api is not None
 
     def install(self):
         try:

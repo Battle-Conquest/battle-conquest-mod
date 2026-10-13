@@ -13,10 +13,8 @@ repository's git log.
 Both are licensed under the GNU Affero General Public License, version 3: see
 LICENSE.
 
-The release archive also carries two mods by other authors, unchanged, which
-the settings page needs:
+When they are installed, the mod's settings page uses two mods by other
+authors, which it neither contains nor ships:
 
   modsSettingsApi, by izeberg      https://github.com/izeberg/modssettingsapi
   modsListApi, by poliroid         https://gitlab.com/wot-public-mods/mods-list
-
-They are not part of this repository's source, and their own terms apply.

@@ -150,9 +150,18 @@ class SiteLink(object):
         self._site = (site or config.SITE).rstrip('/')
         self._attempt = None
         self._listeners = []
+        self._endings = []
 
     def on_change(self, callback):
         self._listeners.append(callback)
+
+    def on_done(self, callback):
+        """Be told how an attempt ended: callback(destination), None when it gave up.
+
+        Apart from `on_change`, which also fires on a click and an unlink: the
+        player is owed a word on how linking ended, and on nothing else.
+        """
+        self._endings.append(callback)
 
     @property
     def page(self):
@@ -243,6 +252,11 @@ class SiteLink(object):
     def _done(self, destination):
         self._attempt = None
         self._changed()
+        for callback in list(self._endings):
+            try:
+                callback(destination)
+            except Exception:
+                _logger.exception('a linking listener failed')
 
     def _changed(self):
         for callback in list(self._listeners):

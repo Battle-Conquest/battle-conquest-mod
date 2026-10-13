@@ -11,8 +11,8 @@ is nothing more than stop() followed by a fresh start().
 """
 import logging
 
-from battle_conquest import (account, battle_reports, destinations, mods_list, report_sender, results_request,
-                    settings_window, site_link)
+from battle_conquest import (account, battle_reports, destinations, mods_list, notices, report_sender,
+                             results_request, settings_window, site_link)
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
 from battle_conquest.runtime.session import Session
@@ -45,8 +45,11 @@ def start(generation=0):
         # they are captured at all.
         results_request.install(_session, reports.arrived, reports.anything_wanted)
         sender = report_sender.install(_session, player, places, VERSION, queue)
-        settings_window.install(_session, site, places, sender)
+        page = settings_window.install(_session, site, places, sender)
         mods_list.install(_session)
+        # After the page, which it falls back on: the garage's notice is how a
+        # client without modsSettingsApi links at all.
+        notices.install(_session, site, places, player, page)
     except Exception:
         # A feature that fails halfway leaves the ones before it installed.
         # Without this the session is orphaned: the loader sees start() fail

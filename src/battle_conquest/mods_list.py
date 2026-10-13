@@ -1,7 +1,6 @@
 """An entry for the mod in poliroid's modsListApi menu, opening its settings page.
 
-Shipped beside the mod in the release archive, like modsSettingsApi; without
-gui.modsListApi this does nothing.
+Optional, like modsSettingsApi: without gui.modsListApi this does nothing.
 modsSettingsApi lists itself there, not the mods whose pages it holds, so a
 mod with settings only shows in that menu if it adds itself.
 

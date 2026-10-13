@@ -7,13 +7,10 @@ dist/battle-conquest-mod_<version>.zip laid out as the game folder, which is
 what is published:
 
   mods/<game version>/eu.battle-conquest_<version>.wotmod
-  mods/<game version>/<every .wotmod in vendor/>
 
-vendor/ holds the two mods the settings page needs, modsSettingsApi (the page)
-and modsListApi (the menu entry that opens it), under their own file names, so
-a copy another mod or a modpack installed is overwritten rather than loaded
-twice. Update one by replacing its file. A build with an empty vendor/ ships
-the mod alone, and says so.
+modsSettingsApi and modsListApi, which the settings page uses when they are
+installed, are not shipped: they are other authors' work, and the garage's
+notice (src/battle_conquest/notices.py) links the game without them.
 
 The .wotmod holds:
 
@@ -42,7 +39,6 @@ REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / 'src' / 'battle_conquest'
 ENTRY = REPO / 'dev' / 'mod_battle_conquest.py.in'
 DIST = REPO / 'dist'
-VENDOR = REPO / 'vendor'
 
 MOD_ID = 'eu.battle-conquest'
 ARCHIVE = 'battle-conquest-mod'
@@ -145,16 +141,11 @@ def main() -> None:
 
 
 def bundle(package: Path, version: str) -> None:
-    """The zip a player unzips into the game folder: the mod and the mods its page needs."""
-    apis = sorted(VENDOR.glob('*.wotmod')) if VENDOR.is_dir() else []
+    """The zip a player unzips into the game folder, laid out as that folder."""
     target = DIST / f'{ARCHIVE}_{version}.zip'
-    folder = f'mods/{GAME_VERSION}'
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
-        archive.write(package, f'{folder}/{package.name}')
-        for api in apis:
-            archive.write(api, f'{folder}/{api.name}')
-    with_apis = ', '.join(api.name for api in apis) or 'no settings page API: vendor/ is empty'
-    print(f'wrote {target} ({target.stat().st_size / 1024:.0f} KB, with {with_apis})')
+        archive.write(package, f'mods/{GAME_VERSION}/{package.name}')
+    print(f'wrote {target} ({target.stat().st_size / 1024:.0f} KB)')
 
 
 if __name__ == '__main__':

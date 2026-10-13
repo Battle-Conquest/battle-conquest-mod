@@ -31,6 +31,8 @@ from checks.destinations import (check_destination_capture, check_destination_mo
                                  check_destination_urls)
 from checks.engine import FakeBigWorld
 from checks.fakes import ORIGINAL_POST_RESULT, FakeBattleResultsService
+from checks.notices import (check_notices_click, check_notices_remind, check_notices_texts,
+                            check_notices_without_handler)
 from checks.report_sender import (check_report_sender_account, check_report_sender_batching,
                                   check_report_sender_delivery, check_report_sender_payload,
                                   check_report_sender_refusals, check_report_sender_startup,
@@ -153,6 +155,10 @@ def main():
         check_settings_window_labels()
         check_settings_window()
         check_settings_window_without_api()
+        check_notices_texts()
+        check_notices_remind()
+        check_notices_click()
+        check_notices_without_handler()
 
         first_hook = FakeBattleResultsService.__dict__['postResult']
         generation_before = stub._generation

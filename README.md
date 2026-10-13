@@ -16,19 +16,20 @@ Not affiliated with Wargaming.net. Derived from
    first: until it is, every battle the mod sends is refused.
 2. Download `battle-conquest-mod_<version>.zip` from the
    [latest release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
-   and unzip it into your World of Tanks folder. It holds three files under
-   `mods/<game version>/`: the mod, and the two mods its settings page needs,
-   [modsSettingsApi](https://github.com/izeberg/modssettingsapi) and
-   [modsListApi](https://gitlab.com/wot-public-mods/mods-list). If a modpack
-   already installed those two, keep its copies and copy only
-   `eu.battle-conquest_<version>.wotmod`.
-3. Start the game, open the mods list (the icon at the top of the garage) and
-   choose Battle-Conquest. Click **Link**: your browser opens on the site, you
-   confirm, and the mod writes its configuration itself. Nothing to type.
+   and unzip it into your World of Tanks folder. It holds one file,
+   `mods/<game version>/eu.battle-conquest_<version>.wotmod`.
+3. Start the game. Once in the garage, a notification says the game is not
+   linked yet: click **Link my account** in it. Your browser opens on the site,
+   you confirm, and the mod writes its configuration itself. Nothing to type.
 4. Play. Battles leave from the garage shortly after they end, including those
    whose results screen you never opened.
 
 ## The settings page
+
+Optional. With [modsSettingsApi](https://github.com/izeberg/modssettingsapi)
+and [modsListApi](https://gitlab.com/wot-public-mods/mods-list) installed (most
+modpacks carry them; this mod does not ship them), Battle-Conquest has an entry
+in the mods list (the icon at the top of the garage) that opens this page:
 
 | Line | What it says or does |
 |---|---|
@@ -40,6 +41,10 @@ Not affiliated with Wargaming.net. Derived from
 
 The page's own box (enabled) pauses sending: battles played meanwhile are not
 kept. **Unlink** makes this game forget its key; revoke it on the site too.
+
+Without those two mods there is no page, and nothing is lost but pausing and
+unlinking from the game: the garage notification links the game, and a key is
+revoked from your page on the site, after which the mod forgets it by itself.
 
 ## What is sent, and what is not
 
