@@ -1,64 +1,66 @@
-"""Where a captured battle is sent, and which of those the player has agreed to.
+"""Where a captured battle is sent: Battle-Conquest, and nowhere else.
 
-unicum.gg is the destination this mod was written for, and it stays the default
-one. But the mod is the only thing that can see a ranked battle at all, and it
-is not the only site that scores one: a tournament site computing a ladder from
-ranked results has the same problem and no other way out of it either. Sending
-to one site and having the others read it back from that site's API is how the
-last attempt died -- the API those sites depended on started charging, and their
-ladders stopped the same week. So the player can name further destinations, and
-each one receives its own copy.
+One destination, at a fixed address. The mod this one grew out of let the
+player name further sites and type their URLs; that is gone on purpose. A
+player who has to find and type an address makes a mistake no error message
+can explain, and the one thing worth optimising on this path is that nothing
+is typed at all. Linking (site_link.py) writes the destination down.
 
-Why a file of its own, not settings.json
----------------------------------------
-Because a destination carries a secret. `settings.json` is mirrored into
-modsSettingsApi, which means another mod's UI reads it and writes it back; a
-credential has no business there. This follows `account.json` instead, which
-holds the unicum.gg link secrets for the same reason.
+Why a file of its own
+---------------------
+Because it carries a secret. Nothing else of the mod reads it, and no other
+mod's settings window mirrors it.
 
-Why each destination gets its OWN secret
-----------------------------------------
-A secret is a proof of identity, not a password. One shared between two sites
-would let either of them report battles to the other as this player -- and the
-whole worth of a reported battle is that nobody can invent one under somebody
-else's name. So a secret is drawn per destination, and only its SHA-256 ever
-leaves the machine, exactly as the unicum.gg link does.
+Why the secret is drawn here and never received
+-----------------------------------------------
+A secret is a proof of identity, not a password. It is drawn in the client and
+only its SHA-256 ever leaves the machine, so a site that is breached leaks
+nothing that can report battles under somebody else's name -- and the whole
+worth of a reported battle is that nobody can invent one.
 
-Why a destination says which modes it wants
--------------------------------------------
-Nothing is gained by sending a ranked-tournament site every random battle the
-player plays, and a copy of somebody's play history sitting where it serves no
-purpose is a cost with no upside. A destination declares what it scores and is
+Why the site says which modes it wants
+--------------------------------------
+Nothing is gained by sending a site a battle of a mode it does not score, and
+a copy of somebody's play history sitting where it serves no purpose is a cost
+with no upside. The site declares what it scores when the link is made, and is
 sent that alone.
-
-Why nothing is enabled by the file appearing
---------------------------------------------
-A destination arrives switched off, even when a site's own installer wrote it
-in. Consent has to be an act; a player who never looked at this file has not
-agreed to anything, and reading a file is not being asked.
 """
+import binascii
 import errno
+import hashlib
 import json
 import logging
 import os
 
-from unicum.game_link import new_secret, secret_hash
+from unicum import config
 
 _logger = logging.getLogger('unicum.destinations')
 
-# Beside account.json, for the same reason: it holds secrets.
-STORE = os.path.join('mods', 'configs', 'unicum', 'destinations.json')
+STORE = os.path.join(config.CONFIG_DIR, 'link.json')
 
 SCHEMA = 1
+
+LABEL = 'Battle-Conquest'
+
+BATTLES_PATH = '/api/mod/battles'
 
 # Reports identify a Wargaming account. In the clear they are readable by
 # anyone on the way, so a destination that is not https is refused rather than
 # downgraded -- silently sending them anyway would be the worst of the three.
 _REQUIRED_SCHEME = 'https://'
 
-# A label is shown in a log line and nowhere else yet; long enough to tell two
-# sites apart, short enough not to fill the log.
-_MAX_LABEL = 40
+
+def new_secret():
+    return binascii.hexlify(os.urandom(32))
+
+
+def secret_hash(secret):
+    return hashlib.sha256(secret).hexdigest()
+
+
+def battles_url(site=None):
+    """Where the site takes battles."""
+    return (site or config.SITE).rstrip('/') + BATTLES_PATH
 
 
 def valid_url(url):
@@ -75,11 +77,11 @@ def valid_url(url):
 
 
 def clean_modes(raw, known):
-    """The modes a destination asked for, keeping only those this mod knows.
+    """The modes the site asked for, keeping only those this mod knows.
 
     An unknown mode is dropped rather than passed on: it would be a mode the
-    capture never produces, so a destination asking for it would wait forever
-    and never be told why.
+    capture never produces, so asking for it would wait forever and never be
+    told why.
     """
     if not isinstance(raw, (list, tuple)):
         return []
@@ -91,17 +93,17 @@ def clean_modes(raw, known):
 
 
 class Destination(object):
-    """One place battles are sent, and what it is allowed to receive."""
+    """The place battles are sent, and what it is allowed to receive."""
 
     def __init__(self, url, label='', enabled=False, modes=(), secret=None):
         self.url = url.strip() if isinstance(url, basestring) else ''
-        self.label = (label or self.url)[:_MAX_LABEL]
+        self.label = label or LABEL
         self.enabled = bool(enabled)
         self.modes = list(modes)
         self.secret = secret
 
     def wants(self, mode):
-        """Whether an enabled destination is owed a battle of this mode."""
+        """Whether the destination is owed a battle of this mode."""
         return self.enabled and bool(self.secret) and mode in self.modes
 
     def hash(self):
@@ -109,189 +111,148 @@ class Destination(object):
         return secret_hash(self.secret) if self.secret else None
 
     def as_dict(self):
-        return {'url': self.url, 'label': self.label, 'enabled': self.enabled,
+        return {'schema': SCHEMA, 'url': self.url, 'label': self.label, 'enabled': self.enabled,
                 'modes': list(self.modes), 'secret': self.secret}
 
     def __repr__(self):
         return '<Destination %s %s>' % (self.label, 'on' if self.enabled else 'off')
 
 
-def read(payload, known_modes):
-    """The destinations a stored payload describes, the unusable ones dropped.
+def read(payload, known_modes, url):
+    """The destination a stored payload describes, or None when it is unusable.
 
-    A bad entry is skipped and said so in the log, rather than taking the whole
-    file down with it: one mistyped URL must not stop a destination that is
-    correct from being sent to.
+    Said in the log either way: a player whose battles reach no site has no
+    other way of telling a file that was never written from one this cannot
+    use.
     """
     if not isinstance(payload, dict):
-        _logger.warning('the destinations file holds %s rather than an object; none is used',
+        _logger.warning('the link file holds %s rather than an object; link the site again',
                         type(payload).__name__)
-        return []
+        return None
     if payload.get('schema') != SCHEMA:
-        # Said rather than assumed: a file this cannot read is indistinguishable
-        # from a file that was never written, and the two are fixed differently.
-        _logger.warning('the destinations file declares schema %r, and this mod reads %d; '
-                        'none is used. Link the site again to have it rewritten',
+        _logger.warning('the link file declares schema %r, and this mod reads %d; link the site again',
                         payload.get('schema'), SCHEMA)
-        return []
-    entries = payload.get('destinations')
-    if not isinstance(entries, list):
-        _logger.warning('the destinations file has no list of destinations; none is used')
-        return []
-    out = []
-    seen = set()
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        url = entry.get('url')
-        if not valid_url(url):
-            _logger.warning('ignoring a destination that is not an https URL: %r', url)
-            continue
-        url = url.strip()
-        # Two entries for one URL would send the battle twice and, worse, leave
-        # it ambiguous which secret proves the account there.
-        if url in seen:
-            _logger.warning('ignoring a second entry for %s', url)
-            continue
-        seen.add(url)
-        secret = entry.get('secret')
-        if not (isinstance(secret, basestring) and len(secret) == 64):
-            # Kept, but it will never be sent to: the entry stays visible in the
-            # settings window so the player can see what is wrong, rather than
-            # vanishing from a file they can see with their own eyes.
-            if secret is not None:
-                _logger.warning('%s has a secret of %d characters rather than 64; nothing is sent '
-                                'to it until the site is linked again', url,
-                                len(secret) if isinstance(secret, basestring) else 0)
-            secret = None
-        out.append(Destination(url=url,
-                               label=entry.get('label') or '',
-                               enabled=entry.get('enabled'),
-                               modes=clean_modes(entry.get('modes'), known_modes),
-                               secret=secret))
-    return out
+        return None
+    stored = payload.get('url')
+    if not valid_url(stored) or stored.strip() != url:
+        # A secret made for one site is never presented to another. The case
+        # this is written for is a dev build pointed at a local server: the
+        # player's real secret must not leave for it.
+        _logger.warning('the link file is for %r, not %s; link the site again', stored, url)
+        return None
+    secret = payload.get('secret')
+    if not (isinstance(secret, basestring) and len(secret) == 64):
+        _logger.warning('the link file holds no usable secret; link the site again')
+        secret = None
+    return Destination(url=url,
+                       label=payload.get('label') or LABEL,
+                       enabled=payload.get('enabled'),
+                       modes=clean_modes(payload.get('modes'), known_modes),
+                       secret=secret)
 
 
 class Destinations(object):
-    """The player's own destinations, read from disk and written back."""
+    """The one destination, read from disk and written back.
 
-    def __init__(self, known_modes, store=STORE):
+    Shaped as a collection all the same: the capture and the sender ask it
+    which destinations want a mode, and an answer that is a list keeps them
+    from having to know there is only ever one.
+    """
+
+    def __init__(self, known_modes, store=STORE, url=None):
         self._store = store
         self._known = tuple(known_modes)
-        self._destinations = self._read()
+        self.url = url or battles_url()
+        self._destination = self._read()
 
     def _read(self):
-        """The stored destinations, and a line saying so either way.
-
-        Every way this can come back empty used to be silent, which is the one
-        thing it must not be: a player whose battles reach no site has no way of
-        telling a file that was never written from a file that was written
-        somewhere this cannot see. The path is in the line because it is
-        relative to wherever the client was started, so "it is right there" and
-        "this is not where it looks" are the same sentence without it.
-        """
         try:
             with open(self._store, 'rb') as handle:
                 payload = json.load(handle)
         except (IOError, OSError) as problem:
             if getattr(problem, 'errno', None) == errno.ENOENT:
-                _logger.info('no destinations file at %s, so no extra site is sent to. '
-                             'It is written by linking a site from the garage', self._store)
+                _logger.info('no link file at %s: not linked yet. Link the site from the mod\'s '
+                             'settings page', self._store)
             else:
-                _logger.warning('could not open %s (%s); no extra destination is used',
-                                self._store, problem)
-            return []
+                _logger.warning('could not open %s (%s); not linked', self._store, problem)
+            return None
         except ValueError:
-            _logger.warning('%s is not readable JSON; no extra destination is used. The file is '
-                            'left as it is rather than overwritten, so a hand edit can be undone',
-                            self._store)
-            return []
-        return read(payload, self._known)
+            _logger.warning('%s is not readable JSON; not linked. The file is left as it is '
+                            'rather than overwritten, so a hand edit can be undone', self._store)
+            return None
+        return read(payload, self._known, self.url)
+
+    @property
+    def current(self):
+        return self._destination
+
+    @property
+    def linked(self):
+        """Whether battles can be proven to the site: a secret it accepted."""
+        return self._destination is not None and bool(self._destination.secret)
+
+    @property
+    def enabled(self):
+        return self.linked and self._destination.enabled
 
     def all(self):
-        return list(self._destinations)
+        return [self._destination] if self._destination is not None else []
 
     def wanting(self, mode):
-        """The destinations owed a battle of this mode."""
-        return [destination for destination in self._destinations if destination.wants(mode)]
+        """The destinations owed a battle of this mode: the site, or nothing."""
+        return [destination for destination in self.all() if destination.wants(mode)]
 
     def modes(self):
-        """Every mode at least one enabled destination asked for.
+        """Every mode the site is owed while sending is on.
 
         What the capture consults to know whether a battle is worth keeping at
         all: a mode nothing is waiting for is a report nobody will ever read.
         """
-        wanted = []
-        for destination in self._destinations:
-            if not destination.enabled:
-                continue
-            for mode in destination.modes:
-                if mode not in wanted:
-                    wanted.append(mode)
-        return wanted
+        if not self.enabled:
+            return []
+        return list(self._destination.modes)
 
-    def find(self, url):
-        """The destination at this URL, or None."""
-        for destination in self._destinations:
-            if destination.url == url.strip():
-                return destination
-        return None
+    def remember(self, label, modes, secret, enabled=True):
+        """Write down the link the player has just made, and return it.
 
-    def remember(self, url, label, modes, secret, enabled=True):
-        """Write down a destination the player has just linked, and return it.
-
-        Enabled, unlike one that merely appeared in the file: the player went
-        through the site's own sign-in to get here, which is the act of consent
-        the rest of this module insists on. Nothing is switched on behind their
-        back -- they switched it on.
-
-        The secret is the mod's, drawn here and never received: only its
-        SHA-256 was sent to the site. Replacing an existing entry rather than
-        adding one keeps a second linking from leaving a credential nobody will
-        ever present again.
+        Replacing the one there rather than keeping both: a second linking
+        must not leave a credential nobody will ever present again.
         """
-        url = url.strip()
-        wanted = clean_modes(modes, self._known)
-        existing = self.find(url)
-        if existing is not None:
-            existing.label = (label or url)[:_MAX_LABEL]
-            existing.modes = wanted
-            existing.secret = secret
-            existing.enabled = bool(enabled)
-            self.save()
-            return existing
-        destination = Destination(url=url, label=label, enabled=enabled,
-                                  modes=wanted, secret=secret)
-        self._destinations.append(destination)
+        self._destination = Destination(url=self.url, label=label, enabled=enabled,
+                                        modes=clean_modes(modes, self._known), secret=secret)
         self.save()
-        return destination
+        return self._destination
 
-    def prepare(self, url):
-        """Give a destination a secret if it has none, and return it.
+    def set_enabled(self, enabled):
+        """Pause or resume sending, the link itself left alone."""
+        if self._destination is None or self._destination.enabled == bool(enabled):
+            return False
+        self._destination.enabled = bool(enabled)
+        self.save()
+        return True
 
-        Called when the player is about to link: the secret is drawn here and
-        its hash is what travels, so the site never learns the secret and we
-        never have to trust it with one.
-        """
-        for destination in self._destinations:
-            if destination.url != url:
-                continue
-            if not destination.secret:
-                destination.secret = new_secret()
-                self.save()
-            return destination
-        return None
+    def forget(self):
+        """Drop the link here. The site keeps its copy until it is revoked there."""
+        if self._destination is None:
+            return False
+        self._destination = None
+        try:
+            os.remove(self._store)
+        except (IOError, OSError):
+            _logger.debug('could not remove the link file', exc_info=True)
+        return True
 
     def save(self):
+        if self._destination is None:
+            return
         try:
             directory = os.path.dirname(self._store)
             if directory and not os.path.isdir(directory):
                 os.makedirs(directory)
             with open(self._store, 'wb') as handle:
-                json.dump({'schema': SCHEMA,
-                           'destinations': [d.as_dict() for d in self._destinations]}, handle)
+                json.dump(self._destination.as_dict(), handle)
         except (IOError, OSError):
-            _logger.debug('could not write the destinations down', exc_info=True)
+            _logger.debug('could not write the link down', exc_info=True)
 
 
 def install(session, known_modes, store=None):
@@ -300,21 +261,12 @@ def install(session, known_modes, store=None):
     # argument, bound once when the class is defined.
     destinations = (Destinations(known_modes) if store is None
                     else Destinations(known_modes, store=store))
-    found = destinations.all()
-    enabled = [d for d in found if d.enabled]
-    if enabled:
-        # Each one by name, because "1 destination enabled" and "the one I
-        # meant is enabled" are not the same statement.
-        for place in enabled:
-            _logger.info('sending battles to %s (%s), for %s', place.label or 'an unnamed site',
-                         place.url, ', '.join(place.modes) or 'nothing')
-        _logger.info('%d extra destination(s) enabled, for %s',
-                     len(enabled), ', '.join(destinations.modes()) or 'nothing')
-    elif found:
-        # Not a failure, and worth a line: a player who added a site and sees
-        # nothing arrive there has no other way of learning that it is sitting
-        # switched off.
-        _logger.info('%d destination(s) present but none enabled', len(found))
-    # The empty case is not said here. `_read()` has already said which of the
-    # several ways it got there happened, which is the part worth knowing.
+    current = destinations.current
+    if current is not None and current.enabled:
+        _logger.info('sending battles to %s (%s), for %s', current.label, current.url,
+                     ', '.join(current.modes) or 'nothing')
+    elif current is not None:
+        # Not a failure, and worth a line: a player who sees nothing arrive has
+        # no other way of learning that sending is paused.
+        _logger.info('linked to %s, but sending is paused', current.label)
     return destinations

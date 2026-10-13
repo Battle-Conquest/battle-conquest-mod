@@ -1,28 +1,20 @@
 """Entry point for the reloadable half of the mod.
 
-The client only ever loads `mod_unicum_dev.py` from its res_mods folder.
-That stub calls start() and stop() here and reimports this package whenever
-a source file under src/ changes, which is what lets the game stay running
-across edits.
+The released client loads `mod_unicum.py`, which calls start() once. In
+development the client loads `mod_unicum_dev.py` instead: that stub calls
+start() and stop() here and reimports this package whenever a source file
+under src/ changes, which is what lets the game stay running across edits.
 
 Both functions must be safe to call at any time and in any order: a reload
 is nothing more than stop() followed by a fresh start().
 """
 import logging
 
-from unicum import (auto_reload, battle, battle_reports, battle_results, browser, config, context_menu,
-                    destinations, first_run, loadouts, lobby, measuring, mods_list, report_sender, reporting,
-                    results_request, room_sort, settings_tab, settings_window, site_link,
-                    tank_button, twitch,
-                    twitch_panel, twitch_send, twitch_window, views)
-from unicum.badges import Badges
-from unicum.game_link import GameLink
-from unicum.api.resolve import Lookup
-from unicum.api.scales import RatingScales
+from unicum import (account, battle_reports, destinations, mods_list, report_sender, results_request,
+                    settings_window, site_link)
+from unicum.modes import MODES
 from unicum.report_queue import Queue
 from unicum.runtime.session import Session
-from unicum.settings import MODES, Settings
-from unicum.textures import FlagCache
 
 VERSION = '0.1.0-dev'
 
@@ -38,68 +30,22 @@ def start(generation=0):
         stop()
     _session = Session(generation)
     _logger.info('start: version=%s generation=%s', VERSION, generation)
-    # Before anything else installs: a feature that fails on the way up is
-    # exactly what an author never hears about otherwise.
-    reporting.install(_session, VERSION)
-    # Before any feature that draws: a folder made now is not in the client's
-    # index, so nothing written into it can be drawn until the client starts
-    # again. Asking for that restart is the whole point.
-    _restart_after_first_run(first_run.prepare())
     try:
-        # One of each, shared by every surface. Each feature used to build
-        # its own lookup, and every one of them loaded languages.json and
-        # wrote it back: whichever saved last dropped what the others had
-        # learned that session.
-        settings = Settings(_session)
-        settings.install()
-        # Right after the settings and before anything that hooks: the meter
-        # measures whatever is installed after it, and the box that turns it
-        # on has to be readable from the first frame.
-        measuring.install(_session, settings)
-        link = GameLink(_session)
-        link.install()
-        # Before the two windows, which draw the partner link's state and its
-        # button. Nothing else here needs the destinations this early.
+        player = account.install(_session)
         places = destinations.install(_session, MODES)
-        sites = site_link.install(_session, places, link)
-        window = settings_window.install(_session, settings, link, sites)
-        tab = settings_tab.install(_session, settings, link, sites)
-        mods_list.install(_session)
-        lookup = Lookup(_session, config.REGION)
-        scales = RatingScales(_session)
-        flags = FlagCache(_session)
-        badges = Badges(scales)
-        # One reader of the extended info key for every surface that can wait
-        # for it: the battle screens, the skirmish room and the stronghold.
-        from unicum.extended_info import ExtendedInfo
-        alt = ExtendedInfo(_session)
-        alt.install()
-        browser.install(_session, lookup, flags, scales, settings, alt)
-        battle.install(_session, lookup, flags, badges, settings, alt)
-        battle_results.install(_session, lookup, flags, scales, settings)
-        views.install(_session)
-        lobby.install(_session, lookup, flags, badges, settings, alt)
-        room_sort.install(_session, settings)
-        tank_button.install(_session, settings)
-        context_menu.install(_session, settings)
-        loadouts.install(_session, settings, link)
+        site = site_link.install(_session, places, player)
         # One queue for both halves: the capture writes to it and the sender
         # reads from it, and two objects over one file would each hold their
         # own copy of it.
         queue = Queue()
-        reports = battle_reports.install(_session, settings, places, link, queue)
+        reports = battle_reports.install(_session, places, player, queue)
         # After the capture, whose door it delivers through: this asks the
         # server for the battles the player never opened, which is the only way
         # they are captured at all.
         results_request.install(_session, reports.arrived, reports.anything_wanted)
-        report_sender.install(_session, settings, link, places, VERSION, queue)
-        auto_reload.install(_session, settings)
-        chat = twitch.install(_session, settings, link)
-        window.follow_twitch(chat)
-        tab.follow_twitch(chat)
-        sender = twitch_send.install(_session, link, chat)
-        twitch_panel.install(_session, settings, chat, link, sender)
-        twitch_window.install(_session, settings, chat, link)
+        sender = report_sender.install(_session, player, places, VERSION, queue)
+        settings_window.install(_session, site, places, sender)
+        mods_list.install(_session)
     except Exception:
         # A feature that fails halfway leaves the ones before it installed.
         # Without this the session is orphaned: the loader sees start() fail
@@ -109,21 +55,6 @@ def start(generation=0):
         _logger.exception('start failed, rolling back')
         stop()
         raise
-
-
-def _restart_after_first_run(made):
-    """Restart straight away when a folder was just created.
-
-    Here rather than at the garage, which is where this waited first: the mod
-    loads while the client is still starting, so restarting now throws away a
-    few seconds, where waiting for `onAccountShowGUI` throws away a sign-in
-    and a full garage load as well. `restart_if_idle` is what keeps that safe,
-    by refusing whenever the client already has a player.
-    """
-    if not made:
-        return
-    _logger.info('image folders created; restarting so the client indexes them')
-    first_run.restart_if_idle()
 
 
 def stop():

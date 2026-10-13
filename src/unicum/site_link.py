@@ -1,13 +1,10 @@
-"""One click, in the garage, to send battles to a partner site.
+"""One click, in the garage, to send battles to Battle-Conquest.
 
-The player used to do two things by hand: ask the site for a secret, and write
-`destinations.json` with it. Both are gone. This draws the secret, opens the
-player's own browser on the site's linking page carrying only its SHA-256,
-waits for the site to accept it, and writes the destination down itself.
+This draws the secret, opens the player's own browser on the site's linking
+page carrying only its SHA-256, waits for the site to accept it, and writes the
+destination down itself. Nothing is typed and nothing is copied.
 
-The same shape as `game_link.py`, deliberately. That flow is the one the player
-has already been through once for unicum.gg, and the properties it buys are the
-ones that matter here too:
+The properties that matter:
 
   - the secret is drawn in the client and never travels. The site stores a
     hash, so a site that is breached leaks nothing that can report battles.
@@ -18,33 +15,36 @@ ones that matter here too:
     the wrong account. Left unchecked, every report would be rejected later for
     an account mismatch, which is a silent failure rather than a readable one.
 
-Why the site is named here rather than typed by the player: Battle-Conquest
-scores ranked seasons from these reports and is a declared partner of this mod.
-A player who has to find and type an address makes a mistake no error message
-can explain, and the one thing worth optimising on this path is that nothing is
-typed at all.
+Once linked, the site is asked again now and then who this secret is. That is
+how a link revoked on the site's own page stops being shown as linked here,
+and how a mode the site starts scoring after the link was made reaches the
+capture without the player linking again.
 """
+import json
 import logging
 
 from unicum import config
-from unicum.game_link import new_secret, secret_hash
+from unicum.destinations import LABEL, new_secret, secret_hash
 
 _logger = logging.getLogger('unicum.site_link')
 
-# The partner site these reports are scored by.
-SITE = 'https://battle-conquest.eu'
-LABEL = 'Battle-Conquest'
-
 LINK_PATH = '%s/mod/link?key=%s&account=%s'
 ME_PATH = '%s/api/mod/me'
+PAGE_PATH = '%s/my-mod'
 
-# Matches game_link: the player is in a browser, and three seconds is slow
-# enough to be free and quick enough not to be noticed.
+# The player is in a browser, and three seconds is slow enough to be free and
+# quick enough not to be noticed.
 _POLL_SECONDS = 3.0
 
 # How long an attempt waits for the player before giving up. A browser left
 # open on a sign-in page must not leave a poll running for the session.
 _GIVE_UP_SECONDS = 600.0
+
+# How soon after the client starts, and how often after that, a link is
+# checked with the site. Nothing here is urgent: a revoked link only costs a
+# refused batch, which the sender already backs off from.
+_VERIFY_DELAY = 30.0
+_VERIFY_SECONDS = 1800.0
 
 
 def read_me(response):
@@ -61,8 +61,6 @@ def read_me(response):
     if not body:
         return None
     try:
-        import json
-
         payload = json.loads(body)
     except (ValueError, TypeError):
         return None
@@ -79,14 +77,22 @@ def read_me(response):
     return label.strip(), list(modes)
 
 
+def open_url(url):
+    """A page in the player's own browser."""
+    import BigWorld
+
+    _logger.info('opening %s', url)
+    BigWorld.wg_openWebBrowser(url)
+
+
 class Attempt(object):
     """One linking attempt: a secret drawn, a browser opened, and a poll."""
 
-    def __init__(self, session, destinations, account, site=SITE, on_done=None):
+    def __init__(self, session, destinations, account, site=None, on_done=None):
         self._session = session
         self._destinations = destinations
         self._account = account
-        self._site = site.rstrip('/')
+        self._site = (site or config.SITE).rstrip('/')
         self._on_done = on_done
         self._secret = new_secret()
         self._left = int(_GIVE_UP_SECONDS / _POLL_SECONDS)
@@ -97,11 +103,12 @@ class Attempt(object):
         return LINK_PATH % (self._site, secret_hash(self._secret), self._account)
 
     def start(self):
-        import BigWorld
-
-        BigWorld.wg_openWebBrowser(self.url())
+        open_url(self.url())
         self._session.repeat(_POLL_SECONDS, self._poll)
         _logger.info('linking to %s: opened in the browser', self._site)
+
+    def cancel(self):
+        self._over = True
 
     def _poll(self):
         if self._over:
@@ -122,8 +129,7 @@ class Attempt(object):
         if me is None:
             return
         label, modes = me
-        self._finish(self._destinations.remember(self._site + '/api/mod/battles',
-                                                 label, modes, self._secret))
+        self._finish(self._destinations.remember(label, modes, self._secret))
 
     def _finish(self, destination):
         self._over = True
@@ -135,13 +141,13 @@ class Attempt(object):
 
 
 class SiteLink(object):
-    """The partner link as the settings window sees it: linked, or linkable."""
+    """The link as the settings page sees it: linked, being linked, or linkable."""
 
-    def __init__(self, session, destinations, link, site=SITE):
+    def __init__(self, session, destinations, account, site=None):
         self._session = session
         self._destinations = destinations
-        self._link = link
-        self._site = site.rstrip('/')
+        self._account = account
+        self._site = (site or config.SITE).rstrip('/')
         self._attempt = None
         self._listeners = []
 
@@ -149,18 +155,21 @@ class SiteLink(object):
         self._listeners.append(callback)
 
     @property
-    def url(self):
-        return self._site + '/api/mod/battles'
+    def page(self):
+        """The site's page about the mod, where a link is revoked."""
+        return PAGE_PATH % self._site
 
     @property
     def linked(self):
-        """Whether this site already has a usable destination here."""
-        destination = self._destinations.find(self.url)
-        return destination is not None and bool(destination.secret) and destination.enabled
+        return self._destinations.linked
 
     @property
     def running(self):
         return self._attempt is not None
+
+    def install(self):
+        self._session.callback(_VERIFY_DELAY, self.verify)
+        self._session.repeat(_VERIFY_SECONDS, self.verify)
 
     def start(self):
         """Begin a linking attempt, unless one is already waiting.
@@ -171,7 +180,7 @@ class SiteLink(object):
         """
         if self._attempt is not None:
             return False
-        account = getattr(self._link, 'account', None)
+        account = getattr(self._account, 'account', None)
         if not account:
             _logger.warning('linking to %s: no Wargaming account logged in yet; '
                             'open the garage and try again', self._site)
@@ -181,6 +190,55 @@ class SiteLink(object):
         self._attempt.start()
         self._changed()
         return True
+
+    def unlink(self):
+        """Forget the link here, and stop any attempt still waiting.
+
+        The site cannot be told from here: its API takes battles and answers
+        who a secret is, nothing more. The secret it holds proves nothing once
+        this client has forgotten it, and the site's page revokes it.
+        """
+        if self._attempt is not None:
+            self._attempt.cancel()
+            self._attempt = None
+        forgot = self._destinations.forget()
+        if forgot:
+            _logger.info('unlinked from %s; revoke the key on %s too', self._site, self.page)
+        self._changed()
+        return forgot
+
+    def verify(self):
+        """Ask the site who our secret is, and follow what it answers."""
+        destination = self._destinations.current
+        if destination is None or not destination.secret or self._attempt is not None:
+            return
+        secret = destination.secret
+
+        def answered(response):
+            current = self._destinations.current
+            if current is None or current.secret != secret:
+                # Linked again or unlinked while the question was out.
+                return
+            code = getattr(response, 'responseCode', None)
+            if code == 401:
+                _logger.info('%s no longer knows this link (revoked on the site?); forgetting it',
+                             self._site)
+                self._destinations.forget()
+                self._changed()
+                return
+            me = read_me(response)
+            if me is None:
+                # Down, or answering something we cannot read: say nothing
+                # about the link either way, and ask again next time.
+                return
+            label, modes = me
+            if sorted(modes) != sorted(current.modes) or label != current.label:
+                _logger.info('%s now scores %s', self._site, ', '.join(modes))
+                self._destinations.remember(label, modes, secret, enabled=current.enabled)
+                self._changed()
+
+        self._session.fetch(ME_PATH % self._site, answered,
+                            headers={'X-Mod-Secret': secret}, timeout=config.API_TIMEOUT)
 
     def _done(self, destination):
         self._attempt = None
@@ -194,7 +252,8 @@ class SiteLink(object):
                 _logger.exception('a link listener failed')
 
 
-def install(session, destinations, link, site=SITE):
-    sites = SiteLink(session, destinations, link, site=site)
-    _logger.info('%s is %s', site, 'linked' if sites.linked else 'not linked yet')
+def install(session, destinations, account, site=None):
+    sites = SiteLink(session, destinations, account, site=site)
+    sites.install()
+    _logger.info('%s is %s', sites._site, 'linked' if sites.linked else 'not linked yet')
     return sites

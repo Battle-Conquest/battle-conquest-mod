@@ -75,9 +75,9 @@ LIMIT = 50
 def _client(name):
     """Import a top-level client module, never a sibling of this one.
 
-    Python 2 resolves a bare `import battle_results` inside this package to
-    `unicum.battle_results` first, which exists and is a different thing
-    entirely. The import then fails, the failure is caught, and the mod
+    Python 2 resolves a bare `import battle_results` inside this package to a
+    sibling module first, when one exists -- this package had one, a different
+    thing entirely. The import then fails, the failure is caught, and the mod
     quietly follows the wrong set of message types -- which is precisely how
     this was found, by a check rather than by another evening in the garage.
     """

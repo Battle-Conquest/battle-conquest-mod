@@ -1,4 +1,4 @@
-"""Checks for linking a partner site in one click.
+"""Checks for linking the site in one click, and for unlinking.
 
 What is checked is what the player never does: typing an address, copying a
 secret, writing a file. And the two properties that make it safe to send them
@@ -28,6 +28,9 @@ class _Session(object):
     def repeat(self, interval, func):
         self.repeats.append(func)
 
+    def callback(self, delay, func):
+        self.repeats.append(func)
+
     def fetch(self, url, answer, headers=None, timeout=None, **kwargs):
         self.sent.append({'url': url, 'headers': headers or {}, 'answer': answer})
 
@@ -43,7 +46,8 @@ class _Link(object):
 def _destinations(known=('random', 'ranked', 'other')):
     from unicum.destinations import Destinations
 
-    return Destinations(known, store=os.path.join(tempfile.mkdtemp(), 'destinations.json'))
+    return Destinations(known, store=os.path.join(tempfile.mkdtemp(), 'link.json'),
+                        url='https://example.test/api/mod/battles')
 
 
 def _opened(monkey):
@@ -56,7 +60,7 @@ def _opened(monkey):
 
 
 def check_site_link_url():
-    from unicum.game_link import secret_hash
+    from unicum.destinations import secret_hash
     from unicum.site_link import Attempt
 
     places = _destinations()
@@ -117,8 +121,9 @@ def check_site_link_writes_the_destination():
     request['answer'](_Response(200, {'label': 'Battle-Conquest', 'modes': ['ranked', 'nonsense']}))
 
     check('the destination is written down', sites.linked)
-    destination = places.find('https://example.test/api/mod/battles')
-    check('it points at the battles endpoint', destination is not None)
+    destination = places.current
+    check('it points at the battles endpoint',
+          destination is not None and destination.url == 'https://example.test/api/mod/battles')
     # Enabled, unlike one that merely appeared in the file: the player went
     # through the site's own sign-in, which is the act of consent.
     check('it is enabled, because the player just consented', destination.enabled)
@@ -132,8 +137,9 @@ def check_site_link_writes_the_destination():
     # find it, or the player links again every session.
     from unicum.destinations import Destinations
 
-    reopened = Destinations(('random', 'ranked', 'other'), store=places._store)
-    survivor = reopened.find('https://example.test/api/mod/battles')
+    reopened = Destinations(('random', 'ranked', 'other'), store=places._store,
+                            url='https://example.test/api/mod/battles')
+    survivor = reopened.current
     check('and it survives a client restart', survivor is not None)
     check('with its secret and its modes',
           survivor.secret == destination.secret and survivor.modes == ['ranked'])
@@ -175,3 +181,77 @@ def check_site_link_gives_up():
         session.repeats[0]()
     check('an attempt that nobody confirms ends', not sites.running)
     check('and it stops asking', len(session.sent) < 205)
+
+
+def _linked_site(session=None):
+    from unicum.site_link import SiteLink
+
+    places = _destinations()
+    places.remember('Battle-Conquest', ['ranked'], 'b' * 64)
+    session = session or _Session()
+    return session, places, SiteLink(session, places, _Link(), site='https://example.test')
+
+
+def check_site_link_unlinks():
+    session, places, sites = _linked_site()
+    changes = []
+    sites.on_change(lambda: changes.append(1))
+    check('a linked site says so', sites.linked)
+    check('unlinking forgets it', sites.unlink() is True and not sites.linked)
+    check('the page is told', changes == [1])
+    check('and its battles are owed nowhere', places.modes() == [])
+    check('the page that revokes the key on the site is the player\'s mod page',
+          sites.page == 'https://example.test/my-mod')
+
+    session = _Session()
+    from unicum.site_link import SiteLink
+
+    waiting = SiteLink(session, _destinations(), _Link(), site='https://example.test')
+    standing = _opened(lambda url: None)
+    try:
+        waiting.start()
+    finally:
+        _opened(standing)
+    waiting.unlink()
+    check('cancelling stops an attempt still waiting', not waiting.running)
+    session.repeats[0]()
+    check('and it asks nothing more', session.sent == [])
+
+
+def check_site_link_verifies():
+    session, places, sites = _linked_site()
+    sites.verify()
+    request = session.sent[-1]
+    check('a linked client asks the site who it is', request['url'] == 'https://example.test/api/mod/me')
+    check('proving itself with its secret', request['headers'].get('X-Mod-Secret') == 'b' * 64)
+
+    request['answer'](_Response(503))
+    check('a site that is down changes nothing', sites.linked and places.current.modes == ['ranked'])
+
+    sites.verify()
+    session.sent[-1]['answer'](_Response(200, {'label': 'Battle-Conquest', 'modes': ['ranked', 'random']}))
+    # The site started scoring a mode after the link was made: the capture has
+    # to hear it without the player linking again.
+    check('a mode the site added is picked up', places.current.modes == ['ranked', 'random'])
+    check('with the same secret', places.current.secret == 'b' * 64)
+
+    places.set_enabled(False)
+    sites.verify()
+    session.sent[-1]['answer'](_Response(200, {'label': 'Battle-Conquest', 'modes': ['ranked']}))
+    check('and a pause the player chose is kept through it', not places.enabled)
+
+    sites.verify()
+    answer = session.sent[-1]['answer']
+    places.remember('Battle-Conquest', ['ranked'], 'c' * 64)
+    answer(_Response(401))
+    check('an answer about a secret no longer held is ignored', sites.linked)
+
+    sites.verify()
+    session.sent[-1]['answer'](_Response(401))
+    # Revoked on the site's own page: shown as linked here, it would leave the
+    # player wondering why nothing arrives.
+    check('a link the site no longer knows is forgotten', not sites.linked)
+
+    count = len(session.sent)
+    sites.verify()
+    check('an unlinked client asks nothing', len(session.sent) == count)

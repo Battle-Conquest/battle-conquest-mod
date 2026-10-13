@@ -12,11 +12,13 @@ import json
 import logging
 import os
 
+from unicum import config
+
 _logger = logging.getLogger('unicum.report_queue')
 
 # Beside the other things the mod keeps per installation rather than in the
 # resource tree: plain data, plain file I/O.
-STORE = os.path.join('mods', 'configs', 'unicum', 'battle-reports.json')
+STORE = os.path.join(config.CONFIG_DIR, 'battle-reports.json')
 
 # The contract version the reports are written in. It travels with them on
 # disk, so a queue written by an older mod is recognised rather than guessed at.

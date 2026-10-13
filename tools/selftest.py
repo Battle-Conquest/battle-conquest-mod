@@ -1,13 +1,14 @@
-"""Exercise the reload harness outside the game.
+"""Exercise the mod and its reload harness outside the game.
 
 The client is a slow place to find out that a hook did not come back off.
-This stands in fake BigWorld and client GUI modules, drives the bootstrap
-through a full edit-and-reload cycle, and checks the one property the whole
-design rests on: after stop(), the game's own function is back, by identity.
+This stands in fake BigWorld and client modules, drives the bootstrap through
+a full edit-and-reload cycle, and checks the one property the whole design
+rests on: after stop(), the game's own function is back, by identity. Then it
+runs every check of the capture, the link and the sender.
 
     python2.7 tools/selftest.py
 
-Python 2.7, same as the client.
+Python 2.7, same as the client. Nothing here reaches the network.
 """
 import os
 import shutil
@@ -16,40 +17,24 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from checks.api import (check_browser_scope, check_entries, check_lookup, check_request_pacing,
-                        check_scales)
-from checks.battle_options import check_alt_only, check_battle_modes, check_battle_results, check_reload_announcer
-from checks.client import install_fake_client
-from checks.common import FLAG_CODES, REPO, check, render_stub
-from checks.engine import FakeBigWorld
-from checks.fakes import (
-    FakeContact,
-    FakeContactConverter,
-    FakeContactsDataProvider,
-    FakeProfileWindow,
-    FakeSortieCandidatesLegionariesDP,
-    FakeStrongholdBattleRoom,
-    FakeVInfo,
-    ORIGINAL_ADD_VEHICLE_INFO,
-    ORIGINAL_BUILD_LIST,
-    SENTINEL_REGION)
-from checks.surfaces import (
-    check_badges,
-    check_battle_panels,
-    check_icon_markers,
-    check_team_order,
-    check_contacts_redraw,
-    check_profile_title,
-    check_room_sort,
-    check_skirmish_room)
-from checks.settings import check_live_settings, check_res_mods_version, check_settings, check_settings_window
 from checks.battle_report_hooks import (check_battle_report_arrival,
                                         check_battle_report_arrival_as_method,
                                         check_battle_report_hooks,
                                         check_battle_report_no_arrival)
 from checks.battle_reports import (check_battle_report_arena_id, check_battle_report_capture,
-                                   check_battle_report_queue, check_battle_report_reading,
-                                   check_battle_report_setting)
+                                   check_battle_report_queue, check_battle_report_reading)
+from checks.client import install_fake_client
+from checks.common import REPO, check, render_stub
+from checks.destinations import (check_destination_capture, check_destination_modes,
+                                 check_destination_pause_and_forget, check_destination_reading,
+                                 check_destination_secrets, check_destination_silence,
+                                 check_destination_urls)
+from checks.engine import FakeBigWorld
+from checks.fakes import ORIGINAL_POST_RESULT, FakeBattleResultsService
+from checks.report_sender import (check_report_sender_account, check_report_sender_batching,
+                                  check_report_sender_delivery, check_report_sender_payload,
+                                  check_report_sender_refusals, check_report_sender_startup,
+                                  check_report_sender_status, check_report_sender_targets)
 from checks.results_dict import (check_results_dict_cycle, check_results_dict_miss,
                                  check_results_dict_paths, check_results_dict_said_once,
                                  check_results_dict_search)
@@ -67,28 +52,14 @@ from checks.results_request import (check_results_request_delivers,
                                     check_results_request_refusals,
                                     check_results_request_stale,
                                     check_results_request_waits_for_the_garage)
-from checks.site_link import (check_site_link_gives_up, check_site_link_needs_an_account,
-                              check_site_link_url, check_site_link_waiting,
-                              check_site_link_writes_the_destination)
 from checks.service_hooks import (check_service_hooks, check_service_hooks_filter,
                                   check_service_signatures)
-from checks.destinations import (check_destination_capture, check_destination_modes,
-                                 check_destination_reading, check_destination_secrets,
-                                 check_destination_silence, check_destination_urls)
-from checks.loadouts import (check_crew_away, check_crew_from_last_battle, check_demounting,
-                             check_loadout_setting, check_loadout_store, check_loadouts,
-                             check_withdrawal)
-from checks.extras import (check_badge_glyphs, check_battle_count, check_entry_stat,
-                           check_extras_badges, check_extras_fallbacks, check_extras_setting,
-                           check_winrate_label)
-from checks.perf import (check_perf_meter, check_perf_naming, check_perf_setting,
-                         check_sampler_lifecycle, check_sampler_owner)
-from checks.report_sender import (check_report_sender_account, check_report_sender_batching,
-                                  check_report_sender_delivery, check_report_sender_payload,
-                                  check_report_sender_refusals, check_report_sender_startup,
-                                  check_report_sender_targets)
-from checks.tank_menu import check_tank_menu
-from checks.twitch import check_error_reporting, check_links_per_account, check_channel_label, check_echo_guard, check_panel_position, check_own_message, check_panel_size, check_twitch_window, check_twitch_panel, check_regions, check_twitch, check_twitch_badges, check_twitch_receiver, check_twitch_send
+from checks.session import check_session_patches
+from checks.settings_window import (check_settings_window, check_settings_window_labels,
+                                    check_settings_window_without_api)
+from checks.site_link import (check_site_link_gives_up, check_site_link_needs_an_account,
+                              check_site_link_unlinks, check_site_link_url, check_site_link_verifies,
+                              check_site_link_waiting, check_site_link_writes_the_destination)
 
 
 def main():
@@ -97,101 +68,40 @@ def main():
     logging.basicConfig(level=logging.INFO,
                         format='       %(name)s: %(message)s')
 
-    workdir = tempfile.mkdtemp(prefix='unicum-selftest-')
+    workdir = tempfile.mkdtemp(prefix='battle-conquest-selftest-')
     original_cwd = os.getcwd()
     try:
         # A copy, so a test run never writes .pyc into the checkout.
         src_root = os.path.join(workdir, 'src')
         shutil.copytree(os.path.join(REPO, 'src'), src_root)
 
-        # The mod resolves its caches against the client's working directory.
-        # Running from a scratch one keeps a test run from reading or writing
-        # anything under the checkout.
+        # The mod keeps its link and its queue relative to the client's working
+        # directory. Running from a scratch one keeps a test run from reading or
+        # writing anything under the checkout.
         os.chdir(workdir)
 
-        # Flags the mod can resolve, laid out as the client sees them. Only
-        # their names matter: the cache offers what was on disk at startup.
-        flags_dir = os.path.join(workdir, 'res_mods', '2.4.0.0', 'gui', 'maps',
-                                 'icons', 'unicum', 'flags')
-        os.makedirs(flags_dir)
-        for code in FLAG_CODES:
-            open(os.path.join(flags_dir, code + '.png'), 'wb').close()
-
         bigworld = FakeBigWorld()
-        target = install_fake_client(bigworld)
+        service = install_fake_client(bigworld)
         stub = imp.load_source('mod_unicum_dev', render_stub(workdir, src_root))
 
         def hooked():
-            return target.__dict__['addVehicleInfo'] is not ORIGINAL_ADD_VEHICLE_INFO
+            return FakeBattleResultsService.__dict__['postResult'] is not ORIGINAL_POST_RESULT
 
         def delegates():
-            # Account id 0 yields no marker and starts no lookup, so what
-            # comes back is exactly what the original decided.
-            component = target()
-            component.addVehicleInfo(FakeVInfo(0), None)
-            return component.get()['region'] == SENTINEL_REGION
+            # Nothing readable in the result, so nothing is captured: what comes
+            # back is exactly what the client's own method decided.
+            return service.postResult(None) == 'the client answer'
 
         stub.init()
         check('load installed the hook', hooked())
         check('hook delegates to the original', delegates())
         check('watcher armed', bool(bigworld.pending))
 
-        check_contacts_redraw(bigworld)
-        check_skirmish_room(bigworld)
-        check_profile_title()
-        check_battle_panels()
-        check_icon_markers()
-        check_team_order()
-        check_badges(workdir)
-        check_room_sort(workdir)
-        check_settings(workdir)
-        check_settings_window()
-        check_battle_modes(workdir)
-        check_reload_announcer()
-        check_alt_only()
-        check_battle_results()
-        check_request_pacing()
-        check_twitch()
-        check_twitch_badges()
-        check_twitch_send()
-        check_regions()
-        check_twitch_receiver()
-        check_echo_guard()
-        check_own_message()
-        check_twitch_panel()
-        check_twitch_window()
-        check_error_reporting()
-        check_panel_position()
-        check_panel_size()
-        check_channel_label()
-        check_links_per_account(workdir)
-        check_res_mods_version()
-        check_live_settings(bigworld)
-        check_tank_menu()
-        check_loadouts()
-        check_demounting()
-        check_crew_away()
-        check_crew_from_last_battle()
-        check_loadout_store()
-        check_loadout_setting()
-        check_perf_meter()
-        check_perf_naming()
-        check_perf_setting()
-        check_battle_count()
-        check_winrate_label()
-        check_badge_glyphs()
-        check_entry_stat()
-        check_extras_badges()
-        check_extras_fallbacks()
-        check_extras_setting()
-        check_sampler_owner()
-        check_sampler_lifecycle()
-        check_withdrawal()
+        check_session_patches()
         check_battle_report_reading()
         check_battle_report_arena_id()
         check_battle_report_queue()
         check_battle_report_capture()
-        check_battle_report_setting()
         check_battle_report_arrival()
         check_battle_report_arrival_as_method()
         check_battle_report_no_arrival()
@@ -204,6 +114,8 @@ def main():
         check_site_link_writes_the_destination()
         check_site_link_needs_an_account()
         check_site_link_gives_up()
+        check_site_link_unlinks()
+        check_site_link_verifies()
         check_results_dict_paths()
         check_results_dict_search()
         check_results_dict_cycle()
@@ -227,6 +139,7 @@ def main():
         check_destination_modes()
         check_destination_reading()
         check_destination_secrets()
+        check_destination_pause_and_forget()
         check_destination_silence()
         check_destination_capture()
         check_report_sender_targets()
@@ -236,18 +149,22 @@ def main():
         check_report_sender_refusals()
         check_report_sender_batching()
         check_report_sender_startup()
+        check_report_sender_status()
+        check_settings_window_labels()
+        check_settings_window()
+        check_settings_window_without_api()
 
-        first_hook = target.__dict__['addVehicleInfo']
+        first_hook = FakeBattleResultsService.__dict__['postResult']
         generation_before = stub._generation
 
         # Touch a source file the way an editor would.
-        edited = os.path.join(src_root, 'unicum', 'battle.py')
+        edited = os.path.join(src_root, 'unicum', 'battle_reports.py')
         os.utime(edited, (os.path.getatime(edited), os.path.getmtime(edited) + 10))
 
         bigworld.run_pending()
         check('reload happened', stub._generation == generation_before + 1)
         check('hook was reinstalled, not stacked',
-              target.__dict__['addVehicleInfo'] is not first_hook)
+              FakeBattleResultsService.__dict__['postResult'] is not first_hook)
         check('still delegates to the game original', delegates())
 
         bigworld.run_pending()
@@ -274,30 +191,13 @@ def main():
         # Not `pending`: a response the fake client is still about to deliver
         # is its own, and the session's alive gate already makes it a no-op.
         check('fini cancelled every callback', not bigworld.scheduled)
-
-        # Undoing a patch has to put back what was *stored*, which is not
-        # always what getattr returned.
-        check('classmethod restored as a descriptor, not a bound method',
-              isinstance(FakeContactConverter.__dict__['makeBaseUserProps'],
-                         classmethod))
-        check('classmethod still callable off the class',
-              FakeContactConverter.makeBaseUserProps(
-                  FakeContact(1))['region'] is None)
-        check('inherited method left inherited, not shadowed',
-              'as_setInitDataS' not in FakeProfileWindow.__dict__)
-        check('plain method restored to the original function',
-              FakeContactsDataProvider.__dict__['buildList'] is ORIGINAL_BUILD_LIST)
-        check('skirmish room patches undone',
-              'as_setMembersS' not in FakeStrongholdBattleRoom.__dict__
-              and 'as_updateRallyS' not in FakeStrongholdBattleRoom.__dict__
-              and '_makePlayerVO' not in FakeSortieCandidatesLegionariesDP.__dict__)
-
-        check_browser_scope(src_root)
-        check_entries(src_root)
-
+        # Beside another mod's configs, not among them: a player running
+        # Unicum too must find each mod's files in its own folder.
         from unicum import config
-        check_lookup(bigworld, src_root, config.API_BASE, 'resolve')
-        check_scales(bigworld, src_root, config.API_BASE)
+        configs = os.path.join(workdir, 'mods', 'configs')
+        written = os.listdir(configs) if os.path.isdir(configs) else []
+        check('nothing is written outside the mod\'s own config folder',
+              set(written) <= set([os.path.basename(config.CONFIG_DIR)]))
 
         print('\nall checks passed')
     finally:

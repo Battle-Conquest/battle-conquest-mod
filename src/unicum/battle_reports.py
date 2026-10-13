@@ -90,12 +90,11 @@ _logger = logging.getLogger('unicum.battle_reports')
 class BattleReports(object):
     """Captures a battle's results the moment the client has them."""
 
-    def __init__(self, session, settings, queue=None, destinations=None, link=None):
+    def __init__(self, session, queue=None, destinations=None, account=None):
         self._session = session
-        self._settings = settings
         self._queue = queue if queue is not None else Queue()
         self._destinations = destinations
-        self._link = link
+        self._account = account
 
     def install(self):
         service = self._service()
@@ -241,12 +240,9 @@ class BattleReports(object):
     def wanted(self, mode):
         """Whether anything is waiting for a battle of this mode.
 
-        unicum.gg takes them all while the player leaves the switch on. An extra
-        destination takes only the modes it asked for, so a site scoring ranked
-        never receives a random battle.
+        The site takes only the modes it said it scores, so a battle of any
+        other mode is never kept.
         """
-        if self._settings.sends_battle_reports():
-            return True
         if self._destinations is None:
             return False
         return bool(self._destinations.wanting(mode))
@@ -259,8 +255,6 @@ class BattleReports(object):
         the moment they arrive. Deliberately not per mode -- see `wanted` --
         because this answer cannot disagree with what the capture then does.
         """
-        if self._settings.sends_battle_reports():
-            return True
         if self._destinations is None:
             return False
         return bool(self._destinations.modes())
@@ -268,8 +262,8 @@ class BattleReports(object):
     def account(self):
         """The Wargaming account these battles belong to, as a string, or None.
 
-        Read from the link, which follows the account the client is logged in
-        with and holds on to it through a battle, where the avatar carries no
+        Read from `account.py`, which follows the account the client is logged
+        in with and holds on to it through a battle, where the avatar carries no
         database id.
 
         Stamped on the report at capture rather than read again when it is
@@ -277,7 +271,7 @@ class BattleReports(object):
         the client being closed, and a battle credited to whoever happens to be
         logged in the next evening is a battle credited to the wrong player.
         """
-        return getattr(self._link, 'account', None)
+        return getattr(self._account, 'account', None)
 
     def capture(self, results, constants=None):
         """Queue a battle's results, and say whether anything was queued."""
@@ -303,8 +297,8 @@ class BattleReports(object):
         if account is None:
             # Not queued: a report naming nobody cannot be attributed by any
             # destination, so it would sit on disk until the queue dropped it.
-            # In practice unreachable -- the link keeps the account through a
-            # battle -- which is exactly why it must not be guessed at.
+            # In practice unreachable -- the account is kept through a battle --
+            # which is exactly why it must not be guessed at.
             _logger.warning('a battle arrived with no account logged in, not captured')
             return False
         report['account'] = account
@@ -321,8 +315,8 @@ class BattleReports(object):
         return True
 
 
-def install(session, settings, destinations=None, link=None, queue=None):
-    reports = BattleReports(session, settings, queue=queue,
-                            destinations=destinations, link=link)
+def install(session, destinations=None, account=None, queue=None):
+    reports = BattleReports(session, queue=queue,
+                            destinations=destinations, account=account)
     reports.install()
     return reports

@@ -1,6 +1,7 @@
-"""An entry for the mod in poliroid's modsListApi menu ("Open settings").
+"""An entry for the mod in poliroid's modsListApi menu, opening its settings page.
 
-Optional, like the settings window: without gui.modsListApi this does nothing.
+Shipped beside the mod in the release archive, like modsSettingsApi; without
+gui.modsListApi this does nothing.
 modsSettingsApi lists itself there, not the mods whose pages it holds, so a
 mod with settings only shows in that menu if it adds itself.
 
@@ -39,7 +40,7 @@ _logger = logging.getLogger('unicum.mods_list')
 # Not the settings page's linkage: the Mod Menu keeps menu entries and
 # settings pages in step by id, and an entry that opens its own page under
 # the same id is one more way for the two to trigger each other.
-MOD_ID = 'gg.unicum.menu'
+MOD_ID = 'eu.battle-conquest.menu'
 
 # Opening again this soon after the last time is ignored, so no chain of
 # callbacks, whatever starts it, can reopen the window in a loop.
@@ -76,8 +77,8 @@ class ModsListEntry(object):
             return
         self._api = g_modsListApi
         g_modsListApi.addModification(
-            id=MOD_ID, name='unicum.gg',
-            description='Language flags and ratings from unicum.gg',
+            id=MOD_ID, name='Battle-Conquest',
+            description='Link this game to Battle-Conquest and see your battles leave',
             icon=config.ICON_RES_PATH, enabled=True, login=False, lobby=True,
             callback=_CALLBACK)
         self._session.on_close(self._remove)

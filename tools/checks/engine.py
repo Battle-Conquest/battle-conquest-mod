@@ -1,4 +1,4 @@
-"""A fake BigWorld: callbacks that run when told to, and real HTTP."""
+"""A fake BigWorld: callbacks that run when told to, and no network."""
 
 
 class FakeBigWorld(object):
@@ -26,26 +26,15 @@ class FakeBigWorld(object):
         return None
 
     def fetchURL(self, url, callback, headers, timeout, method, postData):
-        """Real HTTP, delivered the way the client delivers it: deferred.
+        """No network: every request is answered as unreachable, deferred.
 
-        Keeping it out-of-band matters, because code that accidentally
+        Deferred the way the client delivers it, because code that accidentally
         depends on the response having already arrived would pass against a
-        synchronous fake and deadlock against the game.
+        synchronous fake and deadlock against the game. The checks that need an
+        answer use a fake session of their own.
         """
-        import urllib2
         self.fetched.append(url)
-        try:
-            # A plain urlopen announces itself as Python-urllib and gets a
-            # 403 from the API's bot protection. The client sends its own
-            # user agent and is let through, so borrowing a browser's keeps
-            # the test measuring the mod rather than the WAF.
-            request = urllib2.Request(url, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-            raw = urllib2.urlopen(request, timeout=timeout)
-            response = FakeResponse(raw.getcode(), raw.read())
-        except Exception as error:
-            response = FakeResponse(getattr(error, 'code', 0), '')
-        self.deliveries.add(self.callback(0.0, lambda: callback(response)))
+        self.deliveries.add(self.callback(0.0, lambda: callback(FakeResponse(0, ''))))
 
     def run_pending(self):
         """Fire everything queued right now, once."""
@@ -86,23 +75,3 @@ class FakeEvent(object):
         if handler in self.handlers:
             self.handlers.remove(handler)
         return self
-
-
-class FakeEventBus(object):
-    """Stands in for g_eventBus: listeners per (event, scope), and a way to fire one."""
-
-    def __init__(self):
-        self.listeners = {}
-
-    def addListener(self, event, handler, scope=None):
-        self.listeners.setdefault((event, scope), []).append(handler)
-
-    def removeListener(self, event, handler, scope=None):
-        handlers = self.listeners.get((event, scope), [])
-        if handler in handlers:
-            handlers.remove(handler)
-
-    def handleEvent(self, event, ctx=None, scope=None):
-        fired = type('FiredEvent', (object,), {'ctx': ctx or {}})()
-        for handler in list(self.listeners.get((event, scope), [])):
-            handler(fired)

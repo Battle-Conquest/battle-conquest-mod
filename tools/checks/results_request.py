@@ -13,7 +13,7 @@ import os
 import sys
 import tempfile
 
-from checks.battle_fixtures import Bonus, Link, Settings, results
+from checks.battle_fixtures import Bonus, Places, Player, results
 from checks.common import check
 
 
@@ -259,21 +259,23 @@ def check_results_request_anything_wanted():
     _constants()
     from unicum.battle_reports import BattleReports
 
-    def reports(on, places=None):
-        return BattleReports(_Session(), Settings(on), destinations=places, link=Link())
+    def reports(places):
+        return BattleReports(_Session(), destinations=places, account=Player())
 
-    check('unicum.gg taking them is enough', reports(True).anything_wanted() is True)
-    check('with the setting off and no site, nothing is', reports(False).anything_wanted() is False)
+    check('a site owed battles is enough', reports(Places()).anything_wanted() is True)
+    check('with nothing owed, nothing is', reports(Places(False)).anything_wanted() is False)
 
     from unicum.destinations import Destinations
 
     places = Destinations(('random', 'ranked'),
-                          store=os.path.join(tempfile.mkdtemp(), 'destinations.json'))
-    check('a site that is known but wants nothing yet does not count',
-          reports(False, places).anything_wanted() is False)
+                          store=os.path.join(tempfile.mkdtemp(), 'link.json'),
+                          url='https://example.test/api/mod/battles')
+    check('a site not linked yet does not count', reports(places).anything_wanted() is False)
 
-    places.remember('https://example.test', 'Example', ['ranked'], 'x' * 64)
-    check('a linked site asking for a mode does', reports(False, places).anything_wanted() is True)
+    places.remember('Example', ['ranked'], 'x' * 64)
+    check('a linked site asking for a mode does', reports(places).anything_wanted() is True)
+    places.set_enabled(False)
+    check('and pausing it takes that back', reports(places).anything_wanted() is False)
 
 
 def check_results_request_queue():
@@ -346,7 +348,7 @@ def check_results_request_delivers():
     from unicum.results_request import Requests
 
     queue = Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json'))
-    reports = BattleReports(_Session(), Settings(True), queue=queue, link=Link())
+    reports = BattleReports(_Session(), queue=queue, destinations=Places(), account=Player())
     cache = _Cache({31: (1, results())})
     requests = Requests(_Session(), reports.arrived, garage=lambda: True,
                         cache=lambda: cache, now=_Clock())

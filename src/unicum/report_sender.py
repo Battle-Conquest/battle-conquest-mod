@@ -1,4 +1,4 @@
-"""Draining the queue: one copy to every destination, and nothing sent twice.
+"""Draining the queue: every battle to the site once, and nothing sent twice.
 
 Capture and sending are deliberately far apart. A battle is captured on the
 frame its results arrive on, where the only safe thing to do is write to disk.
@@ -8,16 +8,13 @@ but a later try.
 
 What proves the account
 -----------------------
-Every destination is told which Wargaming account a battle belongs to, and that
-claim is backed by a secret only this installation and that destination share.
-unicum.gg is proven by the link secret, as the loadouts are; an extra
-destination by the secret drawn for it alone, in `X-Mod-Secret`.
+The site is told which Wargaming account a battle belongs to, and that claim
+is backed by a secret only this installation and the site share, sent in
+`X-Mod-Secret`.
 
-The fallback loadouts has -- minting a WGNI web token when the client is not
-linked -- is deliberately not repeated here. A battle report is worth something
-only to a site that already knows whose battle it is, and an unlinked client
-has nothing to attribute one to. Those battles wait in the queue instead and
-leave the moment the player links, backlog and all.
+An unlinked client sends nothing. A battle report is worth something only to a
+site that already knows whose battle it is, and an unlinked client has nothing
+to attribute one to.
 
 Final means final
 -----------------
@@ -43,25 +40,21 @@ import time
 
 from unicum import config
 from unicum import service_hooks
-from unicum.game_link import bearer
+from unicum.modes import MODES
 from unicum.report_queue import Queue
-from unicum.settings import MODES
 
 _logger = logging.getLogger('unicum.report_sender')
 
 SCHEMA = 1
-MOD_NAME = 'unicum.gg-mod'
+MOD_NAME = 'battle-conquest-mod'
 
-# Reports per request. A destination's own ceiling is 50, and a failure that
-# throws away one batch throws away that rather than a whole backlog.
+# Reports per request. The site's own ceiling is 50, and a failure that throws
+# away one batch throws away that rather than a whole backlog.
 BATCH = 50
-
-# Where unicum.gg takes them, beside its loadouts endpoint.
-UNICUM_PATH = '%s/api/game/battles'
 
 # The batch a destination could not read, kept beside the queue for whoever
 # has to find out why. One file, overwritten: a diagnosis, not a history.
-REFUSED_STORE = os.path.join('mods', 'configs', 'unicum', 'battle-reports-refused.json')
+REFUSED_STORE = os.path.join(config.CONFIG_DIR, 'battle-reports-refused.json')
 
 # How long after the client starts the first drain runs, and how often after.
 # Nothing here is urgent -- the queue is on disk and a battle is worth the same
@@ -157,8 +150,7 @@ _NOT_ABOUT_THE_PAYLOAD = (404, 405, 410)
 def keep_refused(batch, code, store=REFUSED_STORE):
     """Leave a batch a destination could not read on disk, beside the queue.
 
-    The same reasoning as the refused loadouts: the shape of a report is a
-    contract between this mod, a client nobody here controls and a server in
+    The shape of a report is a contract between this mod, a client nobody here controls and a server in
     another repository, and a batch that was refused is the only thing that
     says which of the three was wrong.
 
@@ -208,11 +200,10 @@ class Target(object):
 class Sender(object):
     """Gives each destination the battles it is owed, a batch at a time."""
 
-    def __init__(self, session, settings, link, queue=None, destinations=None,
+    def __init__(self, session, account, queue=None, destinations=None,
                  version='', garage=at_garage, refused_store=REFUSED_STORE):
         self._session = session
-        self._settings = settings
-        self._link = link
+        self._account = account
         self._queue = queue if queue is not None else Queue()
         self._destinations = destinations
         self._version = version
@@ -223,6 +214,29 @@ class Sender(object):
         # destinations to leave alone for a while, by URL.
         self._stopped = {}
         self._waiting = {}
+        # What the settings page says about the last batch: when it was
+        # answered, and how. None until something has been sent this session.
+        self.last_sent = None
+        self.last_result = None
+        self._listeners = []
+
+    def on_change(self, callback):
+        """Be told when a batch has been answered, or the queue has moved."""
+        self._listeners.append(callback)
+
+    def _changed(self):
+        for callback in list(self._listeners):
+            try:
+                callback()
+            except Exception:
+                _logger.exception('a sender listener failed')
+
+    def waiting(self):
+        """How many battles of the account logged in wait to be sent."""
+        account = getattr(self._account, 'account', None)
+        if account is None:
+            return 0
+        return len([report for report in self._queue.all() if report.get('account') == account])
 
     def install(self):
         # Three ways to start, and the first that fires wins. The event is the
@@ -249,16 +263,12 @@ class Sender(object):
         self.drain()
 
     def targets(self):
-        """Every destination owed battles, whether or not we can prove us to it.
+        """Every destination owed battles: the site while it is linked, or nothing.
 
         Built to the same rule the capture keeps, so the two cannot drift: a
-        battle is captured exactly when some destination here would want it.
+        battle is captured exactly when the destination here would want it.
         """
         targets = []
-        if self._settings.sends_battle_reports():
-            secret = getattr(self._link, 'secret', None)
-            targets.append(Target(UNICUM_PATH % config.API_BASE, 'unicum.gg', MODES,
-                                  bearer(secret) if secret else None))
         for destination in (self._destinations.all() if self._destinations else []):
             if not (destination.enabled and destination.secret and destination.modes):
                 continue
@@ -283,7 +293,7 @@ class Sender(object):
         """Give every destination what it is owed, and forget what is settled."""
         if self._busy or not self._garage():
             return
-        account = getattr(self._link, 'account', None)
+        account = getattr(self._account, 'account', None)
         if account_number(account) is None:
             return
         targets = self.targets()
@@ -312,6 +322,7 @@ class Sender(object):
         if not work:
             self._busy = False
             self._queue.settle(lambda mode: self.owed().get(mode, ()))
+            self._changed()
             return
         target, reports = work[0]
         batch, rest = reports[:BATCH], reports[BATCH:]
@@ -353,6 +364,11 @@ class Sender(object):
         """A batch the destination has answered. Every verdict in it is final."""
         self._queue.mark(target.url, [report['arena_unique_id'] for report in batch])
         payload = answer(response)
+        self.last_sent = time.time()
+        self.last_result = {'code': 200, 'battles': len(batch),
+                            'accepted': (payload or {}).get('accepted'),
+                            'duplicates': (payload or {}).get('duplicates'),
+                            'rejected': (payload or {}).get('rejected')}
         if payload is None:
             # 200 means the batch was processed, whatever the body turned out
             # to be, so the reports are done either way. Still worth a line: a
@@ -377,6 +393,8 @@ class Sender(object):
         is how soon this destination is asked anything.
         """
         waiting = len(self._queue.pending(target.url, target.modes))
+        self.last_sent = time.time()
+        self.last_result = {'code': code, 'battles': len(batch)}
         if retry_later(code):
             self._waiting[target.url] = time.time() + _BACKOFF
             _logger.info('%s is not taking battles right now (HTTP %s); %d wait',
@@ -390,14 +408,14 @@ class Sender(object):
         keep_refused(batch, code, self._refused_store)
 
 
-def install(session, settings, link, destinations=None, version='', queue=None):
+def install(session, account, destinations=None, version='', queue=None):
     """Install the sender over the SAME queue the capture writes to.
 
     One object, not one each: two Queues over one file each hold their own copy
     of it, and whichever saved last would quietly drop what the other had
     learned -- a battle captured between two drains, or a delivery already made.
     """
-    sender = Sender(session, settings, link, queue=queue,
+    sender = Sender(session, account, queue=queue,
                     destinations=destinations, version=version)
     sender.install()
     return sender

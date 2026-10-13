@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 
-from checks.battle_fixtures import Bonus, Link, Settings, results
+from checks.battle_fixtures import Bonus, Places, Player, results
 from checks.common import check
 
 
@@ -78,7 +78,7 @@ def _hooked(service, queue=None, on=True):
             return service
 
     session = Session(0)
-    _Reports(session, Settings(on), queue=queue, link=Link()).install()
+    _Reports(session, queue=queue, destinations=Places(on), account=Player()).install()
     return session
 
 

@@ -1,9 +1,10 @@
 """Settings that differ between a dev machine and a released mod."""
 import os
 
-# The unicum.gg region this client plays on, from the client's own realm.
-# unicum.gg covers the Wargaming servers only; anything else (a test server,
-# a sandbox) reads as EU rather than guessing.
+# The Wargaming region this client plays on, from the client's own realm. It
+# travels with every batch of battles, because one installation plays on one
+# realm. Anything else (a test server, a sandbox) reads as EU rather than
+# guessing.
 _REALM_REGIONS = {'EU': 'eu', 'NA': 'na', 'ASIA': 'asia'}
 
 
@@ -18,133 +19,31 @@ except ImportError:
 
 REGION = region_of(_REALM)
 
-_DEFAULT_API_BASE = 'https://unicum.gg'
+_DEFAULT_SITE = 'https://battle-conquest.eu'
 
 # Overridden two ways, neither of which puts a LAN address in the repository.
 #
 # The environment variable is read once when the client starts, which is no
 # use for a mod that is meant to be edited while the game runs. So a
 # gitignored local_settings.py wins over it: dropping one in redirects the
-# API on the next reload, without restarting anything.
+# site on the next reload, without restarting anything.
 try:
     from unicum import local_settings
 except ImportError:
     local_settings = None
 
-API_BASE = (
-    getattr(local_settings, 'API_BASE', None)
-    or os.environ.get('UNICUM_API_BASE')
-    or _DEFAULT_API_BASE
+SITE = (
+    getattr(local_settings, 'SITE', None)
+    or os.environ.get('BATTLE_CONQUEST_SITE')
+    or _DEFAULT_SITE
 ).rstrip('/')
-
-# Seconds before a player or clan is asked for again. It is never thrown
-# away in the meantime -- a stale answer keeps being drawn while the fresh
-# one is fetched, which is what the endpoint's stale-while-revalidate allows.
-#
-# Half an hour: /resolve carries ratings, which move with every crawl, where
-# languages alone justified an hour. Still well above the endpoint's
-# five-minute max-age, because the contacts list alone is ~3300 ids and at
-# five minutes every rebuild after a short break would send 33 requests.
-REFRESH_SECONDS = 1800
-
-# Flags drawn per player or clan, in the API's order. About a third of players
-# come back with more than one language, and declared clans list up to three.
-MAX_FLAGS = 3
 
 API_TIMEOUT = 10.0
 
-# Development only: act as if this client were linked to nothing and followed
-# no channel, to see the garage as a new player does, without forgetting the
-# real links. Set in local_settings.py; takes effect on the next reload.
-PREVIEW_SIGNED_OUT = bool(getattr(local_settings, 'PREVIEW_SIGNED_OUT', False))
-# Resolving a battle's players can take the site longer than the rest, and a
-# timeout leaves the whole batch without ratings until it is asked again.
-RESOLVE_TIMEOUT = 30.0
-
-# Downloaded images, kept between sessions, inside the resource tree.
-#
-# They were briefly held outside it, in mods/configs, and handed to the
-# engine with wg_addScaleformTexture so they would need no restart. That
-# does not scale: with 252 flags registered before anything drew, a contacts
-# list still rendered one. Memory textures are built for the single image
-# the client uses them for -- a clan emblem, an achievement icon -- not for
-# a list. Paths into the resource tree have no such ceiling.
-#
-# The cost is that ResMgr indexes at startup, so a flag downloaded now first
-# appears next session. In practice the same handful of languages recur, so
-# the cache is warm after a couple of sessions and nothing ships in the
-# package.
-FLAGS_RES_PATH = 'gui/maps/icons/unicum/flags'
-
-# Rating badges, drawn in the client into this one folder (badges.py), which
-# has to exist when the client starts, like the flags'.
-BADGES_RES_PATH = 'gui/maps/icons/unicum/badges'
-
-# The mod's icon in the modsListApi menu, rendered by tools/badges/icon.mjs
-# like the hangar button's, in gui/maps/icons/unicum/tankButton.
+# The mod's icon in the modsListApi menu, a resource file indexed when the
+# client starts; modsListApi draws its default icon when it is not there.
 ICON_RES_PATH = 'gui/maps/icons/unicum/icon.png'
 
-
-def _version_key(name):
-    """2.10.0.0 after 2.9.0.0, which a plain string sort gets backwards."""
-    return [int(part) if part.isdigit() else part for part in name.split('.')]
-
-
-# The res_mods version folder, found once. A client cannot be upgraded while
-# it is running, so this cannot go stale within a session, and finding it is
-# a directory listing plus a stat per entry.
-#
-# Measured before it was cached: `name_markers._sync` asks for a resource
-# path nine times a second in battle and `views._watch` once a second, so
-# this listing was 3% of all the Python the game's main thread ran, to
-# recompute a string that never changed. A sampling profile of the client
-# found it; nothing about the code looked expensive.
-_VERSION_DIR = []
-
-
-def _res_mods_root():
-    if _VERSION_DIR:
-        return _VERSION_DIR[0]
-    root = 'res_mods'
-    try:
-        versions = sorted((name for name in os.listdir(root)
-                           if os.path.isdir(os.path.join(root, name))), key=_version_key)
-    except OSError:
-        versions = []
-    # Cached even when nothing was found: a client with no res_mods folder
-    # would otherwise pay the failed listing on every call, forever.
-    _VERSION_DIR.append(os.path.join(root, versions[-1]) if versions else None)
-    return _VERSION_DIR[0]
-
-
-def _res_mods_dir(res_path):
-    """Where resource files live on disk, relative to the client's directory.
-
-    The res_mods folder is version-named and the mod has no business
-    hardcoding a client version, so the one that is there is the one used.
-    """
-    root = _res_mods_root()
-    if root is None:
-        return None
-    return os.path.join(root, *res_path.split('/'))
-
-
-def res_mods_file(res_path):
-    """A resource file's path on disk, or None without a res_mods folder."""
-    return _res_mods_dir(res_path)
-
-
-CACHE_DIR = _res_mods_dir(FLAGS_RES_PATH)
-BADGES_DIR = _res_mods_dir(BADGES_RES_PATH)
-
-# Resolved players and clans, kept between sessions. Plain data read with
-# plain file I/O, so unlike the flags it has no business being in the
-# resource tree.
-#
-# Its job is the first paint: lookups are answered over the network but
-# consumed synchronously, so without it every game start draws one unmarked
-# contacts list before the answers arrive.
-RESOLVE_STORE = os.path.join('mods', 'configs', 'unicum', 'resolve.json')
-
-# The site's rating colour scales, refreshed at most daily.
-SCALES_STORE = os.path.join('mods', 'configs', 'unicum', 'scales.json')
+# Everything the mod writes, in one folder of its own beside the other mods'
+# configs: the link to the site and the battles waiting to be sent.
+CONFIG_DIR = os.path.join('mods', 'configs', 'unicum')
