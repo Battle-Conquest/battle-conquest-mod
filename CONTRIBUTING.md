@@ -4,7 +4,9 @@ Read [`AGENTS.md`](./AGENTS.md) first. It contains the non-obvious rules that ma
 
 ## Setup
 
-Follow the Development section of [`README.md`](./README.md): rasterise the flags, build the title SWF, run `tools/install_dev.py`, start the client once. After that, saving a file under `src/` reloads the mod in place.
+Follow the Development section of [`README.md`](./README.md): run `tools/install_dev.py`, start the client once. After that, saving a file under `src/` reloads the mod in place.
+
+Issues about what the site does with a battle belong to [Battle-Conquest](https://github.com/Battle-Conquest/Battle-Conquest/issues); issues about capturing or sending it belong here.
 
 ## Validation
 
@@ -35,6 +37,6 @@ Rules:
 Examples:
 
 ```text
-✨ add player wnx to the skirmish room
-🐛 fix raw img markup in the battle damage panel
+✨ add the tank played to each battle report
+🐛 fix a battle sent twice after a reconnect
 ```

@@ -1,214 +1,99 @@
-# unicum.gg-mod
+# battle-conquest-mod
 
-World of Tanks client mod for [unicum.gg](https://unicum.gg). Shows where
-players and clans come from, with the same Flagpack flags as the site, and
-their WN7, WN8 or WNX painted with the site's colour scale.
+World of Tanks client mod for [Battle-Conquest](https://battle-conquest.eu). It
+reads the results of the battles you play and sends them to the site, for the
+tournaments and quests that score them: Onslaught, which Wargaming's public API
+does not cover at all, and random battles one by one, so a quest objective
+reached within its battle cap counts even if you keep playing.
 
-Not affiliated with Wargaming.net.
+Not affiliated with Wargaming.net. Derived from
+[unicum.gg-mod](https://github.com/unicum-gg/unicum.gg-mod), see
+[NOTICE](./NOTICE).
 
-## What it does
+## Install
 
-| Surface | What is shown | Hook |
-|---|---|---|
-| Contacts list | flag after the name | `ContactConverter.makeBaseUserProps` |
-| Player profile window title | flag after the name (language code without the SWF) | `ProfileWindow.as_setInitDataS` |
-| Battle players panel, Tab, loading screen | rating and flags beside each vehicle icon, lined up in a column per team; in the Tab, the team average in that column on the team name's line | `VehicleInfoComponent.addVehicleInfo`, `BattleStatisticsDataController` (team order, `as_setArenaInfoS`), the battle SWF |
-| Vehicle markers above the tanks | rating badge and flags right of the player's name | `MarkersManager.createMarker`, a patched `battleVehicleMarkersApp.swf` |
-| Skirmish room members and volunteers | flags and rating after the name; members sort dropdown (the special battles' orders, plus the rating and personal rating) and average rating beside the title | `StrongholdBattleRoom.as_setMembersS` / `as_updateRallyS`, `SortieCandidatesLegionariesDP._makePlayerVO` |
-| Hangar vehicle menu | a unicum.gg button with a menu for the selected tank, opened in the browser: its tabs on unicum.gg (specifications, performances, marks, history, videos, community), handing its page to ChatGPT, Claude or Scira AI as the site's own menu does, and opening or copying the build as the site's `?setup=` link (with openwg_gameface) | `VehicleMenuPresenter._getChildComponents`, `res/gui/gameface/mods/unicum/TankButton/` |
-| Stronghold detachment list (web page) | flags after the clan tag; a rating column; "Places" folded into "Members"; sort by personal rating or rating | `src/unicum/web/stronghold/`, injected by `src/unicum/browser.py` |
+1. Link your Wargaming account on [battle-conquest.eu](https://battle-conquest.eu)
+   first: until it is, every battle the mod sends is refused.
+2. Download `battle-conquest-mod_<version>.zip` from the
+   [latest release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
+   and unzip it into your World of Tanks folder. It holds three files under
+   `mods/<game version>/`: the mod, and the two mods its settings page needs,
+   [modsSettingsApi](https://github.com/izeberg/modssettingsapi) and
+   [modsListApi](https://gitlab.com/wot-public-mods/mods-list). If a modpack
+   already installed those two, keep its copies and copy only
+   `eu.battle-conquest_<version>.wotmod`.
+3. Start the game, open the mods list (the icon at the top of the garage) and
+   choose Battle-Conquest. Click **Link**: your browser opens on the site, you
+   confirm, and the mod writes its configuration itself. Nothing to type.
+4. Play. Battles leave from the garage shortly after they end, including those
+   whose results screen you never opened.
 
-Every surface shows a player's or clan's flags, up to three, in the order the
-API gives them.
+## The settings page
 
-### Settings
+| Line | What it says or does |
+|---|---|
+| Account | linked, not linked, or waiting for you to confirm in the browser; **Link**, **Unlink** or **Cancel** |
+| Sending | the modes the site scores, or *paused* |
+| Your battles on the site | **Open** shows your page on the site, where a link is revoked |
+| Last sent | when the last batch left this session, and what the site made of it |
+| Waiting to be sent | battles of the account logged in still in the queue |
 
-`mods/configs/unicum/settings.json`, written with the defaults on first start
-(`src/unicum/settings.py`):
+The page's own box (enabled) pauses sending: battles played meanwhile are not
+kept. **Unlink** makes this game forget its key; revoke it on the site too.
 
-| Key | Default | |
-|---|---|---|
-| `enabled` | `true` | the whole mod |
-| `metric` | `"wnx"` | the one rating shown everywhere: `"wn7"`, `"wn8"` or `"wnx"` |
-| `window` | `"recent"` | its period: `"recent"` (last 30 days, lifetime while not computed) or `"total"` |
-| `maxFlags` | `3` | flags per player or clan, 1 to 3 |
-| `tankButton` | `true` | the unicum.gg button in the hangar's vehicle menu |
-| `contacts`, `profile`, `stronghold` | `{"flags": true, "rating": ...}` | whether each surface shows flags and the rating; the rating is off for contacts and profile |
-| `skirmishRoom`, `battle` | `{"flags": true, "rating": true, "average": true}` | the same, plus the detachment's or team's average |
-| `modes` | every mode `{"allies": true, "enemies": true}` | in battle, per kind of battle (`random`, `ranked`, `onslaught`, `stronghold`, `frontline`, `training`, `other`), whether the allies' and the enemies' ratings and flags show, on every battle surface |
-| `autoReload` | `true` | sends the "Reloading!" chat command by itself, as F8 does: after each shot of a single-shot gun, once a magazine is empty; not for reloads under the chat's 5-second limit |
-| `twitch.channel` | `""` | the Twitch channel whose chat shows in the battle chat, as a name, `#name` or link; left empty, the channel linked to the account on unicum.gg |
-| `twitch.battleChat` | `true` | shows that chat's messages in the battle chat, on this screen only, behind the Twitch logo and each viewer's badges (downloaded from the channel's set as they appear) |
+## What is sent, and what is not
 
-Writing in the Twitch chat from a battle needs the game linked to a
-unicum.gg account: Connect, beside the Twitch channel in the settings window,
-opens the player's browser on a sign-in that uses the game's own Wargaming
-web token (nothing to type) and links Twitch with the chat permission. The
-battle chat then has a TO TWITCH receiver, reached with Tab like TO TEAM, and
-`!t message` does the same from any receiver. In the garage, a panel under the
-mission widgets shows the chat and has a field to write in it; it can be
-dragged anywhere and put back with its reset button (`twitch.garage`,
-`twitch.garageCollapsed`, `twitch.garagePosition`). The link's secret is kept in
-`mods/configs/unicum/account.json`.
+- Only the modes the site says it scores, read from the site when you link and
+  checked again now and then.
+- Per battle: its arena id, mode, end time, outcome, whether you survived, and
+  your own counters (damage, kills, spotting, XP...). Nothing about the other
+  players.
+- The battles of the account logged in only, proven by a key the mod draws
+  itself. Only its SHA-256 ever reaches the site, so a site that is breached
+  leaks nothing that can send battles in your name.
 
-One rating for the whole mod, so a number means the same thing on every
-screen. A settings.json written by an earlier version is converted on first
-read.
+The contract is described in Battle-Conquest's
+[`docs/mod-battles-api.md`](https://github.com/Battle-Conquest/Battle-Conquest/blob/main/docs/mod-battles-api.md),
+and any client may implement it.
 
-The file is checked every second and changes apply to what is on screen. With
-izeberg's modsSettingsApi installed, the same settings also appear in its
-window, and in anything that reads that API (`src/unicum/settings_window.py`);
-nothing else is required. With poliroid's modsListApi installed, the mod also
-has an entry with its icon in the "Open settings" menu, which opens that
-window (`src/unicum/mods_list.py`). The icons, for that menu and the hangar
-button, are `assets/icon.svg` rendered by `cd tools/badges && npm run icon`.
+## Files
 
-Everything comes from `GET /api/{region}/resolve` on unicum.gg: languages
-and flags, lifetime and 30-day ratings, win rates and a player's clan, for
-players and clans by id and for clans by tag, in batches of at most 100 per
-kind (`src/unicum/api/resolve.py`). The API answers with flag codes already
-resolved, so the mod never needs to know that `en` is the UK flag on EU and
-the US one elsewhere. Clan languages are declared by the clan owner; player
-languages are inferred by unicum.gg. Rating colours come from
-`GET /api/ratings/scales`, fetched at most daily (`src/unicum/api/scales.py`).
+Everything the mod writes is in `mods/configs/battle_conquest/`:
 
-Images get countries, text gets languages: a country code only exists to
-name a flag file, and something like `GB-UKM` means nothing written out.
+| File | |
+|---|---|
+| `link.json` | the key, the modes the site scores, and whether sending is paused |
+| `battle-reports.json` | battles waiting to be sent |
+| `battle-reports-refused.json` | the last batch the site could not read, kept for whoever has to find out why |
 
-### Flags
+## With unicum.gg-mod installed
 
-Flags are PNGs in the client's resource tree, under
-`res_mods/<version>/gui/maps/icons/unicum/flags/`, referenced as
-`img://gui/maps/icons/unicum/flags/<CODE>.png`.
-
-They have to be there when the client starts. ResMgr indexes the tree once
-at boot, and a file that appears later is never resolved. Two other routes
-were tried and do not work in these Scaleform text fields:
-
-- **A URL.** It is looked up as a SWF export name and never fetched.
-- **A memory texture** (`wg_addScaleformTexture`). It draws, but only one
-  image at a time: with all 252 flags registered, a contacts list drew one.
-
-`tools/flags` rasterises the Flagpack SVGs to PNG, and `tools/install_dev.py`
-copies them in. A flag missing at startup is downloaded from
-`https://unicum.gg/flags/s/<CODE>.png` and shows up next session, once the
-site serves PNGs there.
-
-### Profile title
-
-A window title is plain text unless its AS3 `Window` has `titleUseHtml` on,
-and the profile window never turns it on. Python cannot reach the `Window`
-through the GFx proxy, so `as3/src/unicum/TitleHtml.as` does it, as part of
-the lobby view that `src/unicum/views.py` loads into the lobby's service
-layer: it flips the switch on every profile window. What
-the title says is still decided in Python and still hot reloads.
-
-Without the SWF in the resource tree, titles fall back to the language code.
-
-## Release
-
-```
-cd tools/flags && npm install && npm run build && cd ../..
-cd tools/badges && npm install && npm run icon && cd ../..
-python tools/build_as3.py --game "C:/Games/World_of_Tanks_EU"
-python tools/build_release.py --version 1.0.0
-python2.7 tools/release_check.py dist/gg.unicum_1.0.0.wotmod
-```
-
-`release_check.py` loads that package the way the client does, from its compiled
-modules and with ResMgr answering from its own tree, outside the game. The
-build writes `dist/gg.unicum_<version>.wotmod`, the one file a player drops
-into `mods/<game version>/`: the package compiled for the client's Python,
-its resources (read through ResMgr inside the package, `src/unicum/resources.py`),
-the SWFs, flags, icons and `res/`. It needs openwg_gameface for the hangar
-features; modsSettingsApi and modsListApi are optional. Never install it
-beside the dev bootstrap: both would load.
+Both mods load side by side: they share no file, package or setting. If
+unicum.gg-mod also sends battles to Battle-Conquest one day, each battle
+arrives twice and the second copy is answered `duplicate` (the site keys a
+battle by player and arena). Nothing is counted twice.
 
 ## Development
 
-The client loads one file from this repo: a bootstrap, packaged as a
-`.wotmod`, that watches `src/` and reimports it whenever a file changes.
-**Editing the mod does not need a client restart.**
+Python 2.7 in `src/`, as the client runs it. Read [`AGENTS.md`](./AGENTS.md)
+before changing anything, above all how hot reload stays safe.
 
-```
-cd tools/flags && npm install && npm run build && cd ../..
-python tools/build_as3.py --game "C:/Games/World_of_Tanks_EU"
-python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"
-```
-
-That installs the bootstrap into `mods/<version>/`, and the flags, icons,
-SWFs and `res/` (the hangar button's Gameface files and `res_map` entry) into
-`res_mods/<version>/`. The rating badges are not installed: the client draws
-each one the first time it shows a value (`src/unicum/badge_png.py`, from the
-digit masks `cd tools/badges && npm run glyphs` renders), into a folder
-`install_dev.py` creates. openwg_gameface restarts the client by itself the
-first time it finds a new `res_map` entry. Start the client once; after that,
-saving a file under `src/` reloads the mod in place within half a second.
-
-`build_as3.py` downloads Apache Royale (about 200 MB) and `playerglobal.swc`
-into `build/as3` on first run, and compiles against the client's own `.swc`
-files, taken from its `gui-part*.pkg` packages.
-
-Logs go to `game.log` in the game directory, under loggers named `unicum.*`.
-
-A SWF rebuilt with `build_as3.py --install` is reloaded in place too: its
-view is destroyed and loaded again within a second.
-
-Still needs a restart: the bootstrap itself, any new flag PNG, a
-SWF that did not exist when the client started, and the patched
-`battleVehicleMarkersApp.swf` (the drawing by the names above vehicles,
-`unicum.markers.swf`, reloads in place).
-
-The badges above vehicles come from a copy of the client's own
-`battleVehicleMarkersApp.swf` that `build_as3.py` makes from the installed
-client's packages and puts in `res_mods`: the client's code is kept as it
-is, with ours added next to it. Rebuild and reinstall it after a client
-update. Another mod that replaces the same file takes the place of ours, and
-the client's plain markers are drawn.
-
-### Why the reload works
-
-`src/unicum/runtime/session.py` is the whole trick. Nothing takes ownership
-of anything directly: every hook, callback, subscription and request goes
-through a `Session`, and `stop()` hands all of it back before the package is
-dropped from `sys.modules` and reimported. A hook that survived a reload
-would stack under the next one and run code whose module is gone, so the
-registry is not bookkeeping, it is the correctness argument.
-
-The bootstrap loads sources through its own finder on `sys.meta_path`.
-BigWorld resolves `sys.path` entries through ResMgr, so a plain directory
-there is never found.
-
-### Tests
-
-```
-python2.7 tools/selftest.py
+```bash
+python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"   # once per client
+python2.7 tools/selftest.py                                       # before every commit
+python tools/build_release.py --version x.y.z                     # dist/
+python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
+python tools/release.py                                           # tag, build, draft release
 ```
 
-Runs outside the game against fake client modules (`tools/checks/`): the
-edit/reload cycle, recovery from a broken save, patch restoration, every
-surface, the page script protocol, and the unicum.gg client against the live
-API, production unless `UNICUM_API_BASE` points elsewhere.
+`install_dev.py` installs a small bootstrap that loads `src/` and reloads it
+whenever a file changes, so the client keeps running across edits. Logs go to
+`game.log` in the game directory, under loggers named `battle_conquest.*`.
 
-### Layout
-
-```
-as3/      the AS3 views: lobby, battle, and what the vehicle markers add
-dev/      bootstrap template, packaged into the game once
-src/      everything reloadable; the only thing you edit
-tools/    installer, flag rasteriser, AS3 build, selftest
-```
-
-Working on the mod: read [`AGENTS.md`](./AGENTS.md) for the rules that keep
-hot reload safe, and [`CONTRIBUTING.md`](./CONTRIBUTING.md) for commits.
-
-## Requirements
-
-- World of Tanks 2.4.0.0 (EU)
-- Python 2.7, as the client is, and Python 3 for the tooling
-- Node.js, to rasterise the flags
-- Java 11 or later, to compile the AS3 view
+To point a dev build at another server, put `SITE = 'https://...'` in a
+gitignored `src/battle_conquest/local_settings.py`. A link made for one site is
+never presented to another.
 
 ## License
 
-AGPL-3.0, same as unicum.gg.
+[AGPL-3.0](./LICENSE), as the code it derives from.
