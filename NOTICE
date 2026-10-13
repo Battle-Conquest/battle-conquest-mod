@@ -1,0 +1,20 @@
+battle-conquest-mod
+Copyright (C) Battle-Conquest
+
+This mod is derived from unicum.gg-mod, by unicum-gg and its contributors:
+https://github.com/unicum-gg/unicum.gg-mod
+
+It keeps that project's battle capture (reading a battle's results in the
+client, asking the server for the battles whose results screen was never
+opened, queueing and sending them), its hot reload harness and its test suite,
+and removes everything else. The history of every file it kept is in this
+repository's git log.
+
+Both are licensed under the GNU Affero General Public License, version 3: see
+LICENSE.
+
+When they are installed, the mod's settings page uses two mods by other
+authors, which it neither contains nor ships:
+
+  modsSettingsApi, by izeberg      https://github.com/izeberg/modssettingsapi
+  modsListApi, by poliroid         https://gitlab.com/wot-public-mods/mods-list

@@ -6,11 +6,13 @@
     python tools/release.py --minor         force the level the commits did not ask for
 
 The version and the changelog both come from the commits since the last tag,
-which is the whole point: the subjects are already typed (`<gitmoji> <type>
-<description>`), so a release needs no second place to write down what changed
-and no file to remember to add. What the commits cannot decide is left to a
-person: the level can be forced, and the changelog is opened in an editor
-before anything is built.
+which is the whole point: the subjects are already typed, in Battle-Conquest's
+convention (`<type>(#<issue>): <description>`, see CONTRIBUTING.md), so a
+release needs no second place to write down what changed and no file to
+remember to add. What the commits cannot decide is left to a person: the level
+can be forced, and the changelog is opened in an editor before anything is
+built -- the subjects were written for whoever reads the log, the changelog is
+read by whoever plays.
 
 Runs on Python 3. The checks it calls run on the client's Python 2.7, which it
 finds the way `build_release.py` does.
@@ -21,37 +23,32 @@ import re
 import subprocess
 import sys
 import tempfile
-import webbrowser
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(REPO, 'dist')
 CHANGELOG = os.path.join(REPO, 'CHANGELOG.md')
 
-# The mod's page, and the section a new build is uploaded from. Neither can be
-# automated: wgmods publishes no API for it (`robots.txt` disallows `/api/` and
-# `/modder-section/`), so the last step is a person dropping a file in a form.
-WGMODS_MOD = 'https://wgmods.net/7928'
-WGMODS_UPLOAD = 'https://wgmods.net/modder-section/'
+WOTMOD = os.path.join('dist', 'eu.battle-conquest_%s.wotmod')
+ARCHIVE = os.path.join('dist', 'battle-conquest-mod_%s.zip')
 
-# `<gitmoji> <type> <description>`: the type is what decides both halves of a
-# release, so it is read rather than guessed from the emoji, which repeats
-# across types (💄 is worn by `fix` and by `improve` alike).
-SUBJECT = re.compile(r'^\S+\s+(add|fix|improve|update|remove|refactor|rename|move|upgrade|downgrade|release)\s+(.+)$')
+# `<type>(#<issue>): <description>`, the scope optional and possibly repeated
+# (`chore(deps)(deps-dev): ...`), and the ` (#<pr>)` a squash merge appends
+# dropped. The type is what decides both halves of a release.
+SUBJECT = re.compile(r'^(feat|fix|perf|refactor|docs|test|chore)(?:\([^)]*\))*!?:\s+(.+?)(?:\s+\(#\d+\))?$')
 
 # A new capability is a minor; everything else is a patch. A major is never
 # inferred: it says the mod stopped doing something it did, which is a decision
 # rather than a count, so it takes `--major`.
-MINOR = {'add'}
+MINOR = {'feat'}
 
 # What a player is told about, and under which heading. A type absent here
 # still counts towards the version -- it was work, and the build changed -- but
-# says nothing to somebody reading the changelog: `refactor`, `move` and
-# `rename` move code around without moving anything they can see.
+# says nothing to somebody reading the changelog: `refactor`, `docs`, `test`
+# and `chore` change nothing they can see.
 SECTIONS = (
-    ('Added', ('add',)),
-    ('Improved', ('improve', 'update', 'upgrade')),
+    ('Added', ('feat',)),
+    ('Improved', ('perf',)),
     ('Fixed', ('fix',)),
-    ('Removed', ('remove', 'downgrade')),
 )
 TOLD = {kind for _, kinds in SECTIONS for kind in kinds}
 
@@ -104,8 +101,8 @@ def next_version(tag, commits, forced):
 def changelog(version, commits):
     """The release notes, grouped, in the mod's own language.
 
-    English, like every string the mod shows and like the wgmods page this is
-    pasted into: the audience is whoever plays the game, not whoever wrote it.
+    English, like every string the mod shows: the audience is whoever plays
+    the game, not whoever wrote it.
     """
     lines = ['## %s' % version, '']
     for heading, kinds in SECTIONS:
@@ -159,17 +156,6 @@ def prepend(notes):
             out.write('\n%s\n' % body)
 
 
-def to_clipboard(text):
-    """The notes in the clipboard, for the form that cannot be posted to."""
-    try:
-        if os.name == 'nt':
-            subprocess.run(['clip'], input=text, text=True, encoding='utf-8', check=True)
-            return True
-    except Exception:
-        pass
-    return False
-
-
 def client_python(given):
     """The client's Python 2.7, found where `build_release.py` looks for it.
 
@@ -185,45 +171,39 @@ def client_python(given):
     raise SystemExit('Python 2.7 not found; pass --python27')
 
 
-def build(version, py27, game):
+def build(version, py27):
     """The package, then the two checks that read it the way the client does."""
     py27 = client_python(py27)
-    run([sys.executable, os.path.join('tools', 'build_as3.py'), '--game', game])
     run([sys.executable, os.path.join('tools', 'build_release.py'),
          '--version', version, '--python27', py27])
     run([py27, os.path.join('tools', 'selftest.py')])
-    run([py27, os.path.join('tools', 'release_check.py'),
-         os.path.join('dist', 'gg.unicum_%s.wotmod' % version)])
+    run([py27, os.path.join('tools', 'release_check.py'), WOTMOD % version])
 
 
 def publish(version, notes):
-    """The tag, and the GitHub release carrying what a player downloads."""
+    """The tag, and the GitHub release carrying what a player downloads.
+
+    A draft: a build is only published once it has captured a battle in a real
+    client, which no check here can stand in for.
+    """
     run(['git', 'add', '--', 'CHANGELOG.md'])
-    run(['git', 'commit', '-m', '🔖 release %s' % version])
+    run(['git', 'commit', '-m', 'chore(release): %s' % version])
     run(['git', 'tag', '-a', 'v%s' % version, '-m', version])
     run(['git', 'push', 'origin', 'HEAD', '--follow-tags'])
     handle, path = tempfile.mkstemp(suffix='.md', text=True)
     os.close(handle)
     with open(path, 'w', encoding='utf-8') as out:
         out.write(notes)
-    run(['gh', 'release', 'create', 'v%s' % version,
-         os.path.join('dist', 'gg.unicum_%s.wotmod' % version),
-         os.path.join('dist', 'unicum.gg_%s.zip' % version),
-         '--title', version, '--notes-file', path])
+    run(['gh', 'release', 'create', 'v%s' % version, WOTMOD % version, ARCHIVE % version,
+         '--title', version, '--notes-file', path, '--draft'])
     os.unlink(path)
 
 
-def hand_over(version, notes):
-    """Everything the upload form needs, put in front of whoever fills it in."""
-    copied = to_clipboard(notes)
-    if os.name == 'nt':
-        subprocess.run(['explorer', DIST])
-    webbrowser.open(WGMODS_UPLOAD)
-    print('\n  wgmods is the one step that stays manual: it publishes no upload API.')
-    print('  dist/gg.unicum_%s.wotmod and dist/unicum.gg_%s.zip are built.' % (version, version))
-    print('  The notes are %s.' % ('in your clipboard' if copied else 'in CHANGELOG.md'))
-    print('  The GitHub release is live now; wgmods follows once it has reviewed it')
-    print('  (0.1.1 took six days), which is why nothing announces a version on its own.\n')
+def hand_over(version):
+    """What is left to a person."""
+    print('\n  %s and %s are built, and attached to a draft release.' % (WOTMOD % version, ARCHIVE % version))
+    print('  Install the archive in a client, play a battle, check it arrives on the')
+    print('  site, then publish the draft: gh release edit v%s --draft=false\n' % version)
 
 
 def main():
@@ -233,8 +213,6 @@ def main():
     parser.add_argument('--minor', dest='level', action='store_const', const='minor')
     parser.add_argument('--patch', dest='level', action='store_const', const='patch')
     parser.add_argument('--python27', help="path to the client's Python 2.7")
-    parser.add_argument('--game', default=r'C:/Games/World_of_Tanks_EU',
-                        help='the client the AS3 build compiles against')
     args = parser.parse_args()
 
     tag = last_tag()
@@ -260,9 +238,9 @@ def main():
     if not notes:
         raise SystemExit('cancelled')
     prepend(notes)
-    build(version, args.python27, args.game)
+    build(version, args.python27)
     publish(version, notes)
-    hand_over(version, notes)
+    hand_over(version)
 
 
 if __name__ == '__main__':

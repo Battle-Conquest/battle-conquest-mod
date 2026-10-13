@@ -1,34 +1,35 @@
 # What this is
 
-A World of Tanks client mod for [unicum.gg](https://unicum.gg): language flags and ratings next to player and clan names, on the client's own screens. Client 2.4.0.0 EU, Python 2.7 inside the game. Everything the mod shows comes from the unicum.gg API; the mod holds no game data of its own.
+A World of Tanks client mod for [Battle-Conquest](https://battle-conquest.eu): it captures the results of the battles the player plays and sends them to the site, which scores tournaments and quests from them. Client 2.4.0.x EU, Python 2.7 inside the game. The site is the only destination; the contract is Battle-Conquest's `docs/mod-battles-api.md`.
 
-Read `README.md` for the feature table and setup, `CONTRIBUTING.md` for commits.
+Derived from unicum.gg-mod (AGPL-3.0, see `NOTICE`), reduced to its battle capture. Read `README.md` for what a player sees, `CONTRIBUTING.md` for commits.
 
 # Layout
 
-- **`dev/mod_unicum_dev.py.in`**, the bootstrap. The only file the client loads, packaged once as a `.wotmod`. It watches `src/` and reloads the package in place. Changing it needs a client restart; nothing else in the repo does, except the resource files below.
-- **`src/unicum/`**, everything reloadable.
-  - `__init__.py`: `start()` / `stop()`. Builds the shared services and installs each surface.
-  - `settings.py`: `settings.json`, the one source of truth for what is shown; every surface takes it and redraws on `on_change`. `settings_window.py` mirrors it into modsSettingsApi when that mod is installed, never as a dependency; `mods_list.py` adds the mod to modsListApi's menu the same way, and `tank_button.py` adds a button and menu to the hangar's vehicle menu through openwg_gameface (its Gameface files and `res_map` entry are in `res/`); `build.py` writes the vehicle's setup as the site's `setup` token, whose format lives in unicum-gg/unicum.gg `config-url.ts`.
+- **`dev/mod_battle_conquest_dev.py.in`**, the dev bootstrap. The only file a dev client loads, packaged once as a `.wotmod`. It watches `src/` and reloads the package in place. Changing it needs a client restart; nothing else in the repo does. `dev/mod_battle_conquest.py.in` is the released entry point.
+- **`src/battle_conquest/`**, everything reloadable.
+  - `__init__.py`: `start()` / `stop()`. Builds the shared services and installs each piece, in dependency order.
   - `runtime/session.py`: the ownership registry, see [Hot reload](#hot-reload).
-  - `api/`: the unicum.gg client. `resolve.py` (batched lookup), `entry.py` (one player or clan), `store.py` (disk cache), `scales.py` (rating colours), `http.py` (what counts as an answer).
-  - Surfaces: `lobby.py` (contacts, profile title, skirmish room), `battle.py` (players panel, Tab, loading screen), `name_markers.py` (the vehicle markers above tanks), `modes.py` (which kind of battle, and whose ratings it shows), `auto_reload.py` (announces the player's reload in chat), `twitch.py` (the player's Twitch chat, read anonymously over IRC and shown in the battle chat), `twitch_badges.py` (the viewers' chat badges, downloaded into one flat resource folder so they draw without a restart), `game_link.py` (links the game to the player's unicum.gg account through their own browser, with the game's Wargaming web token), `twitch_send.py` (the battle chat's TO TWITCH receiver and `!t`, posting to the player's Twitch chat through unicum.gg), `twitch_panel.py` + `web/hangar/twitch_panel.js` (the garage's Twitch chat panel, run by the tank button's Gameface loader), `browser.py` + `web/stronghold/*.js` (the Stronghold detachment list, a web page), `room_sort.py` (saves the skirmish room's members order), `views.py` (loads the AS3 views and reloads them when their SWF changes).
-  - `textures.py`: flag PNGs, as `img://` paths for Scaleform and data URIs for web pages.
-  - `local_settings.py`: gitignored, points `API_BASE` at a local server.
-- **`as3/`**, one AS3 view per app: `LobbyView.as` (made of `TitleHtml.as`, and `RoomTools.as` + `MembersSection.as` for the skirmish room's members sort and average) built into `unicum.lobby.swf`, `TeamNamesHtml.as` (with `VehicleMarkers.as`, the icon columns) into `unicum.battle.swf`. `markers/` is added to the client's `battleVehicleMarkersApp.swf` (`UnicumMarkersApp.as`, `MarkersBoot.as`) and built into `unicum.markers.classes.swf` (the marker subclasses), `NameMarkerView.as` into `unicum.markers.swf`; `stubs/` stands in for client classes at compile time only. One per app because a second view in an app's service layer destroys the first.
-- **`tools/`**: `install_dev.py`, `build_as3.py`, `flags/` (Flagpack SVG to PNG), `selftest.py` + `checks/`.
+  - The capture: `battle_reports.py` (where a battle is captured from, and whether anything wants it), `battle_report.py` (one report read out of the results dict), `results_dict.py` (finding that dict in whatever the client hands over), `results_request.py` (asking the server for the battles whose results screen was never opened), `service_hooks.py` (what the client offers to sit on, logged by name), `modes.py` (`MODES`, and which mode an arena bonus type is).
+  - The sending: `report_queue.py` (the queue on disk, one report per arena), `report_sender.py` (batches to the site, what a refusal costs, the status the page shows).
+  - The link: `destinations.py` (the one destination, its secret, modes and pause, in `link.json`), `site_link.py` (linking in one click through the player's browser, unlinking, and checking the link with `/api/mod/me`), `account.py` (the Wargaming account logged in).
+  - The page: `settings_window.py` (the modsSettingsApi page), `mods_list.py` (the modsListApi entry that opens it). Both APIs are optional and never shipped.
+  - `notices.py`: the garage's notification while the game is not linked, whose link starts the linking (a patched notification actions handler), and the word on how linking ended. It is how a client without modsSettingsApi links at all.
+  - `config.py`: the site's address, the region, the config folder. `local_settings.py`, gitignored, points `SITE` at a local server.
+- **`res/`**: shipped as it is inside the `.wotmod` (the menu icon).
+- **`tools/`**: `install_dev.py`, `build_release.py`, `release_check.py`, `release.py`, `selftest.py` + `checks/`.
 
 # Commands
 
 | Command | What it does |
 |---|---|
-| `python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"` | Installs the bootstrap, flag PNGs and SWFs into a client, and creates the folder the client draws rating badges into. Python 3. |
-| `python tools/build_release.py --version x.y.z` | Builds the released `dist/gg.unicum_<version>.wotmod` (entry `dev/mod_unicum.py.in`, the package compiled with Python 2.7, SWFs, flags, icons, `res/`). Package resources must be read through `resources.py`, never `open()` beside `__file__`: inside a `.wotmod` they are only in the client's virtual tree. |
-| `cd tools/flags && npm install && npm run build` | Rasterises the flags into `build/flags`. |
-| `python tools/build_as3.py --game "C:/Games/World_of_Tanks_EU"` | Fetches Apache Royale and the client's `.swc` files into `build/as3`, compiles the SWFs and the patched `battleVehicleMarkersApp.swf` (from the client's own packages); `--install` copies them into the client, where a running client reloads them, except the patched app, which needs a restart. Needs Java 11+. |
-| `python2.7 tools/selftest.py` | The test suite, Python 2.7, against fake client modules and a real API. Set `UNICUM_API_BASE` to test against another server than production. |
+| `python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"` | Installs the bootstrap and `res/` into a client. Python 3. |
+| `python2.7 tools/selftest.py` | The test suite, Python 2.7, against fake client modules. Offline. |
+| `python tools/build_release.py --version x.y.z` | Builds `dist/eu.battle-conquest_<version>.wotmod` (the package compiled with Python 2.7, `res/`) and `dist/battle-conquest-mod_<version>.zip` (it, laid out as the game folder). |
+| `python2.7 tools/release_check.py dist/eu.battle-conquest_<version>.wotmod` | Loads the built package the way the client does, and checks nothing in it is named after unicum.gg-mod. |
+| `python tools/release.py` | Version and changelog from the commits since the last tag, build, checks, tag, and a **draft** GitHub release, published by hand after an in-game test. |
 
-Logs go to `game.log` in the game directory (not `python.log`), under loggers named `unicum.*`. Read it after every change: a reload that failed says so there and nowhere else.
+Logs go to `game.log` in the game directory (not `python.log`), under loggers named `battle_conquest.*`. Read it after every change: a reload that failed says so there and nowhere else.
 
 # Hot reload
 
@@ -36,45 +37,28 @@ The whole design rests on one property: after `stop()`, every game function is b
 
 - **Patch with `session.patch(holder, name, build)`.** It restores what the owner's `__dict__` held, which is what makes classmethods and inherited methods come back right. A hook that survives a reload stacks under the next one and runs code whose module globals are gone; the log then says `LEAK`, and only a client restart clears it.
 - **Never `BigWorld.callback` or `BigWorld.fetchURL` directly.** Use `session.callback` / `session.fetch`, which are gated on `session.alive`.
-- **Share, don't duplicate, services.** One `Lookup`, one `FlagCache`, one `RatingScales` per start, passed to every surface. Two lookups once overwrote each other's disk store.
+- **Share, don't duplicate, services.** One `Queue` for the capture and the sender: two objects over one file each hold their own copy of it, and whichever saved last drops what the other learned.
 - **`start()` rolls back on failure**, so a half-installed load never orphans its patches.
 - Saving a file mid-edit triggers a reload of a broken state. That is expected and recovers on the next save; do not "fix" the watcher.
 
 # Rules learned the hard way
 
-**Mark names at the presentation layer, never in a shared accessor.** A value used by several screens reaches plain-text fields too, and `<IMG>` markup then shows as characters. Each hook sits where the field is known to be rendered as `htmlText`:
+**Where the capture sits has been a guess, and wrong, twice.** `onResultPosted` existed, reported itself attached, and never fired; `postResult` fires only as the results screen is built. A battle whose screen is never opened is captured only because `results_request.py` asks the server for it. Keep every way in, and keep `service_hooks.describe` logging what the client offers.
 
-- contacts: `ContactConverter.makeBaseUserProps`
-- skirmish room: `StrongholdBattleRoom.as_setMembersS` **and** `as_updateRallyS` (going into battle redraws through the second one)
-- battle: `VehicleInfoComponent.addVehicleInfo`, not `player_format.getRegionCode`, which also feeds the damage panel
-- vehicle markers: `MarkersManager.createMarker`, swapping the client's marker symbol for our subclass of it
-- profile title: `ProfileWindow.as_setInitDataS`, and only when `views.html_titles()` says the SWF made the title HTML
+**A client's events accept `+=` and may refuse `-=`.** Detaching is best effort and logged, never assumed.
 
-**Leave a field untouched when there is nothing to add.** Some VOs type `region` as Object, and `''` is a cast error where `None` is not. Onslaught logs `incorrect cast value` for a string there but assigns it anyway, so flags still draw.
+**Final means final.** The site answers each report accepted, duplicate or rejected; all three settle it. Only an answer that asking again could change (no answer, 401, 408, 429, 5xx) is retried, after a back-off. A rejected battle offered again every five minutes would spend the player's quota forever.
 
-**The vehicle markers movie is its own world.** `battleVehicleMarkersApp.swf` is a separate movie, not the battle app, and the engine's canvas makes markers only from classes defined in it, calling into them natively: a marker that is not a real subclass of the client's marker symbol classes brings the client down. Those classes come from libraries the app loads after it starts, so a class extending them only verifies once they are in: ours load from `UnicumMarkersApp.onLibsLoadingComplete`, before the app registers with Python. `WG.doLog` rejects calls from mod code; report through an `ExternalInterface` callback Python logs. Images there load with a `Loader` and a path relative to `gui/flash` (`../maps/...`).
+**One account at a time.** A report is stamped with the account at capture and sent only while that account is logged in. A battle credited to whoever is logged in the next evening is credited to the wrong player.
 
-**Scaleform images must exist when the client starts.** `img://` resolves through ResMgr, indexed at boot. A URL is treated as a SWF export name and never fetched; a memory texture (`wg_addScaleformTexture`) draws only one image at a time.
-
-**The GFx proxy is fragile.** It reads AS3 getters and `parent`, but interface-typed getters (`window`, `wrapper`) come back `None`. Walking the display tree down from the app root crashed the client with an access violation. Anything Python cannot reach goes through a small AS3 view instead (`as3/`).
-
-**The Stronghold list is a React web page in CEF.** `WebBrowser.executeJavascript` is dead code; `loadURL('javascript:...')` works and the page answers through `console.log`, read from `onConsoleMessage`. Anything sent that way must not contain `%` or `#`, which is why scripts and payloads travel base64-encoded, and the JS must stay ASCII (`atob`). React reuses rows by changing their text and re-renders anything added, so the content script rescans on every mutation, prunes what no longer matches, writes only what differs, and never moves React's nodes (sorting uses CSS `order`). Its columns are addressed by position among the site's own cells, never by English titles.
-
-**Network failure is not an answer.** A timeout, 403 or 5xx must not be cached as "unknown": that once blanked every flag. Only a 200 (or a 404 on a per-entity route) is an answer; failures back off and retry.
-
-**Stale beats blank.** Cached answers are drawn however old while the refresh runs in the background.
-
-# API
-
-`GET /api/{region}/resolve?players=&clans=&tags=` (≤ 100 per kind) returns languages, flag codes, lifetime and 30-day ratings and win rates per player and clan; see the OpenAPI document at `/api/openapi.json` on the server. Absent means the server holds nothing; a 30-day win rate of `null` with recent battles means "not computed yet", so `Entry.rating()` falls back to lifetime. `GET /api/ratings/scales` gives the site's colour bands; each scale declares its unit, and callers say which unit their value is in. Flag codes are Flagpack codes (`GB-UKM`), not ISO.
-
-The API lives in [unicum-gg/unicum.gg](https://github.com/unicum-gg/unicum.gg). If the mod needs data no endpoint serves, the endpoint is added there first; the mod never scrapes the site.
+**A secret never travels, and never goes to another site.** It is drawn in the client; only its SHA-256 reaches the site, at linking. A `link.json` made for one site is ignored by a build pointed at another.
 
 # Conventions
 
 - Keep files under ~400 lines. When one grows past that, split it into modules instead of letting it sprawl.
-- No section divider comments (e.g. `# --- X ---`, `// ------`). Split the file instead.
-- English only in code, comments and anything shown in the client.
+- No section divider comments (e.g. `# --- X ---`). Split the file instead.
+- English only: code, comments, commits, PRs, release notes, and anything shown in the client.
+- Branches, commits and PRs follow Battle-Conquest's conventions (`<type>(#<issue>): <description>`, the issue living in Battle-Conquest/Battle-Conquest): see `CONTRIBUTING.md`. Never work on `main`.
 - Python 2.7 in `src/` and `tools/checks/`, Python 3 in the other tools.
 - Comments explain why, and keep the history of a decision when the obvious alternative was tried and failed.
-- A change to a surface comes with a check in `tools/checks/`, and the suite passes before a commit.
+- A change comes with a check in `tools/checks/`, and the suite passes before a commit.

@@ -39,7 +39,7 @@ class _Capture(logging.Handler):
 def _listening(call):
     """Run `call`, and return (its result, what the module logged)."""
     captured = _Capture()
-    logger = logging.getLogger('unicum.results_dict')
+    logger = logging.getLogger('battle_conquest.results_dict')
     logger.addHandler(captured)
     try:
         return call(), captured
@@ -48,7 +48,7 @@ def _listening(call):
 
 
 def check_results_dict_paths():
-    from unicum.results_dict import raw_results
+    from battle_conquest.results_dict import raw_results
 
     payload = _results()
 
@@ -65,7 +65,7 @@ def check_results_dict_paths():
 
 
 def check_results_dict_search():
-    from unicum.results_dict import raw_results
+    from battle_conquest.results_dict import raw_results
 
     payload = _results()
 
@@ -83,7 +83,7 @@ def check_results_dict_search():
 
 
 def check_results_dict_cycle():
-    from unicum.results_dict import raw_results
+    from battle_conquest.results_dict import raw_results
 
     class _Loop(object):
         pass
@@ -102,7 +102,7 @@ def check_results_dict_cycle():
 
 
 def check_results_dict_said_once():
-    from unicum.results_dict import describe
+    from battle_conquest.results_dict import describe
 
     class _Repeat(object):
         def __init__(self):
@@ -118,7 +118,7 @@ def check_results_dict_said_once():
 
 
 def check_results_dict_miss():
-    from unicum.results_dict import describe, raw_results
+    from battle_conquest.results_dict import describe, raw_results
 
     missed = []
     check('an unknown shape yields nothing', raw_results(object(), on_miss=missed.append) is None)

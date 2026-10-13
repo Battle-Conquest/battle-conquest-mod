@@ -1,7 +1,7 @@
 """The battle a captured report is read from, and the client state around it.
 
 Shared by every check that touches a battle report: what the client posts, the
-arena bonus types it numbers, the one setting the capture reads and the account
+arena bonus types it numbers, the destination the capture asks and the account
 the player is logged in with. They live here rather than in one of the check
 modules because three of them already need the same fixtures, and a fixture
 imported out of a sibling's private names is how they drift apart.
@@ -60,19 +60,31 @@ def results(**overrides):
     return payload
 
 
-class Settings(object):
-    """The one setting the capture and the sender read."""
+class Places(object):
+    """Stands in for destinations.Destinations, as the capture asks it.
 
-    def __init__(self, on):
-        self._on = on
+    On, the site is owed every mode; off, nothing is. The sender reads `all()`
+    instead, which is why that is empty here: a check of the sender hands it
+    real destinations.
+    """
 
-    def sends_battle_reports(self):
-        return self._on
+    def __init__(self, on=True):
+        from battle_conquest.modes import MODES
+
+        self._modes = list(MODES) if on else []
+
+    def wanting(self, mode):
+        return ['the site'] if mode in self._modes else []
+
+    def modes(self):
+        return list(self._modes)
+
+    def all(self):
+        return []
 
 
-class Link(object):
-    """The account the client is logged in with, as game_link follows it."""
+class Player(object):
+    """The account the client is logged in with, as account.py follows it."""
 
-    def __init__(self, account=ACCOUNT, secret=None):
+    def __init__(self, account=ACCOUNT):
         self.account = account
-        self.secret = secret

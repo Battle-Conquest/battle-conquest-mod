@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 
-from checks.battle_fixtures import ACCOUNT, Link, Settings
+from checks.battle_fixtures import ACCOUNT, Player
 from checks.common import check
 
 OTHER_ACCOUNT = '500999999'
@@ -71,12 +71,12 @@ def _places(*destinations):
 
 
 def _destination(url=HERE, modes=('ranked', ), enabled=True, secret=SECRET, label=None):
-    from unicum.destinations import Destination
+    from battle_conquest.destinations import Destination
     return Destination(url=url, label=label or url, enabled=enabled, modes=modes, secret=secret)
 
 
 def _queue(store=None, count=1, mode='ranked', account=ACCOUNT, first=1):
-    from unicum.report_queue import Queue
+    from battle_conquest.report_queue import Queue
     queue = Queue(store=store or os.path.join(tempfile.mkdtemp(), 'q.json'))
     for index in range(count):
         queue.add({'arena_unique_id': str(first + index), 'mode': mode,
@@ -85,67 +85,49 @@ def _queue(store=None, count=1, mode='ranked', account=ACCOUNT, first=1):
     return queue
 
 
-def _sender(queue, places=None, on=True, secret=SECRET, account=ACCOUNT, refused=None):
-    from unicum.report_sender import Sender
+def _sender(queue, places=None, secret=SECRET, account=ACCOUNT, refused=None):
+    """A sender over this queue, linked to the site unless `places` says otherwise."""
+    from battle_conquest.report_sender import Sender
+    if places is None:
+        places = _places(_destination(secret=secret))
     session = _Session()
-    sender = Sender(session, Settings(on), Link(account, secret), queue=queue,
+    sender = Sender(session, Player(account), queue=queue,
                     destinations=places, version='1.2.3', garage=lambda: True,
                     refused_store=refused or os.path.join(tempfile.mkdtemp(), 'refused.json'))
     return session, sender
 
 
 def check_report_sender_targets():
-    from unicum import config
-    from unicum.report_sender import UNICUM_PATH
-    from unicum.settings import MODES
+    _, sender = _sender(_queue())
+    targets = sender.targets()
+    check('the linked site is the one destination', [target.url for target in targets] == [HERE])
+    check('it is owed the modes it asked for', targets[0].modes == ('ranked', ))
+    check('it is proven by the secret drawn for it', targets[0].headers == {'X-Mod-Secret': SECRET})
 
-    unicum_url = UNICUM_PATH % config.API_BASE
-
-    _, sender = _sender(_queue(), _places(_destination()))
-    targets = dict((target.url, target) for target in sender.targets())
-    check('unicum.gg is a destination like any other', unicum_url in targets)
-    # It takes every mode the capture can produce, which is what the switch in
-    # the settings window means.
-    check('and it is owed every mode', set(targets[unicum_url].modes) == set(MODES))
-    check('an extra destination is owed the modes it asked for',
-          targets[HERE].modes == ('ranked', ))
-    check('it is proven by the secret drawn for it alone',
-          targets[HERE].headers == {'X-Mod-Secret': SECRET})
-    check('unicum.gg is proven by the link secret',
-          targets[unicum_url].headers == {'Authorization': 'Bearer %s' % SECRET})
-
-    # Still a destination, so its battles keep being captured and kept; simply
-    # nothing can be proven to it yet, so nothing is sent.
+    # An unlinked client sends nothing: a report proven by nobody could name
+    # anybody, and its battles are not kept for it either.
     _, unlinked = _sender(_queue(), secret=None)
-    check('an unlinked client still owes unicum.gg its battles',
-          [target.url for target in unlinked.targets()] == [unicum_url])
-    check('but nothing can be sent to it yet', unlinked.targets()[0].headers is None)
+    check('an unlinked site is owed nothing', unlinked.targets() == [])
+    check('so no mode is owed anywhere', unlinked.owed()['ranked'] == [])
 
-    _, off = _sender(_queue(), _places(_destination()), on=False)
-    check('with the switch off unicum.gg is owed nothing',
-          [target.url for target in off.targets()] == [HERE])
-
-    _, none = _sender(_queue(), _places(_destination(enabled=False),
-                                       _destination(url=THERE, secret=None)), on=False)
-    check('a destination switched off is owed nothing', none.targets() == [])
-    check('and one with no secret is owed nothing either', none.owed()['ranked'] == [])
+    _, paused = _sender(_queue(), _places(_destination(enabled=False)))
+    check('a paused site is owed nothing', paused.targets() == [])
 
     # The rule the capture keeps has to be the rule here, or the mod would keep
     # battles nobody wants, or throw away battles somebody does.
-    _, both = _sender(_queue(), _places(_destination()))
-    check('a ranked battle is owed to both', set(both.owed()['ranked']) == set([unicum_url, HERE]))
-    check('a random battle only to unicum.gg', both.owed()['random'] == [unicum_url])
+    check('a ranked battle is owed to the site', sender.owed()['ranked'] == [HERE])
+    check('a random battle to nobody', sender.owed()['random'] == [])
 
 
 def check_report_sender_payload():
-    from unicum.report_sender import wire
+    from battle_conquest.report_sender import wire
 
     queue = _queue(count=1)
     _, sender = _sender(queue)
     body = json.loads(sender.payload(queue.all()))
 
     check('the batch names its contract version', body['schema'] == 1)
-    check('and which mod sent it', body['client'] == {'mod': 'unicum.gg-mod', 'version': '1.2.3'})
+    check('and which mod sent it', body['client'] == {'mod': 'battle-conquest-mod', 'version': '1.2.3'})
     # An integer, as the contract asks: the account id is small enough for one
     # and a string there would be a second shape to accept.
     check('the account travels as a number', body['account']['id'] == int(ACCOUNT))
@@ -160,8 +142,7 @@ def check_report_sender_payload():
     check('the counters ride along as they were captured', battle['metrics']['xp'] == 1420)
     check('survival is a real boolean', battle['survived'] is True)
 
-    # The queue keeps two things of its own; neither is any destination's
-    # business, and one of them names every other site the player sends to.
+    # The queue keeps two things of its own; neither is the site's business.
     kept = dict(queue.all()[0], sent=[HERE])
     check('which account played it does not travel', 'account' not in wire(kept))
     check('nor does where else it was sent', 'sent' not in wire(kept))
@@ -171,29 +152,26 @@ def check_report_sender_payload():
 
 
 def check_report_sender_delivery():
-    from unicum import config
-    from unicum.report_sender import UNICUM_PATH
-
-    unicum_url = UNICUM_PATH % config.API_BASE
     store = os.path.join(tempfile.mkdtemp(), 'q.json')
     queue = _queue(store=store, count=2)
-    session, sender = _sender(queue, _places(_destination()))
+    # Two destinations, although the mod only ever has one: the sender settles a
+    # battle once every destination owed it has taken it, and that rule is only
+    # visible with two.
+    session, sender = _sender(queue, _places(_destination(), _destination(url=THERE)))
 
     sender.drain()
     check('a drain sends to the first destination', len(session.sent) == 1)
     first = _answer(session, 200, _took(2))
     check('it posts', first['method'] == 'POST')
+    check('to the battles endpoint', first['url'] == HERE)
     check('and carries both battles', len(first['body']['battles']) == 2)
 
-    # Each destination gets its OWN copy: one taking a battle must never be the
-    # reason another is not sent it.
     check('the next destination is sent to once the first has answered', len(session.sent) == 1)
     second = _answer(session, 200, _took(2))
     check('and it is sent the same two battles', len(second['body']['battles']) == 2)
     check('the two destinations are not the same one', first['url'] != second['url'])
-    check('one of them is unicum.gg', unicum_url in (first['url'], second['url']))
 
-    check('a battle both destinations have taken leaves the queue', queue.all() == [])
+    check('a battle every destination has taken leaves the queue', queue.all() == [])
     check('and it is gone from the file too', _queue(store=store, count=0).all() == [])
     check('a second drain has nothing to send', sender.drain() is None and session.sent == [])
 
@@ -212,17 +190,15 @@ def check_report_sender_delivery():
     _answer(session, 200, body='<html>a proxy said hello</html>')
     check('an answer we cannot read still settles the batch', unreadable.all() == [])
 
-    # Seen for real: unicum.gg answers 404 until its battle endpoint ships,
-    # while an extra destination takes everything. The refusal must not be read
-    # as a withdrawal -- unlike a destination the player switched off, this one
-    # still wants the battles, so they stay queued for it.
+    # A refusal must not be read as a withdrawal: unlike a site the player
+    # paused, one that refused still wants the battles, so they stay queued.
     pending = _queue(count=1)
-    session, sender = _sender(pending, _places(_destination()))
+    session, sender = _sender(pending, _places(_destination(), _destination(url=THERE)))
     sender.drain()
     _answer(session, 404)
     _answer(session, 200, _took(1))
     check('a destination that refused is still owed its battles',
-          any(unicum_url in urls for urls in sender.owed().values()))
+          any(HERE in urls for urls in sender.owed().values()))
     check('so a battle one destination took but the other refused stays queued',
           len(pending.all()) == 1)
 
@@ -252,7 +228,7 @@ def check_report_sender_account():
 
 
 def check_report_sender_refusals():
-    from unicum.report_sender import retry_later
+    from battle_conquest.report_sender import retry_later
 
     check('no answer at all is worth asking again', retry_later(None))
     check('so is a server that is down', retry_later(503))
@@ -312,8 +288,7 @@ def check_report_sender_refusals():
     # A missing endpoint never read the batch, so the batch says nothing about
     # which side was wrong. The queue already remembers the battles and the log
     # already names the fault; a copy of the player's battles on disk for an
-    # address that does not answer is the pointless copy destinations.py
-    # refuses to make. Seen for real: unicum.gg 404s until its endpoint ships.
+    # address that does not answer is a copy nobody needs.
     for code in (404, 405, 410):
         missing = os.path.join(tempfile.mkdtemp(), 'none.json')
         session, sender = _sender(_queue(count=1), refused=missing)
@@ -324,7 +299,7 @@ def check_report_sender_refusals():
 
 
 def check_report_sender_batching():
-    from unicum.report_sender import BATCH
+    from battle_conquest.report_sender import BATCH
 
     queue = _queue(count=BATCH + 5)
     session, sender = _sender(queue)
@@ -339,7 +314,7 @@ def check_report_sender_batching():
 
     # A destination that stopped taking them must not hold up the next one.
     queue = _queue(count=BATCH + 5)
-    session, sender = _sender(queue, _places(_destination()))
+    session, sender = _sender(queue, _places(_destination(url=THERE), _destination()))
     sender.drain()
     _answer(session, 500)
     check('a failure stops the rest of that destination\'s backlog', len(session.sent) == 1)
@@ -382,7 +357,7 @@ def check_report_sender_startup():
     used to mean five minutes with the battles sitting there. The event is the
     answer; the timers stay as the net under it.
     """
-    from unicum import report_sender as module
+    from battle_conquest import report_sender as module
 
     event = _Event()
     before = module.service_hooks.account_events
@@ -408,3 +383,36 @@ def check_report_sender_startup():
         check('and sends nothing until a tick', not session.sent)
     finally:
         module.service_hooks.account_events = before
+
+
+def check_report_sender_status():
+    """What the settings page reads off the sender: the last batch and the queue."""
+    queue = _queue(count=2)
+    queue.add({'arena_unique_id': '77', 'mode': 'ranked', 'account': OTHER_ACCOUNT,
+               'finished_at': '2026-09-25T18:10:00Z', 'outcome': 'win',
+               'survived': True, 'metrics': {'xp': 1}})
+    session, sender = _sender(queue)
+    changes = []
+    sender.on_change(lambda: changes.append(1))
+
+    check('nothing has been sent at first', sender.last_sent is None and sender.last_result is None)
+    check('the battles waiting are those of the account logged in', sender.waiting() == 2)
+
+    sender.drain()
+    _answer(session, 200, {'schema': 1, 'accepted': 1, 'duplicates': 1, 'rejected': 0, 'results': []})
+    check('a batch answered is remembered', sender.last_sent is not None)
+    check('with what the site made of it',
+          sender.last_result == {'code': 200, 'battles': 2, 'accepted': 1, 'duplicates': 1,
+                                 'rejected': 0})
+    check('the page is told once the drain is over', changes == [1])
+    check('and nothing of this account waits any more', sender.waiting() == 0)
+
+    queue = _queue(count=1)
+    session, sender = _sender(queue)
+    sender.drain()
+    _answer(session, 503)
+    check('a refusal is remembered as well', sender.last_result == {'code': 503, 'battles': 1})
+    check('and the battle still waits', sender.waiting() == 1)
+
+    _, nobody = _sender(_queue(count=1), account=None)
+    check('with nobody logged in, nothing is said to wait', nobody.waiting() == 0)
