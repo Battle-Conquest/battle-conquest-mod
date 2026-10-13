@@ -58,6 +58,7 @@ The whole design rests on one property: after `stop()`, every game function is b
 - Keep files under ~400 lines. When one grows past that, split it into modules instead of letting it sprawl.
 - No section divider comments (e.g. `# --- X ---`). Split the file instead.
 - English only in code, comments and anything shown in the client.
+- Branches, commits, PRs and issues follow Battle-Conquest's conventions, in French (`<type>(#<issue>): <description>`, the issue living in Battle-Conquest/Battle-Conquest): see `CONTRIBUTING.md`. Never work on `main`.
 - Python 2.7 in `src/` and `tools/checks/`, Python 3 in the other tools.
 - Comments explain why, and keep the history of a decision when the obvious alternative was tried and failed.
 - A change comes with a check in `tools/checks/`, and the suite passes before a commit.

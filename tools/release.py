@@ -6,11 +6,13 @@
     python tools/release.py --minor         force the level the commits did not ask for
 
 The version and the changelog both come from the commits since the last tag,
-which is the whole point: the subjects are already typed (`<gitmoji> <type>
-<description>`), so a release needs no second place to write down what changed
-and no file to remember to add. What the commits cannot decide is left to a
-person: the level can be forced, and the changelog is opened in an editor
-before anything is built.
+which is the whole point: the subjects are already typed, in Battle-Conquest's
+convention (`<type>(#<issue>): <description>`, see CONTRIBUTING.md), so a
+release needs no second place to write down what changed and no file to
+remember to add. What the commits cannot decide is left to a person: the level
+can be forced, and the changelog is opened in an editor before anything is
+built -- the subjects are in French, the changelog is read by players in
+English.
 
 Runs on Python 3. The checks it calls run on the client's Python 2.7, which it
 finds the way `build_release.py` does.
@@ -29,25 +31,24 @@ CHANGELOG = os.path.join(REPO, 'CHANGELOG.md')
 WOTMOD = os.path.join('dist', 'eu.battle-conquest_%s.wotmod')
 ARCHIVE = os.path.join('dist', 'battle-conquest-mod_%s.zip')
 
-# `<gitmoji> <type> <description>`: the type is what decides both halves of a
-# release, so it is read rather than guessed from the emoji, which repeats
-# across types (💄 is worn by `fix` and by `improve` alike).
-SUBJECT = re.compile(r'^\S+\s+(add|fix|improve|update|remove|refactor|rename|move|upgrade|downgrade|release)\s+(.+)$')
+# `<type>(#<issue>): <description>`, the scope optional and possibly repeated
+# (`chore(deps)(deps-dev): ...`), and the ` (#<pr>)` a squash merge appends
+# dropped. The type is what decides both halves of a release.
+SUBJECT = re.compile(r'^(feat|fix|perf|refactor|docs|test|chore)(?:\([^)]*\))*!?:\s+(.+?)(?:\s+\(#\d+\))?$')
 
 # A new capability is a minor; everything else is a patch. A major is never
 # inferred: it says the mod stopped doing something it did, which is a decision
 # rather than a count, so it takes `--major`.
-MINOR = {'add'}
+MINOR = {'feat'}
 
 # What a player is told about, and under which heading. A type absent here
 # still counts towards the version -- it was work, and the build changed -- but
-# says nothing to somebody reading the changelog: `refactor`, `move` and
-# `rename` move code around without moving anything they can see.
+# says nothing to somebody reading the changelog: `refactor`, `docs`, `test`
+# and `chore` change nothing they can see.
 SECTIONS = (
-    ('Added', ('add',)),
-    ('Improved', ('improve', 'update', 'upgrade')),
+    ('Added', ('feat',)),
+    ('Improved', ('perf',)),
     ('Fixed', ('fix',)),
-    ('Removed', ('remove', 'downgrade')),
 )
 TOLD = {kind for _, kinds in SECTIONS for kind in kinds}
 
@@ -186,7 +187,7 @@ def publish(version, notes):
     client, which no check here can stand in for.
     """
     run(['git', 'add', '--', 'CHANGELOG.md'])
-    run(['git', 'commit', '-m', '🔖 release %s' % version])
+    run(['git', 'commit', '-m', 'chore(release): %s' % version])
     run(['git', 'tag', '-a', 'v%s' % version, '-m', version])
     run(['git', 'push', 'origin', 'HEAD', '--follow-tags'])
     handle, path = tempfile.mkstemp(suffix='.md', text=True)
