@@ -14,10 +14,16 @@ Not affiliated with Wargaming.net. Derived from
 
 1. Link your Wargaming account on [battle-conquest.eu](https://battle-conquest.eu)
    first: until it is, every battle the mod sends is refused.
-2. Download `battle-conquest-mod_<version>.zip` from the
-   [latest release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
+2. Prefer the **Wargaming-approved version on WGMods**, linked from the
+   [Battle-Conquest mod page](https://battle-conquest.eu/my-mod). Place its
+   `.wotmod` file in `mods/<game version>/` inside your World of Tanks folder,
+   or use the WGMods application.
+   For the very latest version, download `battle-conquest-mod_<version>.zip`
+   from the [latest GitHub release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
    and unzip it into your World of Tanks folder. It holds one file,
-   `mods/<game version>/eu.battle-conquest_<version>.wotmod`.
+   `mods/<game version>/eu.battle-conquest_<version>.wotmod`. GitHub may be ahead
+   while Wargaming reviews the WGMods submission; the site shows both versions
+   when they are available.
 3. Start the game. Once in the garage, a notification says the game is not
    linked yet: click **Link my account** in it. Your browser opens on the site,
    you confirm, and the mod writes its configuration itself. Nothing to type.
