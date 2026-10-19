@@ -63,6 +63,10 @@ changelog.
 python2.7 tools/selftest.py
 ```
 
+The `Mod CI` GitHub Actions workflow runs the same suite with Python 2.7.18
+on every pull request and push to `main`. It can also be started manually.
+The source is mounted read-only in the test container, with networking disabled.
+
 - The suite must pass: every change comes with a check in `tools/checks/`.
 - Once a change has reloaded in the client, read `game.log`.
 - When packaging is touched (`tools/build_release.py`, `res/`, the entry
