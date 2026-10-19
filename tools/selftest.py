@@ -22,7 +22,8 @@ from checks.battle_report_hooks import (check_battle_report_arrival,
                                         check_battle_report_hooks,
                                         check_battle_report_no_arrival)
 from checks.battle_reports import (check_battle_report_arena_id, check_battle_report_capture,
-                                   check_battle_report_queue, check_battle_report_reading)
+                                   check_battle_report_queue, check_battle_report_reading,
+                                   check_battle_report_tank)
 from checks.client import install_fake_client
 from checks.common import REPO, check, render_stub
 from checks.destinations import (check_destination_capture, check_destination_modes,
@@ -101,6 +102,7 @@ def main():
 
         check_session_patches()
         check_battle_report_reading()
+        check_battle_report_tank()
         check_battle_report_arena_id()
         check_battle_report_queue()
         check_battle_report_capture()
