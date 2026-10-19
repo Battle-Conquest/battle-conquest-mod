@@ -95,3 +95,11 @@ python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
   **draft**.
 - A release is published only once it has captured a battle in a real client:
   `gh release edit vX.Y.Z --draft=false`.
+- After publishing the GitHub release, submit
+  `dist/eu.battle-conquest_X.Y.Z.wotmod` to WGMods for review. GitHub remains
+  the source for the latest release while WGMods carries the approved version.
+- Configure the site's `MOD_WGMODS_URL` with the exact WGMods listing URL.
+  **Only after Wargaming approves the submission**, update the site's
+  `MOD_WGMODS_VERSION=X.Y.Z`; leave it at the previously approved version
+  while review is pending. Check `/my-mod`: WGMods comes first, and the
+  GitHub-ahead notice disappears once the approved and latest versions match.
