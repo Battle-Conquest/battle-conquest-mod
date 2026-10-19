@@ -1,8 +1,9 @@
 """Install the dev bootstrap into a World of Tanks client.
 
-Renders dev/mod_unicum_dev.py.in with this checkout's src/ path and installs
-it, so the client loads a stub that watches src/ and reloads it in place.
-Run once per client, or again after moving the checkout.
+Renders dev/mod_battle_conquest_dev.py.in with this checkout's src/ path and
+installs it, so the client loads a stub that watches src/ and reloads it in
+place. Also copies res/ (the menu icon). Run once per client, or again after
+moving the checkout.
 
     python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"
 
@@ -29,24 +30,23 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-TEMPLATE = REPO / 'dev' / 'mod_unicum_dev.py.in'
+TEMPLATE = REPO / 'dev' / 'mod_battle_conquest_dev.py.in'
 SRC = REPO / 'src'
-STUB_NAME = 'mod_unicum_dev.py'
-MOD_ID = 'gg.unicum.dev'
+STUB_NAME = 'mod_battle_conquest_dev.py'
+MOD_ID = 'eu.battle-conquest.dev'
 MOD_VERSION = '0.1.0'
 
 # The client's loader only picks up files named mod_*.py or mod_*.pyc, and
 # only from this path inside a res_mods version folder or a .wotmod root.
 MODS_SUBPATH = Path('scripts') / 'client' / 'gui' / 'mods'
 
-# Where flag PNGs live inside the resource tree, and therefore what the
-# <IMG SRC="img://..."> paths in the mod resolve against.
-FLAGS_SUBPATH = Path('gui') / 'maps' / 'icons' / 'unicum' / 'flags'
-FLAGS_BUILD = REPO / 'build' / 'flags'
+RES = REPO / 'res'
 
 PYTHON27_CANDIDATES = [
     Path(os.path.expanduser('~/scoop/apps/python27/current/python.exe')),
     Path('C:/Python27/python.exe'),
+    Path(os.path.expanduser('~/.local/bin/python2.7')),
+    Path('/usr/bin/python2.7'),
 ]
 
 
@@ -127,8 +127,8 @@ def build_wotmod(pyc: Path, target: Path) -> None:
         '<root>\n'
         f'    <id>{MOD_ID}</id>\n'
         f'    <version>{MOD_VERSION}</version>\n'
-        '    <name>unicum.gg (dev bootstrap)</name>\n'
-        '    <description>Loads the unicum.gg mod from a working copy and '
+        '    <name>Battle-Conquest (dev bootstrap)</name>\n'
+        '    <description>Loads the Battle-Conquest mod from a working copy and '
         'reloads it when its sources change.</description>\n'
         '</root>\n'
     )
@@ -136,76 +136,10 @@ def build_wotmod(pyc: Path, target: Path) -> None:
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_STORED) as archive:
         archive.writestr('meta.xml', meta)
         archive.write(pyc, str(Path('res') / MODS_SUBPATH / pyc.name).replace('\\', '/'))
-        for flag in sorted(FLAGS_BUILD.glob('*.png')):
-            inside = Path('res') / FLAGS_SUBPATH / flag.name
-            archive.write(flag, str(inside).replace('\\', '/'))
-
-
-def install_flags(game: Path, version: str) -> int:
-    """Copy the rasterised flags into the client's resource tree.
-
-    Loose files rather than a package, because that is enough for the client
-    to find them and it keeps flag changes out of the .wotmod rebuild. They
-    are only indexed at startup though: a flag added while the client runs is
-    reported as `Cannot load protocol image` and never appears.
-    """
-    if not FLAGS_BUILD.is_dir():
-        return 0
-    target_dir = game / 'res_mods' / version / FLAGS_SUBPATH
-    target_dir.mkdir(parents=True, exist_ok=True)
-    count = 0
-    for flag in sorted(FLAGS_BUILD.glob('*.png')):
-        shutil.copy2(flag, target_dir / flag.name)
-        count += 1
-    return count
-
-
-AS3_BUILD = REPO / 'build' / 'as3'
-ICON_BUILD = REPO / 'build' / 'icon'
-ICONS_SUBPATH = Path('gui') / 'maps' / 'icons' / 'unicum'
-RES = REPO / 'res'
-BADGES_SUBPATH = Path('gui') / 'maps' / 'icons' / 'unicum' / 'badges'
-
-
-def install_badges(game: Path, version: str) -> Path:
-    """Create the folder the client draws its rating badges into (src/unicum/badges.py).
-
-    The client lists its folders as it starts, so it has to be there by then
-    for a badge drawn later to load at once.
-    """
-    target = game / 'res_mods' / version / BADGES_SUBPATH
-    target.mkdir(parents=True, exist_ok=True)
-    return target
-
-
-def install_icons(game: Path, version: str) -> int:
-    """Copy the menu icon, the Twitch chat's and the hangar button's; indexed at startup like the flags."""
-    if not (ICON_BUILD / 'unicum.png').is_file():
-        return 0
-    target = game / 'res_mods' / version / ICONS_SUBPATH
-    target.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ICON_BUILD / 'unicum.png', target / 'icon.png')
-    count = 1
-    if (ICON_BUILD / 'twitch.png').is_file():
-        shutil.copy2(ICON_BUILD / 'twitch.png', target / 'twitch.png')
-        count += 1
-    # Twitch chat badges are downloaded into this folder while the client
-    # runs. The client lists its folders as it starts, so the folder has to
-    # exist by then for a badge written later to draw at once.
-    (target / 'twitch' / 'badges').mkdir(parents=True, exist_ok=True)
-    for icon in sorted((ICON_BUILD / 'tankButton').glob('*.png')):
-        (target / 'tankButton').mkdir(exist_ok=True)
-        shutil.copy2(icon, target / 'tankButton' / icon.name)
-        count += 1
-    return count
 
 
 def install_res(game: Path, version: str) -> int:
-    """Copy res/ as it is: the Gameface modules (the hangar button, the Twitch window) and their res_map entries.
-
-    openwg_gameface merges res_map entries into the client's resource map at
-    startup, and restarts the client once when that map changes.
-    """
+    """Copy res/ as it is: the menu icon, indexed when the client starts."""
     count = 0
     for source in sorted(p for p in RES.rglob('*') if p.is_file()):
         target = game / 'res_mods' / version / source.relative_to(RES)
@@ -213,25 +147,6 @@ def install_res(game: Path, version: str) -> int:
         shutil.copy2(source, target)
         count += 1
     return count
-
-
-def install_swfs(game: Path, version: str) -> list[Path]:
-    """Copy the AS3 views where the lobby and battle load SWFs from.
-
-    Indexed at startup like the flags, so a new SWF needs a client restart.
-    Without them, profile titles keep a language code, team averages stay
-    plain numbers, and no rating shows by the names above vehicles. The
-    boot SWF is only an input to the patched markers app, never loaded.
-    """
-    target_dir = game / 'res_mods' / version / 'gui' / 'flash'
-    installed = []
-    swfs = [swf for swf in AS3_BUILD.glob('unicum.*.swf') if not swf.name.endswith('.boot.swf')]
-    swfs += list(AS3_BUILD.glob('battleVehicleMarkersApp.swf'))
-    for swf in sorted(swfs):
-        target_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(swf, target_dir / swf.name)
-        installed.append(target_dir / swf.name)
-    return installed
 
 
 def main() -> None:
@@ -261,27 +176,7 @@ def main() -> None:
         (target_dir / STUB_NAME).write_text(stub_source, encoding='utf-8')
         print(f'loose    {target_dir / STUB_NAME}')
 
-        flags = install_flags(game, version)
-        if flags:
-            print(f'flags    {flags} PNGs -> res_mods/{version}/{FLAGS_SUBPATH}')
-        else:
-            print('flags    none built yet (cd tools/flags && npm install && npm run build)')
-
-        install_badges(game, version)
-        print(f'badges   drawn in the client, into res_mods/{version}/{BADGES_SUBPATH}')
-
-        icons = install_icons(game, version)
-        if icons:
-            print(f'icons    {icons} -> res_mods/{version}/{ICONS_SUBPATH}')
-        else:
-            print('icons    none built yet (cd tools/badges && npm run icon)')
         print(f'res      {install_res(game, version)} files -> res_mods/{version}')
-
-        swfs = install_swfs(game, version)
-        for swf in swfs:
-            print(f'swf      {swf}')
-        if not swfs:
-            print('swf      none built yet (python tools/build_as3.py --game ...)')
 
     if args.shape in ('both', 'wotmod'):
         python27 = find_python27(args.python27)

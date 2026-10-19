@@ -1,0 +1,40 @@
+"""Battle-Conquest for World of Tanks: the released mod's entry point.
+
+Packaged by tools/build_release.py into scripts/client/gui/mods/ of the
+.wotmod, beside the battle_conquest package in scripts/client/battle_conquest/.
+The client's mod loader imports this module and calls init() and fini(); everything else
+is the package, loaded once, with no source watching (that is the dev
+bootstrap's, dev/mod_battle_conquest_dev.py.in).
+"""
+import logging
+
+# The released version, written in by tools/build_release.py. Error reporters
+# read it off this module (`__version__`), which is the only thing they can see
+# of a mod: they name it by this file and read nothing of the package.
+__version__ = '0.0.0'
+
+_logger = logging.getLogger('battle_conquest.bootstrap')
+
+_loaded = None
+
+
+def init():
+    global _loaded
+    try:
+        import battle_conquest
+        battle_conquest.start()
+        _loaded = battle_conquest
+    except Exception:
+        _logger.exception('Battle-Conquest failed to start')
+
+
+def fini():
+    global _loaded
+    if _loaded is None:
+        return
+    try:
+        _loaded.stop()
+    except Exception:
+        _logger.exception('Battle-Conquest failed to stop')
+    finally:
+        _loaded = None

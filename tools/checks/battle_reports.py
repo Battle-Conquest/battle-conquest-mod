@@ -9,12 +9,12 @@ results_dict.py and is checked in checks/results_dict.py.
 import os
 import tempfile
 
-from checks.battle_fixtures import ACCOUNT, Bonus, Link, Settings, results
+from checks.battle_fixtures import ACCOUNT, Bonus, Places, Player, results
 from checks.common import check
 
 
 def check_battle_report_reading():
-    from unicum.battle_report import (metrics_of, missing_metrics, outcome_of, own_vehicles,
+    from battle_conquest.battle_report import (metrics_of, missing_metrics, outcome_of, own_vehicles,
                                        report_of, survived)
 
     check('the avatar entry is not taken for a vehicle',
@@ -70,7 +70,7 @@ def check_battle_report_reading():
 
 
 def check_battle_report_arena_id():
-    from unicum.battle_report import arena_id_of, report_of, why_not
+    from battle_conquest.battle_report import arena_id_of, report_of, why_not
 
     # The whole reason this is a string: 2^64-1 sent as a JSON number comes back
     # a float, and the low-order digits are gone without a word.
@@ -119,8 +119,8 @@ def check_battle_report_arena_id():
 
 
 def check_battle_report_queue():
-    from unicum.battle_report import report_of
-    from unicum.report_queue import Queue, deduplicate, trim
+    from battle_conquest.battle_report import report_of
+    from battle_conquest.report_queue import Queue, deduplicate, trim
 
     first = {'arena_unique_id': '1'}
     second = {'arena_unique_id': '2'}
@@ -165,7 +165,7 @@ def check_battle_report_queue():
 
 def _check_delivery():
     """A report leaves only once every destination owed it has taken it."""
-    from unicum.report_queue import Queue
+    from battle_conquest.report_queue import Queue
 
     here, there = 'https://one.test/in', 'https://two.test/in'
     shared = os.path.join(tempfile.mkdtemp(), 'battle-reports.json')
@@ -203,51 +203,12 @@ def _check_delivery():
           left.settle(lambda mode: ()) == 1 and left.all() == [])
 
 
-def check_battle_report_setting():
-    from unicum.runtime.session import Session
-    from unicum.settings import Settings, validate
-
-    check('battles are reported unless the player says otherwise',
-          validate({})['sendBattleResults'] is True)
-    check('the switch survives a round trip',
-          validate({'sendBattleResults': False})['sendBattleResults'] is False)
-    settings = Settings(Session(generation=0),
-                        store=os.path.join(tempfile.mkdtemp(), 'settings.json'))
-    check('a fresh install reports them', settings.sends_battle_reports())
-    settings.update({'sendBattleResults': False})
-    check('turning it off stops them', not settings.sends_battle_reports())
-    settings.update({'sendBattleResults': True, 'enabled': False})
-    check('the mod off reports nothing either', not settings.sends_battle_reports())
-
-    _check_setting_reachable()
-
-
-def _check_setting_reachable():
-    """The switch has to be where the player is, not only in a file.
-
-    A setting that can be changed by hand-editing settings.json is a setting
-    the player cannot turn off, and sending their battles anywhere is theirs to
-    refuse first of all.
-    """
-    from unicum.settings import DEFAULTS, validate
-    from unicum.settings_window import from_window, native_page, to_window
-
-    values = validate(dict(DEFAULTS))
-    check('the switch is in the mod\'s own window', to_window(values)['sendBattleResults'] is True)
-    check('and unticking it there reaches settings.json',
-          from_window({'sendBattleResults': False})['sendBattleResults'] is False)
-
-    lines = [line.split(u'\t') for line in native_page(values, u'', False).split(u'\n')]
-    check('and it has a box in the game\'s own settings tab too',
-          any(line[0] == u'checkbox' and line[1] == u'sendBattleResults' for line in lines))
-
-
 def check_battle_report_capture():
-    from unicum.battle_reports import BattleReports
-    from unicum.report_queue import Queue
+    from battle_conquest.battle_reports import BattleReports
+    from battle_conquest.report_queue import Queue
 
     store = os.path.join(tempfile.mkdtemp(), 'battle-reports.json')
-    reports = BattleReports(None, Settings(True), queue=Queue(store=store), link=Link())
+    reports = BattleReports(None, queue=Queue(store=store), destinations=Places(), account=Player())
     check('a battle that arrives is captured', reports.capture(results(), constants=Bonus))
     check('the same battle arriving again is not', not reports.capture(results(), constants=Bonus))
 
@@ -257,13 +218,13 @@ def check_battle_report_capture():
     check('the account that played the battle is stamped on the report',
           Queue(store=store).all()[0]['account'] == ACCOUNT)
 
-    off = BattleReports(None, Settings(False), link=Link(),
+    off = BattleReports(None, destinations=Places(False), account=Player(),
                         queue=Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json')))
-    check('nothing is captured while the switch is off', not off.capture(results(), constants=Bonus))
+    check('nothing is captured while nothing is owed', not off.capture(results(), constants=Bonus))
 
     # A report naming nobody could never be attributed by any destination, so
     # it would sit on disk until the queue dropped it.
-    nobody = BattleReports(None, Settings(True), link=Link(account=None),
+    nobody = BattleReports(None, destinations=Places(), account=Player(account=None),
                            queue=Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json')))
     check('a battle nobody is logged in for is not captured',
           not nobody.capture(results(), constants=Bonus))

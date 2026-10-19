@@ -57,7 +57,7 @@ class _Capture(logging.Handler):
 
 
 def check_service_signatures():
-    from unicum.service_hooks import signatures
+    from battle_conquest.service_hooks import signatures
 
     class _Service(object):
         def requestResults(self, arenaUniqueID, needsRefresh=False):
@@ -81,7 +81,7 @@ def check_service_signatures():
 
 
 def check_service_hooks_filter():
-    from unicum.service_hooks import about_battles
+    from battle_conquest.service_hooks import about_battles
 
     names = ['onBattleResultsReceived', 'onAccountShowGUI', 'postResult',
              'onArenaCreated', 'onClientUpdated']
@@ -97,7 +97,7 @@ def check_service_hooks_filter():
 
 
 def check_service_hooks():
-    from unicum.service_hooks import describe, is_event, surface
+    from battle_conquest.service_hooks import describe, is_event, surface
 
     called = []
 
@@ -136,7 +136,7 @@ def check_service_hooks():
     check('nothing found was called', not called)
 
     captured = _Capture()
-    logger = logging.getLogger('unicum.service_hooks')
+    logger = logging.getLogger('battle_conquest.service_hooks')
     logger.addHandler(captured)
     try:
         describe(_Service())
