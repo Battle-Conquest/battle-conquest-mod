@@ -32,10 +32,6 @@ _CHECK_SECONDS = 2.0
 
 _SPACER = 12
 
-# The window draws no rule, and box-drawing characters are missing from its
-# font, so a heading draws its own with em dashes.
-_RULE = u'—' * 16
-
 LINK_VAR = 'link'
 UNLINK_VAR = 'unlink'
 CANCEL_VAR = 'cancelLink'
@@ -91,7 +87,7 @@ def waiting_label(count):
 
 
 def _heading(templates, text):
-    return templates.createLabel(u'%s  %s' % (text.upper(), _RULE))
+    return templates.createLabel(text.upper())
 
 
 def _button_line(templates, text, var, button, tooltip=None):
