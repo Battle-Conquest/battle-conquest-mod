@@ -149,6 +149,9 @@ def check_report_sender_payload():
     check('and what does is exactly the contract',
           sorted(wire(kept)) == ['arena_unique_id', 'finished_at', 'metrics', 'mode',
                                  'outcome', 'survived'])
+    # Optional, so absent above: when the capture read a tank, it travels too.
+    check('the tank played travels when it is known',
+          wire(dict(kept, vehicle={'tank_id': 8721}))['vehicle'] == {'tank_id': 8721})
 
 
 def check_report_sender_delivery():

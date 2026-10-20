@@ -69,6 +69,41 @@ def check_battle_report_reading():
     check('so does the survival', report['survived'] is True)
 
 
+def check_battle_report_tank():
+    from battle_conquest.battle_report import report_of, tank_id_of
+
+    # The intCD `tanks/stats` keys its rows by: what lets a site judge a quest
+    # limited to some tanks.
+    check('the tank is read from the key `personal` files it under',
+          tank_id_of(results()['personal']) == 8721)
+    check('whether that key is a number or a string', tank_id_of({8721: {}}) == 8721)
+    check('the vehicle\'s own typeCompDescr comes first',
+          tank_id_of({'8721': {'typeCompDescr': 2049}}) == 2049)
+    check('the avatar entry is no tank', tank_id_of({'avatar': {}, '8721': {}}) == 8721)
+    # A respawn battle was fought in several: naming one would be a guess.
+    check('two vehicles name no tank', tank_id_of({'8721': {}, '2049': {}}) is None)
+    check('an unreadable key names no tank', tank_id_of({'tank': {}}) is None)
+    check('nor does a boolean', tank_id_of({'tank': {'typeCompDescr': True}}) is None)
+    check('nor a zero', tank_id_of({'0': {}}) is None)
+    check('nor anything past what a site stores', tank_id_of({'4294967296': {}}) is None)
+    check('Unicode digits that int cannot read name no tank',
+          tank_id_of({u'\u00b2': {}}) is None)
+    check('an unreadable descriptor still falls back to the vehicle key',
+          tank_id_of({8721: {'typeCompDescr': u'\u00b2'}}) == 8721)
+
+    check('the report names its tank',
+          report_of(results(), constants=Bonus)['vehicle'] == {'tank_id': 8721})
+    # Optional in the contract, and a report without it still counts: left out
+    # rather than sent empty, which a destination would reject.
+    check('a battle in two vehicles is reported without one',
+          'vehicle' not in report_of(results(personal={'2049': {'team': 1}}), constants=Bonus))
+    unreadable = results()
+    unreadable['personal'] = {u'\u00b2': unreadable['personal']['8721']}
+    report = report_of(unreadable, constants=Bonus)
+    check('an unreadable tank does not lose the battle or its counters',
+          'vehicle' not in report and report['metrics']['damage_dealt'] == 3120)
+
+
 def check_battle_report_arena_id():
     from battle_conquest.battle_report import arena_id_of, report_of, why_not
 

@@ -34,6 +34,9 @@ _NOT_A_VEHICLE = ('avatar', )
 # What the client puts in `deathReason` for a vehicle that came out alive.
 _ALIVE = -1
 
+# The largest tank id a destination stores: an unsigned 32-bit column.
+_MAX_TANK_ID = 4294967295
+
 
 def own_vehicles(personal):
     """The player's own vehicles in a battle's results.
@@ -46,6 +49,45 @@ def own_vehicles(personal):
         return []
     return [value for key, value in personal.items()
             if key not in _NOT_A_VEHICLE and isinstance(value, dict)]
+
+
+def _tank_id(value):
+    """A tank id as an int, from an int or a string of digits, or None."""
+    if isinstance(value, basestring) and value.isdigit():
+        # Unicode digits include characters int() cannot read. An optional
+        # tank id must never prevent the rest of the battle being captured.
+        try:
+            value = int(value)
+        except ValueError:
+            return None
+    if isinstance(value, bool) or not isinstance(value, (int, long)):
+        return None
+    if value <= 0 or value > _MAX_TANK_ID:
+        return None
+    return int(value)
+
+
+def tank_id_of(personal):
+    """The tank the player fought in, as Wargaming's `tank_id`, or None.
+
+    The intCD, which is what `tanks/stats` keys its rows by: a site can then
+    tell which battles count for a quest limited to some tanks. Read from the
+    vehicle's `typeCompDescr`, and failing that from the key `personal` files
+    it under, which is the same number.
+
+    None unless there is exactly one vehicle: a respawn mode's battle was
+    fought in several, and naming one of them would be a guess. A report
+    without a tank is still a valid one, so None costs nothing but the quest
+    that needed it.
+    """
+    if not isinstance(personal, dict):
+        return None
+    found = [_tank_id(value.get('typeCompDescr')) or _tank_id(key)
+             for key, value in personal.items()
+             if key not in _NOT_A_VEHICLE and isinstance(value, dict)]
+    if len(found) != 1:
+        return None
+    return found[0]
 
 
 def missing_metrics(vehicles):
@@ -190,7 +232,7 @@ def report_of(results, mode=None, now=None, constants=None):
         return None
     if mode is None:
         mode = modes.mode_of(common.get('bonusType'), constants)
-    return {
+    report = {
         'arena_unique_id': arena_id,
         'mode': mode,
         'finished_at': finished_at(common, now),
@@ -198,6 +240,11 @@ def report_of(results, mode=None, now=None, constants=None):
         'survived': survived(vehicles),
         'metrics': metrics_of(vehicles),
     }
+    # Optional in the contract: left out rather than sent empty when unknown.
+    tank_id = tank_id_of(results.get('personal'))
+    if tank_id is not None:
+        report['vehicle'] = {'tank_id': tank_id}
+    return report
 
 
 def why_not(results):

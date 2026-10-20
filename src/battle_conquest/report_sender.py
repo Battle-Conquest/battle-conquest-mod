@@ -77,7 +77,7 @@ _ADVICE = {
     413: 'the batch was too large for it',
 }
 
-FIELDS = ('arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'metrics')
+FIELDS = ('arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'vehicle', 'metrics')
 
 
 def wire(report):
