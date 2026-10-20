@@ -60,6 +60,7 @@ from checks.service_hooks import (check_service_hooks, check_service_hooks_filte
 from checks.session import check_session_patches
 from checks.settings_window import (check_settings_window, check_settings_window_api_variants,
                                     check_settings_window_labels, check_settings_window_live,
+                                    check_settings_window_pending_pause,
                                     check_settings_window_without_api)
 from checks.site_link import (check_site_link_gives_up, check_site_link_needs_an_account,
                               check_site_link_unlinks, check_site_link_url, check_site_link_verifies,
@@ -159,6 +160,7 @@ def main():
         check_settings_window_without_api()
         check_settings_window_live()
         check_settings_window_api_variants()
+        check_settings_window_pending_pause()
         check_notices_texts()
         check_notices_remind()
         check_notices_click()

@@ -164,6 +164,9 @@ class SettingsWindow(object):
         self._api = None
         self._templates = None
         self._redraw_pending = False
+        self._preview_enabled = None
+        self._publishing = False
+        self._live_api = None
 
     @property
     def available(self):
@@ -184,6 +187,7 @@ class SettingsWindow(object):
         self._state = self.state()
         self._register()
         self._session.on_close(self._remove)
+        self._follow_live_settings()
         self._site.on_change(self._check_state)
         if self._sender is not None:
             self._sender.on_change(self._check_state)
@@ -228,18 +232,50 @@ class SettingsWindow(object):
             return
         reload_template = getattr(self._instance(), 'reloadModTemplate', None)
         if callable(reload_template):
-            reload_template(LINKAGE, template(self._state, self._templates))
+            page = template(self._state, self._templates)
+            # A redraw must not undo a switch the player has changed but has
+            # not yet committed with Apply. Stored settings still describe
+            # the sender's actual state until then.
+            if self._preview_enabled is not None:
+                page['enabled'] = self._preview_enabled
+            reload_template(LINKAGE, page)
+
+    def _follow_live_settings(self):
+        api = self._instance()
+        closed = getattr(api, 'onWindowClosed', None)
+        if not (callable(getattr(api, 'registerLiveSettingsChange', None))
+                and callable(getattr(api, 'unregisterLiveSettingsChange', None))
+                and hasattr(closed, '__iadd__')):
+            return
+        self._live_api = api
+        api.registerLiveSettingsChange(LINKAGE, self._on_live_window)
+        self._session.subscribe(closed, self._on_window_closed)
+
+    def _on_live_window(self, linkage, raw):
+        if self._alive and linkage == LINKAGE and isinstance(raw, dict):
+            enabled = raw.get('enabled')
+            if isinstance(enabled, bool):
+                self._preview_enabled = enabled
+
+    def _on_window_closed(self):
+        self._preview_enabled = None
 
     def _register(self):
         self._api.setModTemplate(LINKAGE, template(self._state, self._templates), self._on_window, self._on_button)
         # The API keeps its own copy of every value and sends it back as the
         # player's choice, so it is set to the truth first.
-        self._api.updateModSettings(LINKAGE, {'enabled': self._state.enabled})
+        self._publishing = True
+        try:
+            self._api.updateModSettings(LINKAGE, {'enabled': self._state.enabled})
+        finally:
+            self._publishing = False
 
     def _on_window(self, linkage, raw):
-        if not self._alive or linkage != LINKAGE or not isinstance(raw, dict):
+        if self._publishing or not self._alive or linkage != LINKAGE or not isinstance(raw, dict):
             return
         enabled = raw.get('enabled')
+        if isinstance(enabled, bool):
+            self._preview_enabled = None
         if isinstance(enabled, bool) and self._destinations.set_enabled(enabled):
             _logger.info('sending battles %s', 'resumed' if enabled else 'paused')
             self._check_state()
@@ -260,6 +296,11 @@ class SettingsWindow(object):
 
     def _remove(self):
         self._alive = False
+        if self._live_api is not None:
+            try:
+                self._live_api.unregisterLiveSettingsChange(LINKAGE, self._on_live_window)
+            except Exception:
+                _logger.debug('could not unregister live settings', exc_info=True)
         self._unregister()
 
     def _unregister(self):

@@ -32,6 +32,8 @@ class _Api(object):
         self.values = []
         self.onSettingsChanged = FakeEvent()
         self.onButtonClicked = FakeEvent()
+        self.onWindowClosed = FakeEvent()
+        self.live = []
         self.visible = None
         self.redraws = 0
 
@@ -48,6 +50,23 @@ class _Api(object):
     def open(self):
         # setModTemplate only changes the stored template, just like the API.
         self.visible = copy.deepcopy(self.templates[-1])
+
+    def close(self):
+        self.visible = None
+        for handler in list(self.onWindowClosed.handlers):
+            handler()
+
+    def registerLiveSettingsChange(self, linkage, callback):
+        self.live.append(callback)
+
+    def unregisterLiveSettingsChange(self, linkage, callback):
+        self.live.remove(callback)
+
+    def toggle(self, enabled):
+        from battle_conquest.settings_window import LINKAGE
+        self.visible['enabled'] = enabled
+        for handler in list(self.live):
+            handler(LINKAGE, {'enabled': enabled})
 
     def reloadModTemplate(self, linkage, template):
         if self.visible is not None:
@@ -74,6 +93,10 @@ class _Session(object):
 
     def on_close(self, func):
         self.closers.append(func)
+
+    def subscribe(self, event, handler):
+        event += handler
+        self.on_close(lambda: event.__isub__(handler))
 
 
 class _Site(object):
@@ -296,6 +319,7 @@ def check_settings_window_api_variants():
 
     api = _install_api()
     module = sys.modules['gui.modsSettingsApi']
+    api.registerLiveSettingsChange = None
     # Both public shapes have shipped: a direct instance and a private wrapper.
     wrapper = type('Wrapper', (object,), {})()
     wrapper._ModsSettingsApi__instance = api
@@ -327,3 +351,48 @@ def check_settings_window_api_variants():
               not api.onSettingsChanged.handlers and not api.onButtonClicked.handlers)
     finally:
         del sys.modules['gui.aslainMenu']
+
+
+def check_settings_window_pending_pause():
+    from battle_conquest.settings_window import LINKAGE, SettingsWindow
+
+    api = _install_api()
+    try:
+        places = _places()
+        places.remember('Battle-Conquest', ['random'], 'd' * 64)
+        site = _Site(places)
+        session = _Session()
+        window = SettingsWindow(session, site, places)
+        window.install()
+        api.open()
+        api.toggle(False)
+        check('changing the pause switch waits for Apply', places.enabled)
+        # A changed mode triggers the same redraw as an answered batch.
+        places.current.modes.append('onslaught')
+        site.changed()
+        session.run_later()
+        check('a status redraw preserves an unapplied pause without persisting it',
+              api.visible['enabled'] is False and places.enabled)
+        check('the saved page still reflects the committed setting', api.templates[-1]['enabled'] is True)
+        window._on_window(LINKAGE, {'enabled': False})
+        session.run_later()
+        check('Apply commits the preserved pause', not places.enabled and api.visible['enabled'] is False)
+
+        api.toggle(True)
+        places.current.modes.remove('onslaught')
+        site.changed()
+        session.run_later()
+        check('an unapplied resume survives redraws too', api.visible['enabled'] is True and not places.enabled)
+        api.close()
+        api.open()
+        check('Cancel discards the preview on the next open', api.visible['enabled'] is False)
+        places.current.modes.append('onslaught')
+        site.changed()
+        session.run_later()
+        check('subsequent redraws cannot resurrect a cancelled preview', api.visible['enabled'] is False)
+        for close in session.closers:
+            close()
+        check('closing the session detaches preview callbacks as well',
+              not api.live and not api.onWindowClosed.handlers)
+    finally:
+        del sys.modules['gui.modsSettingsApi']
