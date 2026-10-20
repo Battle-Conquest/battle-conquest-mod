@@ -54,7 +54,12 @@ def own_vehicles(personal):
 def _tank_id(value):
     """A tank id as an int, from an int or a string of digits, or None."""
     if isinstance(value, basestring) and value.isdigit():
-        value = int(value)
+        # Unicode digits include characters int() cannot read. An optional
+        # tank id must never prevent the rest of the battle being captured.
+        try:
+            value = int(value)
+        except ValueError:
+            return None
     if isinstance(value, bool) or not isinstance(value, (int, long)):
         return None
     if value <= 0 or value > _MAX_TANK_ID:

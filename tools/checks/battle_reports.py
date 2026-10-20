@@ -86,6 +86,10 @@ def check_battle_report_tank():
     check('nor does a boolean', tank_id_of({'tank': {'typeCompDescr': True}}) is None)
     check('nor a zero', tank_id_of({'0': {}}) is None)
     check('nor anything past what a site stores', tank_id_of({'4294967296': {}}) is None)
+    check('Unicode digits that int cannot read name no tank',
+          tank_id_of({u'\u00b2': {}}) is None)
+    check('an unreadable descriptor still falls back to the vehicle key',
+          tank_id_of({8721: {'typeCompDescr': u'\u00b2'}}) == 8721)
 
     check('the report names its tank',
           report_of(results(), constants=Bonus)['vehicle'] == {'tank_id': 8721})
@@ -93,6 +97,11 @@ def check_battle_report_tank():
     # rather than sent empty, which a destination would reject.
     check('a battle in two vehicles is reported without one',
           'vehicle' not in report_of(results(personal={'2049': {'team': 1}}), constants=Bonus))
+    unreadable = results()
+    unreadable['personal'] = {u'\u00b2': unreadable['personal']['8721']}
+    report = report_of(unreadable, constants=Bonus)
+    check('an unreadable tank does not lose the battle or its counters',
+          'vehicle' not in report and report['metrics']['damage_dealt'] == 3120)
 
 
 def check_battle_report_arena_id():
