@@ -33,11 +33,20 @@ class _Account(object):
 
 
 class _Site(object):
-    def __init__(self, can_start=True):
+    def __init__(self, places, can_start=True):
         self.running = False
         self.started = 0
         self._can_start = can_start
         self._endings = []
+        self._listeners = []
+        self.places = places
+
+    def on_change(self, callback):
+        self._listeners.append(callback)
+
+    def changed(self):
+        for callback in list(self._listeners):
+            callback()
 
     def on_done(self, callback):
         self._endings.append(callback)
@@ -46,10 +55,14 @@ class _Site(object):
         self.started += 1
         if self._can_start:
             self.running = True
+            self.changed()
         return self._can_start
 
     def end(self, destination):
         self.running = False
+        if destination is not None:
+            self.places.remember('Battle-Conquest', destination.modes, 'f' * 64)
+        self.changed()
         for callback in list(self._endings):
             callback(destination)
 
@@ -108,8 +121,8 @@ def _notices(handlers=True, page=False, can_start=True, places=None):
     pushed = []
     session = _Session()
     account = _Account()
-    site = _Site(can_start)
     places = places or _places()
+    site = _Site(places, can_start)
     notices = Notices(session, site, places, account, _Page(page),
                       push=lambda text, warning=False: pushed.append((text, warning)) or True)
     notices.install()
@@ -177,11 +190,24 @@ def check_notices_click():
 
     site.end(_Destination())
     check('a link made is said too', pushed[-1][1] is False and 'linked' in pushed[-1][0])
+    check('success is announced once despite change and done both firing', len(pushed) == 2)
 
     places.remember('Battle-Conquest', ['random'], 'f' * 64)
     started = site.started
     notices.clicked()
     check('a click once linked starts nothing', site.started == started)
+    check('and explains why the old link no longer starts linking',
+          'already linked' in pushed[-1][0] and pushed[-1][1] is False)
+    before = len(pushed)
+    site.changed()
+    check('verification of an unchanged link does not repeat success', len(pushed) == before)
+    places.forget()
+    site.changed()
+    check('unlinking does not announce a browser timeout', len(pushed) == before)
+    places.remember('Battle-Conquest', ['onslaught'], 'e' * 64)
+    site.changed()
+    check('a link from the settings page is also announced once',
+          len(pushed) == before + 1 and 'onslaught battles' in pushed[-1][0])
     session.real.close()
 
     refused, session, _, site, _, pushed = _notices(can_start=False)
@@ -199,3 +225,55 @@ def check_notices_without_handler():
     check('and its notice carries no dead link', len(pushed) == 1 and 'href' not in pushed[0][0])
     check('but sends the player to the page', 'mods list' in pushed[0][0])
     session.real.close()
+
+
+def check_notices_dismiss_reminders():
+    from battle_conquest.notices import dismiss_reminders, not_linked_text
+    _with_handlers(True)
+
+    class _Item(object):
+        def __init__(self, key, text):
+            self.key = key
+            self.text = text
+
+        def getListVO(self):
+            return {'message': {'message': self.text}}
+
+        def getType(self):
+            return 1
+
+        def getID(self):
+            return self.key
+
+    class _Model(object):
+        def __init__(self):
+            self.items = [_Item(1, not_linked_text(True, False)), _Item(2, 'Game reward'),
+                          _Item(3, 'Another mod: not linked'), _Item(4, not_linked_text(False, True))]
+            self.collection = self
+            self.removed = []
+
+        def getListIterator(self, typesRange):
+            check('only system-message notifications are examined', typesRange == (1,))
+            return iter(self.items)
+
+        def removeNotification(self, kind, key):
+            self.removed.append((kind, key))
+            self.items[:] = [item for item in self.items if item.key != key]
+
+    mvc = types.ModuleType('notification.NotificationMVC')
+    settings = types.ModuleType('notification.settings')
+    model = _Model()
+    mvc.g_instance = type('MVC', (object,), {'getModel': lambda self: model})()
+    settings.NOTIFICATION_TYPE = type('Types', (object,), {'MESSAGE': 1})
+    sys.modules['notification.NotificationMVC'] = mvc
+    sys.modules['notification.settings'] = settings
+    try:
+        dismiss_reminders()
+        check('all obsolete mod reminders are removed and other history stays',
+              model.removed == [(1, 1), (1, 4)] and [item.key for item in model.items] == [2, 3])
+        mvc.g_instance.getModel = lambda: None
+        check('a notification centre not yet created is harmless', dismiss_reminders() is None)
+    finally:
+        del sys.modules['notification.NotificationMVC']
+        del sys.modules['notification.settings']
+    check('a client without removal support is harmless too', dismiss_reminders() is None)

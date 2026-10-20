@@ -12,8 +12,8 @@ with this mod. Without them this does nothing, and the garage notice
 Two behaviours of the API (1.7) shape this:
 
   - The page is a template of labels and buttons. A label that names a varName
-    gets a button, and the click comes back as that varName. Changing what the
-    page says means registering a new template.
+    gets a button, and the click comes back as that varName. Registering a new
+    template changes future opens; Aslain's reloadModTemplate redraws it live.
   - Callbacks are added to an event and never removed by the API, so every
     reload of this package would stack one. The session removes its own on
     close, and a callback that outlives its session does nothing.
@@ -110,9 +110,10 @@ def link_line(templates, linked, running):
     return _button_line(templates, text, LINK_VAR, 'Link', _LINK_TOOLTIP)
 
 
-def template(state):
+def template(state, templates=None):
     """The API's page for a State."""
-    from gui.modsSettingsApi import templates
+    if templates is None:
+        from gui.modsSettingsApi import templates
     account = [
         _heading(templates, 'Account'),
         link_line(templates, state.linked, state.running),
@@ -161,6 +162,8 @@ class SettingsWindow(object):
         self._state = None
         self._alive = True
         self._api = None
+        self._templates = None
+        self._redraw_pending = False
 
     @property
     def available(self):
@@ -169,14 +172,21 @@ class SettingsWindow(object):
 
     def install(self):
         try:
-            from gui.modsSettingsApi import g_modsSettingsApi
+            from gui.aslainMenu import g_modsSettingsApi, templates
         except ImportError:
-            _logger.info('modsSettingsApi not installed, so no settings page')
-            return
+            try:
+                from gui.modsSettingsApi import g_modsSettingsApi, templates
+            except ImportError:
+                _logger.info('modsSettingsApi not installed, so no settings page')
+                return
         self._api = g_modsSettingsApi
+        self._templates = templates
         self._state = self.state()
         self._register()
         self._session.on_close(self._remove)
+        self._site.on_change(self._check_state)
+        if self._sender is not None:
+            self._sender.on_change(self._check_state)
         self._session.repeat(_CHECK_SECONDS, self._check_state)
         _logger.info('registered in modsSettingsApi as %s', LINKAGE)
 
@@ -196,6 +206,8 @@ class SettingsWindow(object):
                      waiting=sender.waiting() if sender is not None else 0)
 
     def _check_state(self):
+        if not self._alive:
+            return
         state = self.state()
         if state == self._state:
             return
@@ -204,9 +216,22 @@ class SettingsWindow(object):
         # the ones already on the API's events come off first.
         self._unregister()
         self._register()
+        if not self._redraw_pending:
+            self._redraw_pending = True
+            # Never remove Flash controls while their click/Apply event is
+            # still on the stack. Coalesce changes until the next game frame.
+            self._session.callback(0.0, self._redraw)
+
+    def _redraw(self):
+        self._redraw_pending = False
+        if not self._alive:
+            return
+        reload_template = getattr(self._instance(), 'reloadModTemplate', None)
+        if callable(reload_template):
+            reload_template(LINKAGE, template(self._state, self._templates))
 
     def _register(self):
-        self._api.setModTemplate(LINKAGE, template(self._state), self._on_window, self._on_button)
+        self._api.setModTemplate(LINKAGE, template(self._state, self._templates), self._on_window, self._on_button)
         # The API keeps its own copy of every value and sends it back as the
         # player's choice, so it is set to the truth first.
         self._api.updateModSettings(LINKAGE, {'enabled': self._state.enabled})
@@ -238,13 +263,17 @@ class SettingsWindow(object):
         self._unregister()
 
     def _unregister(self):
-        instance = getattr(self._api, '_ModsSettingsApi__instance', None)
+        instance = self._instance()
         for name, handler in (('onSettingsChanged', self._on_window), ('onButtonClicked', self._on_button)):
             event = getattr(instance, name, None)
             try:
                 event -= handler
             except Exception:
                 _logger.debug('could not unregister %s', name, exc_info=True)
+
+    def _instance(self):
+        # Recent builds expose the internal API directly; older ones wrap it.
+        return getattr(self._api, '_ModsSettingsApi__instance', self._api)
 
 
 def install(session, site, destinations, sender=None):

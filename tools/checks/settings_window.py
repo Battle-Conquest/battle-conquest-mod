@@ -1,11 +1,13 @@
 """Checks for the mod's page in modsSettingsApi: what it says, and what its buttons do."""
 
+import copy
 import os
 import sys
 import tempfile
 import types
 
 from checks.common import check
+from checks.engine import FakeEvent
 
 
 class _Templates(object):
@@ -28,20 +30,47 @@ class _Api(object):
     def __init__(self):
         self.templates = []
         self.values = []
+        self.onSettingsChanged = FakeEvent()
+        self.onButtonClicked = FakeEvent()
+        self.visible = None
+        self.redraws = 0
 
     def setModTemplate(self, linkage, template, on_window, on_button):
         self.templates.append(template)
+        self.onSettingsChanged += on_window
+        self.onButtonClicked += on_button
 
     def updateModSettings(self, linkage, values):
         self.values.append(values)
+        for handler in list(self.onSettingsChanged.handlers):
+            handler(linkage, values)
+
+    def open(self):
+        # setModTemplate only changes the stored template, just like the API.
+        self.visible = copy.deepcopy(self.templates[-1])
+
+    def reloadModTemplate(self, linkage, template):
+        if self.visible is not None:
+            self.visible = copy.deepcopy(template)
+            self.redraws += 1
 
 
 class _Session(object):
     def __init__(self):
         self.closers = []
+        self.later = []
+        self.ticks = []
 
     def repeat(self, interval, func):
-        pass
+        self.ticks.append(func)
+
+    def callback(self, delay, func):
+        self.later.append(func)
+
+    def run_later(self):
+        due, self.later = self.later, []
+        for func in due:
+            func()
 
     def on_close(self, func):
         self.closers.append(func)
@@ -54,14 +83,24 @@ class _Site(object):
         self.places = places
         self.running = False
         self.started = 0
+        self.listeners = []
+
+    def on_change(self, callback):
+        self.listeners.append(callback)
+
+    def changed(self):
+        for callback in list(self.listeners):
+            callback()
 
     def start(self):
         self.started += 1
         self.running = True
+        self.changed()
 
     def unlink(self):
         self.running = False
         self.places.forget()
+        self.changed()
 
 
 def _install_api():
@@ -173,3 +212,118 @@ def check_settings_window_without_api():
     session = _Session()
     SettingsWindow(session, _Site(places), places).install()
     check('without modsSettingsApi there is no page, and nothing to close', session.closers == [])
+
+
+def check_settings_window_live():
+    from battle_conquest.report_queue import Queue
+    from battle_conquest.settings_window import CANCEL_VAR, LINK_VAR, UNLINK_VAR, SettingsWindow
+    from checks.report_sender import _answer, _queue, _sender, _took
+
+    api = _install_api()
+    try:
+        places = _places()
+        site = _Site(places)
+        sending, sender = _sender(_queue(count=1), places=places)
+        session = _Session()
+        window = SettingsWindow(session, site, places, sender)
+        window.install()
+        api.open()
+        check('an open page initially shows the one queued battle',
+              u'Waiting to be sent: 1 battle' in _texts(api.visible['column2']))
+
+        site.start()
+        check('a redraw waits until the click has returned',
+              (LINK_VAR, 'Link') in _buttons(api.visible['column1']))
+        session.run_later()
+        check('a link started outside the page updates the open controls',
+              (CANCEL_VAR, 'Cancel') in _buttons(api.visible['column1']))
+
+        site.running = False
+        places.remember('Battle-Conquest', ['ranked'], 'd' * 64)
+        site.changed()
+        session.run_later()
+        check('browser confirmation redraws the open page without reopening it',
+              (UNLINK_VAR, 'Unlink') in _buttons(api.visible['column1'])
+              and u'Account: linked' in _texts(api.visible['column1']))
+
+        sender.drain()
+        _answer(sending, 200, _took(1))
+        session.run_later()
+        check('one accepted battle shows last sent one and waiting zero together',
+              any(text and text.endswith('1 accepted') for text in _texts(api.visible['column2']))
+              and u'Waiting to be sent: 0 battles' in _texts(api.visible['column2']))
+        check('the accepted battle is also gone from disk', Queue(sender._queue._store).all() == [])
+
+        sender._queue.add({'arena_unique_id': '2', 'mode': 'ranked', 'account': sender._account.account})
+        for tick in session.ticks:
+            tick()
+        session.run_later()
+        check('the periodic check also redraws newly captured battles',
+              u'Waiting to be sent: 1 battle' in _texts(api.visible['column2']))
+        sender.drain()
+        _answer(sending, 503)
+        session.run_later()
+        check('a failed send still shows one waiting with the failure',
+              u'Waiting to be sent: 1 battle' in _texts(api.visible['column2'])
+              and any(text and 'HTTP 503' in text for text in _texts(api.visible['column2'])))
+
+        before = api.redraws
+        site.changed()
+        session.run_later()
+        check('an unchanged state causes no Flash rebuild', api.redraws == before)
+        check('refreshes keep exactly one of each API callback',
+              len(api.onSettingsChanged.handlers) == len(api.onButtonClicked.handlers) == 1)
+        site.unlink()
+        site.start()
+        session.run_later()
+        check('same-frame changes coalesce into one redraw of the latest state',
+              api.redraws == before + 1 and (CANCEL_VAR, 'Cancel') in _buttons(api.visible['column1']))
+        site.unlink()
+        for close in session.closers:
+            close()
+        count = len(api.templates)
+        session.run_later()
+        site.changed()
+        check('closing removes API callbacks and blocks pending redraws and link events',
+              not api.onSettingsChanged.handlers and not api.onButtonClicked.handlers
+              and len(api.templates) == count and api.redraws == before + 1)
+    finally:
+        del sys.modules['gui.modsSettingsApi']
+
+
+def check_settings_window_api_variants():
+    from battle_conquest.settings_window import SettingsWindow
+
+    api = _install_api()
+    module = sys.modules['gui.modsSettingsApi']
+    # Both public shapes have shipped: a direct instance and a private wrapper.
+    wrapper = type('Wrapper', (object,), {})()
+    wrapper._ModsSettingsApi__instance = api
+    wrapper.setModTemplate = api.setModTemplate
+    wrapper.updateModSettings = api.updateModSettings
+    module.g_modsSettingsApi = wrapper
+    sys.modules['gui.aslainMenu'] = module
+    del sys.modules['gui.modsSettingsApi']
+    try:
+        places = _places()
+        site = _Site(places)
+        session = _Session()
+        window = SettingsWindow(session, site, places)
+        window.install()
+        api.open()
+        site.start()
+        session.run_later()
+        check('Aslain alone and the older wrapped API both support live redraw', api.redraws == 1)
+        # Original modsSettingsApi has no live channel. Updating stored data
+        # must still work there without calling an unsupported Flash method.
+        api.reloadModTemplate = None
+        site.unlink()
+        session.run_later()
+        api.open()
+        check('legacy APIs without live redraw still get current data on reopen',
+              u'Account: not linked' in _texts(api.visible['column1']))
+        window._remove()
+        check('wrapped API callbacks are removed as well',
+              not api.onSettingsChanged.handlers and not api.onButtonClicked.handlers)
+    finally:
+        del sys.modules['gui.aslainMenu']
