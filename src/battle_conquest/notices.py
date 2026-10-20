@@ -70,6 +70,30 @@ def push(text, warning=False):
         return False
 
 
+def dismiss_reminders():
+    """Remove only this mod's obsolete reminders where the client allows it.
+
+    SystemMessages.pushMessage returns no notification ID. The collection's
+    public iterator is how we find our own message without clearing history
+    belonging to the game or to another mod.
+    """
+    try:
+        from notification.NotificationMVC import g_instance
+        from notification.settings import NOTIFICATION_TYPE
+        model = g_instance.getModel()
+        if model is None:
+            return
+        for item in list(model.collection.getListIterator((NOTIFICATION_TYPE.MESSAGE,))):
+            message = item.getListVO().get('message', {})
+            if not isinstance(message, dict):
+                continue
+            if any(isinstance(value, basestring) and PREFIX + NOT_LINKED in value
+                   for value in message.values()):
+                model.removeNotification(item.getType(), item.getID())
+    except Exception:
+        _logger.debug('could not remove old linking reminders', exc_info=True)
+
+
 def _actions_handlers():
     """The class the notification centre dispatches clicked actions through, or None."""
     try:
@@ -93,6 +117,7 @@ class Notices(object):
         self._push = push
         self.clickable = False
         self._said = False
+        self._linked = destinations.linked
 
     def install(self):
         holder = _actions_handlers()
@@ -103,6 +128,7 @@ class Notices(object):
                      else 'cannot carry a link in this client; they say what to do instead')
         self._account.on_change(self._account_changed)
         self._site.on_done(self._ended)
+        self._site.on_change(self._changed)
         # A reload in the garage starts with the account already known.
         if getattr(self._account, 'account', None):
             self._account_changed()
@@ -135,12 +161,24 @@ class Notices(object):
 
     def clicked(self):
         if self._destinations.linked:
+            dismiss_reminders()
+            self._push(u'%salready linked. Your battles are sent when sending is enabled.' % PREFIX)
             return
         if not self._site.start() and not self._site.running:
             self._push(u'%sopen the garage with your account first, then try again.' % PREFIX, warning=True)
 
     def _ended(self, destination):
-        self._push(ended_text(destination, self.clickable), warning=destination is None)
+        # Success comes from the state transition, including a link made from
+        # the settings page. on_done follows it and must not announce it twice.
+        if destination is None:
+            self._push(ended_text(None, self.clickable), warning=True)
+
+    def _changed(self):
+        linked = self._destinations.linked
+        if linked and not self._linked:
+            dismiss_reminders()
+            self._push(ended_text(self._destinations.current, self.clickable))
+        self._linked = linked
 
 
 def install(session, site, destinations, account, page=None):
