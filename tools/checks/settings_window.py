@@ -185,6 +185,10 @@ def check_settings_window():
             window.install()
             page = api.templates[-1]
             check('the page is registered under the mod\'s name', page['modDisplayName'] == 'Battle-Conquest')
+            check('the account heading has no decorative characters or extra spaces',
+                  page['column1'][0]['text'] == u'ACCOUNT')
+            check('the sending heading has no decorative characters or extra spaces',
+                  page['column2'][0]['text'] == u'SENDING')
             check('an unlinked game offers to link', (LINK_VAR, 'Link') in _buttons(page['column1']))
             check('and its own page on the site', (PAGE_VAR, 'Open') in _buttons(page['column1']))
             check('the sending column says nothing was sent', u'Last sent: nothing this session'
