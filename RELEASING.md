@@ -1,7 +1,8 @@
 # Générer et publier une release du mod
 
-Ces commandes s'exécutent dans le dépôt **battle-conquest-mod**. Les changements
-à distribuer doivent déjà être fusionnés dans `main`.
+Ces commandes s'exécutent dans le dépôt **battle-conquest-mod**. Partir de
+`main` avec les changements du mod à distribuer. La version du jeu et le
+changelog sont livrés ensemble dans une seule PR de release.
 
 Avec Codex sur le serveur Linux, demander « crée une release du mod » ou invoquer
 [`$release-mod`](.codex/skills/release-mod/SKILL.md). Le skill demande la version
@@ -28,7 +29,16 @@ Sous Windows, remplacer `python3` par la commande de votre Python 3 si nécessai
 
 Vérifier que `GAME_VERSION` dans [tools/build_release.py](tools/build_release.py)
 correspond au dossier `mods/<version du jeu>/` du client ciblé. Si cette valeur
-doit changer, faire fusionner sa correction avant de préparer la release.
+doit changer, la modifier sur cette branche, puis l'indexer :
+
+```bash
+git add -- tools/build_release.py
+git diff --cached
+```
+
+Vérifier que seuls les changements de la release sont indexés. Le script les
+committera avec le changelog après les tests ; aucune fusion préalable n'est
+nécessaire pour construire le `.wotmod` et le ZIP depuis cette branche.
 
 ## 2. Prévisualiser la version
 
@@ -72,7 +82,7 @@ brouillon avant de relancer : le script n'annule pas les étapes déjà effectu�
 ## 4. Intégrer le changelog, tester et publier
 
 Remplacer `X.Y.Z` par la version affichée par le script. Ouvrir une PR pour
-conserver le changelog sur `main` :
+conserver le changelog et l'éventuelle mise à jour de la version du jeu sur `main` :
 
 ```bash
 gh pr create --base main --head release/mod-next --title "chore(release): X.Y.Z" --body "Intègre le changelog de la release X.Y.Z."

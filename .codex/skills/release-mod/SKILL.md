@@ -25,10 +25,11 @@ WGMods ou modifier le site. Échanges et PR en français ; notes et commits en a
    essayer `~/.local/bin/python2.7`, puis `command -v python2.7` ; vérifier sa
    version et conserver le chemin absolu dans `python27`.
 4. Comparer la version du jeu confirmée à `GAME_VERSION` dans
-   `tools/build_release.py`. Si différente, suivre
-   [la préparation du jeu](../../../RELEASING.md#1-préparer-lenvironnement-et-la-branche) :
-   préparer la correction versionnée, ses contrôles et sa PR, puis reprendre
-   après fusion. Ne pas contourner le décalage en renommant le ZIP.
+   `tools/build_release.py`. Si différente, la modifier dans cette branche et
+   indexer uniquement ce fichier. Le script de release committe les fichiers
+   indexés avec le changelog après les contrôles : livrer le tout dans **une
+   seule PR**, sans fusion préalable. Vérifier l'index pour exclure tout fichier
+   étranger. Ne pas contourner le décalage en renommant le ZIP.
 
 ## Générer
 
@@ -58,7 +59,8 @@ rtk proxy env EDITOR="$PWD/.codex/skills/release-mod/scripts/notes_editor.py" \
   python3 -B tools/release.py --python27 "$python27"
 ```
 
-Le script construit, lance `selftest.py` et `release_check.py`, committe,
+Le script construit depuis la branche avec la version du jeu mise à jour,
+lance `selftest.py` et `release_check.py`, committe,
 tague, pousse et crée le brouillon. Ne pas refaire les contrôles réussis.
 Conserver le log hors du dépôt ; lire le résultat ou l'extrait utile en cas
 d'échec. Ne pas réécrire le script de release ni son calcul de version.
@@ -68,7 +70,7 @@ d'échec. Ne pas réécrire le script de release ni son calcul de version.
 - Contrôler localement que le ZIP contient le seul fichier
   `mods/<version confirmée>/eu.battle-conquest_X.Y.Z.wotmod`. Vérifier une fois
   `gh release view vX.Y.Z --json isDraft,url,assets` : brouillon et deux assets.
-- Ouvrir/réutiliser la PR du changelog vers `main`, description française
+- Ouvrir/réutiliser l'unique PR de release (changelog et version du jeu) vers `main`, description française
   concise via `--body-file` : versions mod/jeu, lien du brouillon, résultats
   locaux réels et test en jeu restant. Ne pas inventer d'issue associée.
   **Ne jamais consulter, surveiller ou attendre la CI.**

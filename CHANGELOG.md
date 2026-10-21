@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+
+- Include the played vehicle in each battle report.
+
+### Fixed
+
+- Keep account linking and battle counters up to date in the settings menu.
+- Remove decorative separators from settings headings.
+- Package the mod for World of Tanks EU 2.4.1.0.
+
 ## 1.0.0
 
 The first release of the Battle-Conquest mod, built from the battle capture of
