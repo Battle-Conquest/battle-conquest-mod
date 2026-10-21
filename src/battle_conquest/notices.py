@@ -117,6 +117,7 @@ class Notices(object):
         self._push = push
         self.clickable = False
         self._said = False
+        self._reminder_pending = False
         self._linked = destinations.linked
 
     def install(self):
@@ -150,10 +151,17 @@ class Notices(object):
         if self._said:
             return
         self._said = True
+        self._schedule_reminder()
+
+    def _schedule_reminder(self):
+        if self._reminder_pending:
+            return
+        self._reminder_pending = True
         self._session.callback(_DELAY, self.remind)
 
     def remind(self):
         """Say the game is not linked, if it still is not."""
+        self._reminder_pending = False
         if self._destinations.linked or self._site.running:
             return False
         page = bool(self._page is not None and self._page.available)
@@ -178,6 +186,11 @@ class Notices(object):
         if linked and not self._linked:
             dismiss_reminders()
             self._push(ended_text(self._destinations.current, self.clickable))
+        elif self._linked and not linked and getattr(self._account, 'account', None):
+            # The startup response can arrive after the first reminder was
+            # skipped. Offer linking again, coalescing with any reminder
+            # already waiting for the garage to finish loading.
+            self._schedule_reminder()
         self._linked = linked
 
 

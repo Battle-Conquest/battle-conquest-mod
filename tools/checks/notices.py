@@ -227,6 +227,36 @@ def check_notices_without_handler():
     session.real.close()
 
 
+def check_notices_revoked_link():
+    from battle_conquest.notices import ACTION
+
+    for when in ('before login', 'before reminder', 'after reminder'):
+        places = _places()
+        places.remember('Battle-Conquest', ['random'], 'e' * 64)
+        notices, session, account, site, _, pushed = _notices(places=places)
+        try:
+            if when != 'before login':
+                account.log_in()
+            if when == 'after reminder':
+                session.run_later()
+                check('a still-linked startup stays quiet', pushed == [])
+            places.forget()
+            site.changed()
+            site.changed()
+            check('revocation does not push into a garage still loading', pushed == [])
+            if when == 'before login':
+                check('a revoked link waits for login before scheduling a notice', session.later == [])
+                account.log_in()
+            session.run_later()
+            check('a revoked link offers to link again once, including a slow response',
+                  len(pushed) == 1 and 'not linked' in pushed[0][0]
+                  and 'event:%s' % ACTION in pushed[0][0])
+            notices.clicked()
+            check('the reminder starts a new linking attempt', site.started == 1)
+        finally:
+            session.real.close()
+
+
 def check_notices_dismiss_reminders():
     from battle_conquest.notices import dismiss_reminders, not_linked_text
     _with_handlers(True)

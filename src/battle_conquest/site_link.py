@@ -40,10 +40,9 @@ _POLL_SECONDS = 3.0
 # open on a sign-in page must not leave a poll running for the session.
 _GIVE_UP_SECONDS = 600.0
 
-# How soon after the client starts, and how often after that, a link is
-# checked with the site. Nothing here is urgent: a revoked link only costs a
-# refused batch, which the sender already backs off from.
-_VERIFY_DELAY = 30.0
+# Check a stored link on the next frame, after the page and notices have
+# subscribed. Waiting thirty seconds lets the garage's first reminder pass
+# while a revoked key still looks linked.
 _VERIFY_SECONDS = 1800.0
 
 
@@ -88,12 +87,13 @@ def open_url(url):
 class Attempt(object):
     """One linking attempt: a secret drawn, a browser opened, and a poll."""
 
-    def __init__(self, session, destinations, account, site=None, on_done=None):
+    def __init__(self, session, destinations, account, site=None, on_done=None, version=''):
         self._session = session
         self._destinations = destinations
         self._account = account
         self._site = (site or config.SITE).rstrip('/')
         self._on_done = on_done
+        self._version = version
         self._secret = new_secret()
         self._left = int(_GIVE_UP_SECONDS / _POLL_SECONDS)
         self._over = False
@@ -119,7 +119,7 @@ class Attempt(object):
             _logger.warning('linking to %s: gave up waiting', self._site)
             return
         self._session.fetch(ME_PATH % self._site, self._answered,
-                            headers={'X-Mod-Secret': self._secret},
+                            headers={'X-Mod-Secret': self._secret, 'X-Mod-Version': self._version},
                             timeout=config.API_TIMEOUT)
 
     def _answered(self, response):
@@ -143,11 +143,12 @@ class Attempt(object):
 class SiteLink(object):
     """The link as the settings page sees it: linked, being linked, or linkable."""
 
-    def __init__(self, session, destinations, account, site=None):
+    def __init__(self, session, destinations, account, site=None, version=''):
         self._session = session
         self._destinations = destinations
         self._account = account
         self._site = (site or config.SITE).rstrip('/')
+        self._version = version
         self._attempt = None
         self._listeners = []
         self._endings = []
@@ -177,7 +178,7 @@ class SiteLink(object):
         return self._attempt is not None
 
     def install(self):
-        self._session.callback(_VERIFY_DELAY, self.verify)
+        self._session.callback(0.0, self.verify)
         self._session.repeat(_VERIFY_SECONDS, self.verify)
 
     def start(self):
@@ -195,7 +196,7 @@ class SiteLink(object):
                             'open the garage and try again', self._site)
             return False
         self._attempt = Attempt(self._session, self._destinations, account,
-                                site=self._site, on_done=self._done)
+                                site=self._site, on_done=self._done, version=self._version)
         self._attempt.start()
         self._changed()
         return True
@@ -247,7 +248,8 @@ class SiteLink(object):
                 self._changed()
 
         self._session.fetch(ME_PATH % self._site, answered,
-                            headers={'X-Mod-Secret': secret}, timeout=config.API_TIMEOUT)
+                            headers={'X-Mod-Secret': secret, 'X-Mod-Version': self._version},
+                            timeout=config.API_TIMEOUT)
 
     def _done(self, destination):
         self._attempt = None
@@ -266,8 +268,8 @@ class SiteLink(object):
                 _logger.exception('a link listener failed')
 
 
-def install(session, destinations, account, site=None):
-    sites = SiteLink(session, destinations, account, site=site)
+def install(session, destinations, account, site=None, version=''):
+    sites = SiteLink(session, destinations, account, site=site, version=version)
     sites.install()
     _logger.info('%s is %s', sites._site, 'linked' if sites.linked else 'not linked yet')
     return sites

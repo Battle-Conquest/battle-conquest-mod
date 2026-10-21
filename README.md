@@ -51,6 +51,11 @@ kept. **Unlink** makes this game forget its key; revoke it on the site too.
 Without those two mods there is no page, and nothing is lost but pausing and
 unlinking from the game: the garage notification links the game, and a key is
 revoked from your page on the site, after which the mod forgets it by itself.
+At startup the mod checks any saved key with the site. A revoked key is removed
+and the garage offers **Link my account** again. If the site is temporarily
+unreachable, the saved link is kept and checked again later.
+The check also announces the mod version so the site can notify you when an
+update is available, even before you play a battle.
 
 ## What is sent, and what is not
 
