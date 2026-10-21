@@ -1,0 +1,6 @@
+interface:
+  display_name: "Release du mod Battle-Conquest"
+  short_description: "Préparer le mod, son ZIP et une release en brouillon"
+  default_prompt: "Utilise $release-mod pour préparer une nouvelle release du mod Battle-Conquest."
+policy:
+  allow_implicit_invocation: true
