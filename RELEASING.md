@@ -3,6 +3,11 @@
 Ces commandes s'exécutent dans le dépôt **battle-conquest-mod**. Les changements
 à distribuer doivent déjà être fusionnés dans `main`.
 
+Avec Codex sur le serveur Linux, demander « crée une release du mod » ou invoquer
+[`$release-mod`](.codex/skills/release-mod/SKILL.md). Le skill demande la version
+du jeu pour chaque release, prépare les notes en anglais, crée le brouillon et
+la PR du changelog. Le test en jeu et la publication restent manuels.
+
 ## 1. Préparer l'environnement et la branche
 
 Il faut Git, **Python 3.10+**, **Python 2.7** (pour compiler le mod et le tester),
