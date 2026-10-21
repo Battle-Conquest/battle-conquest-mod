@@ -23,12 +23,14 @@ class _Session(object):
 
     def __init__(self):
         self.repeats = []
+        self.callbacks = []
         self.sent = []
 
     def repeat(self, interval, func):
         self.repeats.append(func)
 
     def callback(self, delay, func):
+        self.callbacks.append((delay, func))
         self.repeats.append(func)
 
     def fetch(self, url, answer, headers=None, timeout=None, **kwargs):
@@ -101,7 +103,7 @@ def check_site_link_writes_the_destination():
 
     places = _destinations()
     session = _Session()
-    sites = SiteLink(session, places, _Link(), site='https://example.test')
+    sites = SiteLink(session, places, _Link(), site='https://example.test', version='1.2.3')
 
     check('nothing is linked before the player clicks', not sites.linked)
 
@@ -117,6 +119,7 @@ def check_site_link_writes_the_destination():
     request = session.sent[0]
     check('the poll asks the site who we are', request['url'] == 'https://example.test/api/mod/me')
     check('with the secret, not its hash', request['headers'].get('X-Mod-Secret'))
+    check('linking also announces the installed version', request['headers'].get('X-Mod-Version') == '1.2.3')
 
     request['answer'](_Response(200, {'label': 'Battle-Conquest', 'modes': ['ranked', 'nonsense']}))
 
@@ -255,3 +258,43 @@ def check_site_link_verifies():
     count = len(session.sent)
     sites.verify()
     check('an unlinked client asks nothing', len(session.sent) == count)
+
+
+def check_site_link_startup():
+    from battle_conquest.destinations import Destinations
+    from battle_conquest.site_link import SiteLink
+
+    for code in (200, 401, 0, 408, 429, 503):
+        session, stored, _ = _linked_site()
+        stored.set_enabled(False)
+        with open(stored._store, 'rb') as handle:
+            original = handle.read()
+        places = Destinations(('random', 'ranked', 'other'), store=stored._store,
+                              url=stored.url)
+        sites = SiteLink(session, places, _Link(account=None), site='https://example.test', version='1.2.3')
+        changes = []
+        sites.on_change(lambda: changes.append(1))
+        sites.install()
+        check('startup verification is queued for the next frame', session.callbacks[0][0] == 0.0)
+        session.callbacks[0][1]()
+        check('a stored link is checked even before login and while paused',
+              len(session.sent) == 1 and session.sent[0]['url'] == 'https://example.test/api/mod/me'
+              and session.sent[0]['headers'] == {'X-Mod-Secret': 'b' * 64, 'X-Mod-Version': '1.2.3'})
+        payload = {'label': 'Battle-Conquest', 'modes': ['ranked']} if code == 200 else None
+        session.sent[0]['answer'](_Response(code, payload))
+        if code == 401:
+            check('a revoked startup link is forgotten on disk and in memory',
+                  not sites.linked and not os.path.exists(stored._store))
+            check('listeners hear that the startup link was revoked', changes == [1])
+        else:
+            with open(stored._store, 'rb') as handle:
+                check('a valid link or temporary failure keeps the stored file', handle.read() == original)
+            check('verification preserves the secret and the pause',
+                  sites.linked and places.current.secret == 'b' * 64 and not places.enabled)
+            check('an unchanged or unavailable link causes no false transition', changes == [])
+
+    session = _Session()
+    sites = SiteLink(session, _destinations(), _Link(), site='https://example.test')
+    sites.install()
+    session.callbacks[0][1]()
+    check('startup without a link makes no request', session.sent == [])

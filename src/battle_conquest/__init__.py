@@ -34,7 +34,7 @@ def start(generation=0):
     try:
         player = account.install(_session)
         places = destinations.install(_session, MODES)
-        site = site_link.install(_session, places, player)
+        site = site_link.install(_session, places, player, version=VERSION)
         # One queue for both halves: the capture writes to it and the sender
         # reads from it, and two objects over one file would each hold their
         # own copy of it.

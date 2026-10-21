@@ -34,7 +34,7 @@ from checks.engine import FakeBigWorld
 from checks.fakes import ORIGINAL_POST_RESULT, FakeBattleResultsService
 from checks.notices import (check_notices_click, check_notices_dismiss_reminders,
                             check_notices_remind, check_notices_texts,
-                            check_notices_without_handler)
+                            check_notices_without_handler, check_notices_revoked_link)
 from checks.report_sender import (check_report_sender_account, check_report_sender_batching,
                                   check_report_sender_delivery, check_report_sender_payload,
                                   check_report_sender_refusals, check_report_sender_startup,
@@ -65,7 +65,8 @@ from checks.settings_window import (check_settings_window, check_settings_window
                                     check_settings_window_without_api)
 from checks.site_link import (check_site_link_gives_up, check_site_link_needs_an_account,
                               check_site_link_unlinks, check_site_link_url, check_site_link_verifies,
-                              check_site_link_waiting, check_site_link_writes_the_destination)
+                              check_site_link_waiting, check_site_link_writes_the_destination,
+                              check_site_link_startup)
 
 
 def main():
@@ -123,6 +124,7 @@ def main():
         check_site_link_gives_up()
         check_site_link_unlinks()
         check_site_link_verifies()
+        check_site_link_startup()
         check_results_dict_paths()
         check_results_dict_search()
         check_results_dict_cycle()
@@ -167,6 +169,7 @@ def main():
         check_notices_remind()
         check_notices_click()
         check_notices_without_handler()
+        check_notices_revoked_link()
         check_notices_dismiss_reminders()
 
         first_hook = FakeBattleResultsService.__dict__['postResult']
