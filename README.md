@@ -86,6 +86,9 @@ battle by player and arena). Nothing is counted twice.
 
 ## Development
 
+For the release commands, ZIP contents and publication steps, see the
+[release guide (French)](./RELEASING.md).
+
 Python 2.7 in `src/`, as the client runs it. Read [`AGENTS.md`](./AGENTS.md)
 before changing anything, above all how hot reload stays safe.
 
