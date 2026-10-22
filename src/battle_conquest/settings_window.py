@@ -21,6 +21,8 @@ Two behaviours of the API (1.7) shape this:
 import logging
 import time
 
+from battle_conquest import mod_updates
+
 _logger = logging.getLogger('battle_conquest.settings_window')
 
 LINKAGE = 'eu.battle-conquest'
@@ -122,6 +124,9 @@ def template(state, templates=None):
         _heading(templates, 'Sending'),
         templates.createLabel(state.last),
         templates.createLabel(waiting_label(state.waiting)),
+        templates.createEmpty(_SPACER),
+        _heading(templates, 'Mod updates'),
+        templates.createLabel(state.update),
     ]
     return {'modDisplayName': NAME, 'enabled': state.enabled,
             'column1': account, 'column2': sending}
@@ -130,16 +135,17 @@ def template(state, templates=None):
 class State(object):
     """What the page shows, compared as a whole to know when to redraw it."""
 
-    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0):
+    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u''):
         self.linked = linked
         self.running = running
         self.modes = tuple(modes)
         self.enabled = enabled
         self.last = last or last_sent_label(None, None)
         self.waiting = waiting
+        self.update = update
 
     def key(self):
-        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting)
+        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update)
 
     def __eq__(self, other):
         return isinstance(other, State) and self.key() == other.key()
@@ -203,7 +209,9 @@ class SettingsWindow(object):
                      enabled=self._destinations.enabled if linked else True,
                      last=last_sent_label(getattr(sender, 'last_sent', None),
                                           getattr(sender, 'last_result', None)),
-                     waiting=sender.waiting() if sender is not None else 0)
+                     waiting=sender.waiting() if sender is not None else 0,
+                     update=mod_updates.text(getattr(self._site, 'mod_update', None),
+                                             getattr(self._site, 'version', '')))
 
     def _check_state(self):
         if not self._alive:
