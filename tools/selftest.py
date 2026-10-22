@@ -42,6 +42,8 @@ from checks.report_sender import (check_report_sender_account, check_report_send
 from checks.results_dict import (check_results_dict_cycle, check_results_dict_miss,
                                  check_results_dict_paths, check_results_dict_said_once,
                                  check_results_dict_search)
+from checks.results_diagnostic import (check_diagnostic_projection, check_diagnostic_bounded_values,
+                                       check_diagnostic_storage, check_diagnostic_capture_integration)
 from checks.results_request import (check_results_request_delivers,
                                     check_results_request_anything_wanted,
                                     check_results_request_only_when_taking,
@@ -114,6 +116,10 @@ def main():
         check_battle_report_arrival_as_method()
         check_battle_report_no_arrival()
         check_battle_report_hooks()
+        check_diagnostic_projection()
+        check_diagnostic_bounded_values()
+        check_diagnostic_storage()
+        check_diagnostic_capture_integration()
         check_service_hooks()
         check_service_hooks_filter()
         check_service_signatures()
