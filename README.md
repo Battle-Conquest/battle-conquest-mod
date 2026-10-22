@@ -89,6 +89,12 @@ Everything the mod writes is in `mods/configs/battle_conquest/`:
 | `battle-reports.json` | battles waiting to be sent |
 | `battle-reports-refused.json` | the last batch the site could not read, kept for whoever has to find out why |
 
+An optional local results diagnostic is available for the quest measurements
+work in [#953](https://github.com/Battle-Conquest/Battle-Conquest/issues/953).
+It is disabled by default. See the [in-game diagnostic procedure (French)](./DIAGNOSTIC.md)
+for activation, files, limits and the comparisons to record. These observations
+are never sent to the site and do not change the existing battle reports.
+
 ## With unicum.gg-mod installed
 
 Both mods load side by side: they share no file, package or setting. If
