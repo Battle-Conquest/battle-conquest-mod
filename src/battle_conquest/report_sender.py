@@ -33,12 +33,14 @@ playing. Sending one account's battles under the other's proof is how a report
 ends up attributed to the wrong player, which is the one fault that makes every
 number computed downstream wrong rather than merely late.
 """
+import copy
 import json
 import logging
 import os
 import time
 
 from battle_conquest import config
+from battle_conquest.quest_details import capabilities
 from battle_conquest import service_hooks
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
@@ -77,7 +79,7 @@ _ADVICE = {
     413: 'the batch was too large for it',
 }
 
-FIELDS = ('arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'vehicle', 'metrics')
+FIELDS = ('arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'vehicle', 'metrics', 'quest_details')
 
 
 def wire(report):
@@ -325,7 +327,11 @@ class Sender(object):
             self._changed()
             return
         target, reports = work[0]
-        batch, rest = reports[:BATCH], reports[BATCH:]
+        batch, rest = copy.deepcopy(reports[:BATCH]), reports[BATCH:]
+        # Respawn observations are wider than a legacy report. Respect the
+        # server's body limit as well as its report-count limit.
+        while len(batch) > 1 and len(self.payload(batch)) > 240000:
+            rest.insert(0, batch.pop())
         remaining = ([(target, rest)] if rest else []) + work[1:]
 
         def answered(response):
@@ -352,7 +358,7 @@ class Sender(object):
         """A batch as a destination is given it, the account it belongs to and all."""
         return json.dumps({
             'schema': SCHEMA,
-            'client': {'mod': MOD_NAME, 'version': self._version},
+            'client': {'mod': MOD_NAME, 'version': self._version, 'capabilities': capabilities()},
             'account': {'id': account_number(reports[0].get('account')),
                         # A property of the client, not of a battle: one
                         # installation plays on one realm.
@@ -362,8 +368,18 @@ class Sender(object):
 
     def _took(self, target, batch, response):
         """A batch the destination has answered. Every verdict in it is final."""
-        self._queue.mark(target.url, [report['arena_unique_id'] for report in batch])
         payload = answer(response)
+        snapshots = {}
+        results = (payload or {}).get('results')
+        for result in (results if isinstance(results, list) else []):
+            if not isinstance(result, dict) or result.get('status') not in ('accepted', 'duplicate'):
+                continue
+            index = result.get('index')
+            if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(batch):
+                report = batch[index]
+                snapshots[report['arena_unique_id']] = report.get('quest_details')
+        self._queue.mark(target.url, [report['arena_unique_id'] for report in batch],
+                         account=batch[0].get('account'), snapshots=snapshots)
         self.last_sent = time.time()
         self.last_result = {'code': 200, 'battles': len(batch),
                             'accepted': (payload or {}).get('accepted'),

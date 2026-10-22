@@ -13,6 +13,7 @@ import logging
 import os
 
 from battle_conquest import config
+from battle_conquest.quest_details import fill
 
 _logger = logging.getLogger('battle_conquest.report_queue')
 
@@ -47,13 +48,17 @@ def deduplicate(reports):
     dedupe as well, by (player, arena); this only keeps the queue from carrying
     work already known to be redundant.
     """
-    seen = set()
+    seen = {}
     out = []
     for report in reports:
         arena_id = report.get('arena_unique_id')
-        if arena_id in seen:
+        identity = (report.get('account'), arena_id)
+        if identity in seen:
+            first = seen[identity]
+            if isinstance(report.get('quest_details'), dict):
+                first['quest_details'] = fill(first.get('quest_details', {}), report['quest_details'])
             continue
-        seen.add(arena_id)
+        seen[identity] = report
         out.append(report)
     return out
 
@@ -90,9 +95,9 @@ class Queue(object):
         """Queue one report, and say whether it was new."""
         before = len(self._reports)
         self._reports = trim(deduplicate(self._reports + [report]))
+        self.save()
         if len(self._reports) == before and before:
             return False
-        self.save()
         return True
 
     def pending(self, key, modes):
@@ -101,7 +106,7 @@ class Queue(object):
         return [report for report in self._reports
                 if report.get('mode') in wanted and key not in (report.get('sent') or [])]
 
-    def mark(self, key, arena_ids):
+    def mark(self, key, arena_ids, account=None, snapshots=None):
         """Remember that a destination has taken these, whatever its verdict.
 
         Accepted, duplicate and rejected are all final answers, so all three
@@ -112,7 +117,12 @@ class Queue(object):
         if not taken:
             return
         for report in self._reports:
-            if report.get('arena_unique_id') not in taken:
+            arena = report.get('arena_unique_id')
+            if arena not in taken or (account is not None and report.get('account') != account):
+                continue
+            # An accepted report enriched while its request was in flight still
+            # owes those newly observed fields. Rejections never get this path.
+            if snapshots is not None and arena in snapshots and report.get('quest_details') != snapshots[arena]:
                 continue
             sent = report.get('sent')
             if not isinstance(sent, list):

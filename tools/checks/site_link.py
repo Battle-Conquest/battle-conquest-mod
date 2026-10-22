@@ -279,7 +279,9 @@ def check_site_link_startup():
         session.callbacks[0][1]()
         check('a stored link is checked even before login and while paused',
               len(session.sent) == 1 and session.sent[0]['url'] == 'https://example.test/api/mod/me'
-              and session.sent[0]['headers'] == {'X-Mod-Secret': 'b' * 64, 'X-Mod-Version': '1.2.3'})
+              and session.sent[0]['headers']['X-Mod-Secret'] == 'b' * 64
+              and session.sent[0]['headers']['X-Mod-Version'] == '1.2.3'
+              and 'X-Mod-Capabilities' in session.sent[0]['headers'])
         payload = {'label': 'Battle-Conquest', 'modes': ['ranked']} if code == 200 else None
         session.sent[0]['answer'](_Response(code, payload))
         if code == 401:

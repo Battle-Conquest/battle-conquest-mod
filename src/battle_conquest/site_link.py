@@ -24,6 +24,7 @@ import json
 import logging
 
 from battle_conquest import config, mod_updates
+from battle_conquest.quest_details import header as capabilities_header
 from battle_conquest.destinations import LABEL, new_secret, secret_hash
 
 _logger = logging.getLogger('battle_conquest.site_link')
@@ -120,7 +121,8 @@ class Attempt(object):
             _logger.warning('linking to %s: gave up waiting', self._site)
             return
         self._session.fetch(ME_PATH % self._site, self._answered,
-                            headers={'X-Mod-Secret': self._secret, 'X-Mod-Version': self._version},
+                            headers={'X-Mod-Secret': self._secret, 'X-Mod-Version': self._version,
+                                     'X-Mod-Capabilities': capabilities_header()},
                             timeout=config.API_TIMEOUT)
 
     def _answered(self, response):
@@ -266,7 +268,8 @@ class SiteLink(object):
                 self._changed()
 
         self._session.fetch(ME_PATH % self._site, answered,
-                            headers={'X-Mod-Secret': secret, 'X-Mod-Version': self._version},
+                            headers={'X-Mod-Secret': secret, 'X-Mod-Version': self._version,
+                                     'X-Mod-Capabilities': capabilities_header()},
                             timeout=config.API_TIMEOUT)
 
     def _done(self, destination):

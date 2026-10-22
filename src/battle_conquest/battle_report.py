@@ -10,9 +10,11 @@ every battle. Each half is worth reading without the other in the way.
 A report that had to be guessed at is worse than a missing one, because it
 counts. So every reading here refuses rather than approximates.
 """
+import logging
 import time
 
 from battle_conquest import modes
+from battle_conquest.quest_details import details_of
 
 
 # The seven counters that travel per battle, and the key each one is read from
@@ -244,6 +246,13 @@ def report_of(results, mode=None, now=None, constants=None):
     tank_id = tank_id_of(results.get('personal'))
     if tank_id is not None:
         report['vehicle'] = {'tank_id': tank_id}
+    try:
+        details = details_of(results, constants)
+        if details is not None:
+            report['quest_details'] = details
+    except Exception:
+        logging.getLogger('battle_conquest.battle_report').warning(
+            'could not read optional quest details; historical report preserved')
     return report
 
 

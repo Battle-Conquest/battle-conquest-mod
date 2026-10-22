@@ -127,7 +127,7 @@ def check_report_sender_payload():
     body = json.loads(sender.payload(queue.all()))
 
     check('the batch names its contract version', body['schema'] == 1)
-    check('and which mod sent it', body['client'] == {'mod': 'battle-conquest-mod', 'version': '1.2.3'})
+    check('and which mod sent it', body['client']['mod'] == 'battle-conquest-mod' and body['client']['version'] == '1.2.3')
     # An integer, as the contract asks: the account id is small enough for one
     # and a string there would be a second shape to accept.
     check('the account travels as a number', body['account']['id'] == int(ACCOUNT))
