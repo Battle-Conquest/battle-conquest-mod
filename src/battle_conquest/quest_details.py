@@ -88,9 +88,11 @@ def details_of(results, constants=None):
     start, duration = common.get('arenaCreateTime'), common.get('duration')
     if integer(start, 4102444799) and integer(duration, 86400):
         out['started_at'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(start))
-    vehicles = [value for key, value in personal.items() if key != 'avatar' and isinstance(value, dict)]
+    entries = [value for key, value in personal.items() if key != 'avatar']
+    vehicles = [value for value in entries if isinstance(value, dict)]
+    complete = len(entries) == len(vehicles)
     tanks = [value.get('typeCompDescr') for value in vehicles]
-    if tanks and len(tanks) <= 64 and all(integer(tank, 4294967295) and tank > 0 for tank in tanks):
+    if complete and tanks and len(tanks) <= 64 and all(integer(tank, 4294967295) and tank > 0 for tank in tanks):
         out['vehicles'] = sorted(set(tanks))
     raw_vehicles = []
     for vehicle in vehicles[:64]:
@@ -101,7 +103,7 @@ def details_of(results, constants=None):
         raw_vehicles.append(entry)
     if raw_vehicles:
         out['vehicle_observations'] = raw_vehicles
-    if len(vehicles) != 1:
+    if not complete or len(vehicles) != 1:
         return out
     vehicle = vehicles[0]
     metrics = {}
