@@ -21,6 +21,9 @@ looked and the garage is where they come back to.
 """
 import logging
 
+from battle_conquest import mod_updates
+from battle_conquest.report_sender import at_garage
+
 _logger = logging.getLogger('battle_conquest.notices')
 
 ACTION = 'battle_conquest.link'
@@ -108,7 +111,7 @@ def _actions_handlers():
 
 class Notices(object):
 
-    def __init__(self, session, site, destinations, account, page=None, push=push):
+    def __init__(self, session, site, destinations, account, page=None, push=push, garage=at_garage):
         self._session = session
         self._site = site
         self._destinations = destinations
@@ -119,6 +122,9 @@ class Notices(object):
         self._said = False
         self._reminder_pending = False
         self._linked = destinations.linked
+        self._garage = garage
+        self._updates_said = set()
+        self._update_pending = False
 
     def install(self):
         holder = _actions_handlers()
@@ -133,6 +139,7 @@ class Notices(object):
         # A reload in the garage starts with the account already known.
         if getattr(self._account, 'account', None):
             self._account_changed()
+        self._schedule_update()
 
     def _wrap(self, original):
 
@@ -142,6 +149,10 @@ class Notices(object):
             name = kwargs.get('actionName', args[-1] if args else None)
             if name == ACTION:
                 self.clicked()
+                return None
+            if name == mod_updates.ACTION:
+                from battle_conquest.site_link import open_url
+                open_url(self._site.page)
                 return None
             return original(handlers, *args, **kwargs)
 
@@ -182,6 +193,7 @@ class Notices(object):
             self._push(ended_text(None, self.clickable), warning=True)
 
     def _changed(self):
+        self._schedule_update()
         linked = self._destinations.linked
         if linked and not self._linked:
             dismiss_reminders()
@@ -192,6 +204,26 @@ class Notices(object):
             # already waiting for the garage to finish loading.
             self._schedule_reminder()
         self._linked = linked
+
+    def _schedule_update(self):
+        update = getattr(self._site, 'mod_update', None)
+        target = update.get('target_version') if update else None
+        if target and target not in self._updates_said and not self._update_pending:
+            self._update_pending = True
+            self._session.callback(_DELAY, self._update_notice)
+
+    def _update_notice(self):
+        self._update_pending = False
+        update = getattr(self._site, 'mod_update', None)
+        target = update.get('target_version') if update else None
+        if not target or target in self._updates_said:
+            return
+        # Account.account remembers the last login even during battle. Ask
+        # for the current garage entity before pushing, and retry on return.
+        if self._garage() and self._push(mod_updates.notice(update, self.clickable), warning=True):
+            self._updates_said.add(target)
+        else:
+            self._schedule_update()
 
 
 def install(session, site, destinations, account, page=None):

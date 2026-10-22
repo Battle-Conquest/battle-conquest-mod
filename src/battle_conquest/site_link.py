@@ -23,7 +23,7 @@ capture without the player linking again.
 import json
 import logging
 
-from battle_conquest import config
+from battle_conquest import config, mod_updates
 from battle_conquest.destinations import LABEL, new_secret, secret_hash
 
 _logger = logging.getLogger('battle_conquest.site_link')
@@ -87,13 +87,14 @@ def open_url(url):
 class Attempt(object):
     """One linking attempt: a secret drawn, a browser opened, and a poll."""
 
-    def __init__(self, session, destinations, account, site=None, on_done=None, version=''):
+    def __init__(self, session, destinations, account, site=None, on_done=None, version='', on_update=None):
         self._session = session
         self._destinations = destinations
         self._account = account
         self._site = (site or config.SITE).rstrip('/')
         self._on_done = on_done
         self._version = version
+        self._on_update = on_update
         self._secret = new_secret()
         self._left = int(_GIVE_UP_SECONDS / _POLL_SECONDS)
         self._over = False
@@ -129,6 +130,8 @@ class Attempt(object):
         if me is None:
             return
         label, modes = me
+        if self._on_update is not None:
+            self._on_update(response)
         self._finish(self._destinations.remember(label, modes, self._secret))
 
     def _finish(self, destination):
@@ -152,6 +155,17 @@ class SiteLink(object):
         self._attempt = None
         self._listeners = []
         self._endings = []
+        self.mod_update = None
+
+    @property
+    def version(self):
+        return self._version
+
+    def _read_update(self, response):
+        update = mod_updates.read(response, self._version)
+        if update != self.mod_update:
+            self.mod_update = update
+            self._changed()
 
     def on_change(self, callback):
         self._listeners.append(callback)
@@ -196,7 +210,8 @@ class SiteLink(object):
                             'open the garage and try again', self._site)
             return False
         self._attempt = Attempt(self._session, self._destinations, account,
-                                site=self._site, on_done=self._done, version=self._version)
+                                site=self._site, on_done=self._done, version=self._version,
+                                on_update=self._read_update)
         self._attempt.start()
         self._changed()
         return True
@@ -212,6 +227,7 @@ class SiteLink(object):
             self._attempt.cancel()
             self._attempt = None
         forgot = self._destinations.forget()
+        self.mod_update = None
         if forgot:
             _logger.info('unlinked from %s; revoke the key on %s too', self._site, self.page)
         self._changed()
@@ -234,6 +250,7 @@ class SiteLink(object):
                 _logger.info('%s no longer knows this link (revoked on the site?); forgetting it',
                              self._site)
                 self._destinations.forget()
+                self.mod_update = None
                 self._changed()
                 return
             me = read_me(response)
@@ -242,6 +259,7 @@ class SiteLink(object):
                 # about the link either way, and ask again next time.
                 return
             label, modes = me
+            self._read_update(response)
             if sorted(modes) != sorted(current.modes) or label != current.label:
                 _logger.info('%s now scores %s', self._site, ', '.join(modes))
                 self._destinations.remember(label, modes, secret, enabled=current.enabled)
