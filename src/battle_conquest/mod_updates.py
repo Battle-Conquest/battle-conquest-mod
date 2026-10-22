@@ -9,7 +9,9 @@ def version(value):
     if not isinstance(value, basestring) or len(value) > 64:
         return None
     match = re.match(r'^v?([0-9]+\.[0-9]+\.[0-9]+)\Z', value.strip(), re.I)
-    return match.group(1) if match else None
+    # Match the server's numeric spelling so equivalent source versions cannot
+    # disagree on the target or rearm the same session's warning.
+    return '.'.join(part.lstrip('0') or '0' for part in match.group(1).split('.')) if match else None
 
 
 def numbers(value):

@@ -21,6 +21,13 @@ def check_mod_updates_contract():
 
     check('an old server has no optional update information',
           mod_updates.read(_Response(200, {'modes': ['random']}), '1.0.0') is None)
+    check('zero-padded numeric components are canonical',
+          mod_updates.version('v01.002.000') == '1.2.0' and mod_updates.version('00.000.0') == '0.0.0')
+    for wg, gh, target in (('1.02.0', '1.2.0', '1.2.0'), ('1.2.0', '1.02.0', '1.02.0')):
+        padded = mod_updates.read(_response(_update(wg, gh, target)), '01.00.000')
+        check('equivalent source spellings cannot hide an update',
+              padded is not None and padded['target_version'] == '1.2.0'
+              and padded['recommended_source'] == 'wgmods')
     for raw in (None, [], 'bad', {'target_version': '<a>evil</a>'}):
         check('an invalid extension is harmless', mod_updates.read(_response(raw), '1.0.0') is None)
     for wg, gh, target, source in (('1.1.0', '1.2.0', '1.2.0', 'wgmods'),
@@ -121,6 +128,10 @@ def check_mod_updates_garage():
         site.changed()
         session.run_later()
         check('the same target is announced only once this session', len(pushed) == 1)
+        site.mod_update = mod_updates.read(_response(_update('01.01.000', '01.02.000', '01.02.000')), '1.0.0')
+        site.changed()
+        session.run_later()
+        check('another numeric spelling does not rearm the same target', len(pushed) == 1)
         site.mod_update = mod_updates.read(_response(_update(github='1.3.0', target='1.3.0')), '1.0.0')
         site.changed()
         session.run_later()
