@@ -44,6 +44,7 @@ in the mods list (the icon at the top of the garage) that opens this page:
 | Your battles on the site | **Open** shows your page on the site, where a link is revoked |
 | Last sent | when the last batch left this session, and what the site made of it |
 | Waiting to be sent | battles of the account logged in still in the queue |
+| Mod updates | installed version, known WGMods and GitHub versions, and the recommended download source |
 
 The page's own box (enabled) pauses sending: battles played meanwhile are not
 kept. **Unlink** makes this game forget its key; revoke it on the site too.
@@ -54,8 +55,14 @@ revoked from your page on the site, after which the mod forgets it by itself.
 At startup the mod checks any saved key with the site. A revoked key is removed
 and the garage offers **Link my account** again. If the site is temporarily
 unreachable, the saved link is kept and checked again later.
-The check also announces the mod version so the site can notify you when an
-update is available, even before you play a battle.
+The check runs at startup and every 30 minutes, even while sending is paused.
+It announces the installed version and reads the site's optional update status.
+A newer stable release, including one available only on GitHub, raises a garage
+warning once per target version per session. If you are in battle it waits for
+the garage. **Update my mod** opens `/my-mod` in your own browser. WGMods remains
+the recommended download whenever its approved version can update your installation;
+GitHub can carry a still newer release. Older servers without this information
+continue to link and send battles normally.
 
 ## What is sent, and what is not
 

@@ -2,12 +2,14 @@
 
 ## 1.2.0
 
-Experimental prerelease for World of Tanks EU **2.4.1.0**, built from [PR #15](https://github.com/Battle-Conquest/battle-conquest-mod/pull/15) (`825285e1840095f64f6dfbac860f12d93c5a9f4c`). In-game validation is pending.
+Experimental prerelease for World of Tanks EU **2.4.1.0**, including the local diagnostics from [PR #15](https://github.com/Battle-Conquest/battle-conquest-mod/pull/15) and the mod update warnings from merged [PR #17](https://github.com/Battle-Conquest/battle-conquest-mod/pull/17). In-game validation is pending.
 
 ### Added
 
 - Optional local battle-results diagnostics to help validate quest measurements. Diagnostics are disabled by default and do not send diagnostic files to the site.
-- Saved-link verification and the installed mod version in the startup notification.
+- Saved-link verification and installed mod version reporting at startup.
+- Stable release update checks at startup and every 30 minutes, even while sending is paused. A garage warning opens the mod page in your browser, once per newer target per session. The optional settings page shows the installed version, WGMods and GitHub versions, and the recommended source.
+- WGMods remains the recommended update whenever its approved version is newer than the installed mod; releases available only on GitHub also trigger an alert. Older servers remain compatible.
 
 ### Install and test
 

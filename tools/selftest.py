@@ -31,6 +31,8 @@ from checks.destinations import (check_destination_capture, check_destination_mo
                                  check_destination_secrets, check_destination_silence,
                                  check_destination_urls)
 from checks.engine import FakeBigWorld
+from checks.mod_updates import (check_mod_updates_contract, check_mod_updates_garage,
+                                check_mod_updates_teardown)
 from checks.fakes import ORIGINAL_POST_RESULT, FakeBattleResultsService
 from checks.notices import (check_notices_click, check_notices_dismiss_reminders,
                             check_notices_remind, check_notices_texts,
@@ -131,6 +133,9 @@ def main():
         check_site_link_unlinks()
         check_site_link_verifies()
         check_site_link_startup()
+        check_mod_updates_contract()
+        check_mod_updates_garage()
+        check_mod_updates_teardown()
         check_results_dict_paths()
         check_results_dict_search()
         check_results_dict_cycle()
