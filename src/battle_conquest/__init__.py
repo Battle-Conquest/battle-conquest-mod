@@ -15,6 +15,7 @@ from battle_conquest import (account, battle_reports, destinations, mods_list, n
                              results_request, settings_window, site_link)
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
+from battle_conquest.results_diagnostic import Diagnostic
 from battle_conquest.runtime.session import Session
 
 VERSION = '1.0.0'
@@ -39,7 +40,8 @@ def start(generation=0):
         # reads from it, and two objects over one file would each hold their
         # own copy of it.
         queue = Queue()
-        reports = battle_reports.install(_session, places, player, queue)
+        reports = battle_reports.install(_session, places, player, queue,
+                                         diagnostic=Diagnostic(version=VERSION))
         # After the capture, whose door it delivers through: this asks the
         # server for the battles the player never opened, which is the only way
         # they are captured at all.
