@@ -22,6 +22,42 @@ def platoon_accounts():
         return []
 
 
+def is_snapshot(data):
+    if not isinstance(data, dict) or data.get('schema') != 1:
+        return False
+    settings = data.get('config')
+    if (not isinstance(settings, dict) or not isinstance(settings.get('version'), (int, long))
+            or isinstance(settings['version'], bool) or settings['version'] < 0
+            or settings.get('mode') not in ('platoon', 'manual')
+            or not isinstance(settings.get('selection'), basestring)
+            or not isinstance(settings.get('manual_ids'), list)):
+        return False
+    choices, players = data.get('choices'), data.get('players')
+    if (not isinstance(choices, list) or not isinstance(players, list) or len(players) > 5
+            or not all(isinstance(choice, dict) and all(key in choice for key in ('key', 'title', 'status')) for choice in choices)
+            or not all(isinstance(player, dict) and all(key in player for key in ('username', 'participant')) for player in players)):
+        return False
+    selected, period = data.get('selected'), data.get('period')
+    if selected is not None and (not isinstance(selected, dict) or 'title' not in selected):
+        return False
+    if period is not None and (not isinstance(period, dict) or not all(key in period for key in ('start', 'end'))):
+        return False
+    criteria = data.get('criteria', [])
+    if not isinstance(criteria, list) or not all(isinstance(c, dict) and isinstance(c.get('criterion_type'), basestring) and 'target_value' in c for c in criteria):
+        return False
+    for player in players:
+        for source in ('official', 'estimate'):
+            score = player.get(source)
+            if score is None:
+                continue
+            if not isinstance(score, dict) or not isinstance(score.get('known_totals', {}), dict):
+                return False
+            if score.get('available') and score.get('comparable') is not False:
+                if not isinstance(score.get('totals'), dict) or not isinstance(score.get('battles'), (int, long)):
+                    return False
+    return True
+
+
 class Garage(object):
 
     def __init__(self, session, account, places, view, garage=at_garage,
@@ -121,9 +157,14 @@ class Garage(object):
                 self.offline = False
                 self.conflict = True
                 self.error = 'Configuration changed elsewhere. Click Reload before editing.'
-            elif code != 200 or not isinstance(data, dict) or data.get('schema') != 1:
+            elif code != 200 or not is_snapshot(data):
                 self.offline = code != 422
                 self.error = ('Invalid configuration or access denied.' if code == 422 else None)
+            elif payload is not None and (data['config']['version'] != payload['version'] + 1
+                                          or any(data['config'][key] != payload[key] for key in ('selection', 'mode', 'manual_ids'))):
+                self.offline = False
+                self.conflict = True
+                self.error = 'Configuration changed again after saving. Click Reload before editing.'
             else:
                 # A poll cannot silently resolve a write conflict. The explicit
                 # Reload action is the only way to accept its newer version.
@@ -140,17 +181,20 @@ class Garage(object):
                            timeout=config.API_TIMEOUT, method='POST' if payload is not None else 'GET',
                            post_data=json.dumps(payload) if payload is not None else '')
 
-    def save(self, **changes):
+    def save(self, expected_version=None, **changes):
         if self.data is None or self.conflict or self.busy is not None or not self.garage():
             return
         config_data = dict(self.data['config'])
         config_data.update(changes)
+        if expected_version is not None:
+            config_data['version'] = expected_version
         # identity() can change between input and request; never send one
         # account's draft with another account's secret.
         if self.identity() != self.key:
             self.tick()
             return
         self.request(self.url(), self.key, config_data)
+        return True
 
     def reload(self):
         if self.busy is not None:

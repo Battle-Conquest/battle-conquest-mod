@@ -11,7 +11,7 @@ from checks.report_sender import _Session, _Response
 
 def check_quest_garage():
     from battle_conquest.quest_garage import Garage
-    from battle_conquest.quest_garage_view import lines
+    from battle_conquest.quest_garage_view import lines, metric_value
     from battle_conquest.destinations import Destination, battles_url
 
     class View(object):
@@ -27,6 +27,8 @@ def check_quest_garage():
         def close(self):
             pass
 
+    check('absent metrics are not rendered as zero', metric_value({'totals': {'credits_net': None}}, 'credits_net') == '?')
+    check('partial known values remain readable', metric_value({'totals': {'credits_net': None}, 'known_totals': {'credits_net': -10}}, 'credits_net') == '-10 + ?')
     session = _Session()
     view = View()
     account = type('Account', (object,), {'account': '500883375'})()
@@ -47,6 +49,21 @@ def check_quest_garage():
     garage.tick()
     check('native panel shown with no optional menu API', view.shown)
     check('no second poll before fifteen seconds', not session.sent)
+    garage.poll(force=True)
+    session.sent.pop(0)['answer'](_Response(200, {'schema': 1, 'config': []}))
+    check('malformed successful replies retain the last readable snapshot', garage.offline and garage.data == data)
+    malformed = copy.deepcopy(data)
+    malformed['players'][0]['official'] = ['invalid score']
+    garage.poll(force=True)
+    session.sent.pop(0)['answer'](_Response(200, malformed))
+    check('malformed score structures cannot replace readable values', garage.offline and garage.data == data)
+    garage.save(mode='manual')
+    repeated = copy.deepcopy(data)
+    repeated['config']['version'] = 3
+    session.sent.pop(0)['answer'](_Response(200, repeated))
+    check('a concurrent write after successful saving is still visible', garage.conflict and garage.data == data)
+    garage.reload()
+    session.sent.pop(0)['answer'](_Response(200, copy.deepcopy(data)))
     clock[0] += 15
     garage.tick()
     session.sent.pop(0)['answer'](_Response(503))
@@ -133,6 +150,63 @@ def check_quest_garage_panel():
         check('reloading preserves saved panel placement', restored.collapsed and restored.position == position)
         panel.close()
         check('stopping releases native GUI root', not roots)
+
+        # Full native editor with a poll arriving between typing and Enter.
+        from battle_conquest.quest_garage import Garage
+        from battle_conquest.destinations import Destination, battles_url
+        session = _Session()
+        account = type('Account', (object,), {'account': '500883375'})()
+        places = type('Places', (object,), {'current': Destination(battles_url(), enabled=True, modes=['random'], secret='a' * 64)})()
+        panel = Panel(None, store=store)
+        panel.collapsed = False
+        panel.visible(True)
+        garage = Garage(session, account, places, panel, garage=lambda: True, platoon=lambda: [], now=lambda: 100.0)
+        garage.key = garage.identity()
+        garage.data = {'schema': 1, 'config': {'version': 1, 'selection': '', 'mode': 'manual', 'manual_ids': [2]},
+                       'choices': [], 'selected': None, 'players': []}
+        panel.garage = garage
+        panel.edit()
+        newer = copy.deepcopy(garage.data)
+        newer['config'].update(version=2, manual_ids=[3])
+        garage.poll(force=True)
+        enter = type('Key', (object,), {'key': 13, 'isKeyDown': lambda self: True})()
+        keys = types.ModuleType('Keys')
+        keys.KEY_RETURN, keys.KEY_ESCAPE, keys.KEY_BACKSPACE = 13, 27, 8
+        previous_keys = sys.modules.get('Keys')
+        sys.modules['Keys'] = keys
+        try:
+            panel.editing = u'4'
+            panel.handleKeyEvent(enter)
+            check('Enter while a poll is in flight retains the pending input', panel.editing == '4')
+            session.sent.pop(0)['answer'](_Response(200, newer))
+            panel.handleKeyEvent(enter)
+            request = session.sent.pop(0)
+            check('manual edits keep the version observed at the start of editing', request['body']['version'] == 1)
+            request['answer'](_Response(409, {'error': 'conflict'}))
+            check('polling cannot hide a conflicting manual edit', garage.conflict)
+            panel.reload()
+            session.sent.pop(0)['answer'](_Response(200, newer))
+            check('explicit Reload discards the old draft and accepts fresh settings', panel.editing is None and garage.data['config']['version'] == 2)
+        finally:
+            if previous_keys is None:
+                del sys.modules['Keys']
+            else:
+                sys.modules['Keys'] = previous_keys
+        panel.close()
+        with open(store, 'wb') as handle:
+            handle.write('[]')
+        damaged = Panel(None, store=store)
+        check('a valid JSON value of the wrong shape cannot break mod startup', damaged.root is None)
+        count = [0]
+        def broken_text(value):
+            count[0] += 1
+            if count[0] == 2:
+                raise ValueError('native component unavailable')
+            return Node(value)
+        module.Text = broken_text
+        damaged.visible(True)
+        check('a partially built panel cleans up without removing an unregistered GUI root', damaged.failed and damaged.root is None and not roots)
+
     finally:
         if previous is None:
             del sys.modules['GUI']

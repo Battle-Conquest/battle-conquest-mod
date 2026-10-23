@@ -15,6 +15,14 @@ def clean(value, limit=64):
     return u' '.join(unicode(value).split())[:limit]
 
 
+def metric_value(score, metric):
+    value = score['totals'].get(metric)
+    if value is not None:
+        return value
+    known = score.get('known_totals', {}).get(metric)
+    return u'%s + ?' % known if known else u'?'
+
+
 def lines(garage):
     data = garage.data
     if data is None:
@@ -44,7 +52,7 @@ def lines(garage):
                 detail = u'not comparable'
             else:
                 detail = u', '.join(u'%s %s/%s' % (criterion['criterion_type'].replace('_', ' '),
-                                                  score['totals'].get(criterion['criterion_type'], '?'), criterion['target_value'])
+                                                  metric_value(score, criterion['criterion_type']), criterion['target_value'])
                                     for criterion in data.get('criteria', []))
                 detail += u' (%s battles)' % score['battles']
             if score.get('incomplete'):
@@ -90,11 +98,15 @@ class Panel(object):
         self.position = (-0.95, 0.75, 0.2)
         self.drag = None
         self.editing = None
+        self.edit_version = None
+        self.attached = False
         self.buttons = []
         self.failed = False
         try:
             with open(store, 'rb') as handle:
                 state = json.load(handle)
+            if not isinstance(state, dict):
+                return
             pos = state.get('position')
             if isinstance(pos, list) and len(pos) == 3:
                 self.position = (max(-0.95, min(0.45, float(pos[0]))), max(-0.5, min(0.95, float(pos[1]))), 0.2)
@@ -119,13 +131,14 @@ class Panel(object):
                 (0, u'Next quest', lambda: self.garage.next_quest()),
                 (110, u'Switch mode', lambda: self.garage.toggle_mode()),
                 (230, u'Manual IDs', self.edit),
-                (330, u'Reload', lambda: self.garage.reload())):
+                (330, u'Reload', self.reload)):
             button = self.label(label, 48, offset)
             button.focus = True
             button.mouseButtonFocus = True
             button.script = Click(action)
             self.buttons.append(button)
         GUI.addRoot(self.root)
+        self.attached = True
 
     def label(self, value, y, x=0):
         import GUI
@@ -177,6 +190,8 @@ class Panel(object):
         content = [u'Mode: %s' % mode] + lines(garage)
         if self.editing is not None:
             content = [u'Other BC IDs, comma separated (max 4). Enter: save. Esc: cancel.', self.editing]
+            if garage.error:
+                content.append(garage.error)
         self.body.text = u'\n'.join(content)
         height = self.body.height
         for button in self.buttons:
@@ -184,8 +199,15 @@ class Panel(object):
 
     def edit(self):
         if self.garage and self.garage.data and not self.garage.conflict:
+            self.edit_version = self.garage.data['config']['version']
             self.editing = u','.join(str(i) for i in self.garage.data['config']['manual_ids'])
             self.render(self.garage)
+
+    def reload(self):
+        if self.garage.busy is None:
+            self.editing = None
+            self.edit_version = None
+            self.garage.reload()
 
     def handleKeyEvent(self, event):
         if self.editing is None or not self.root.visible:
@@ -198,8 +220,8 @@ class Panel(object):
         elif event.key == Keys.KEY_RETURN:
             values = self.editing.split(',') if self.editing.strip() else []
             if len(values) <= 4 and all(value.strip().isdigit() for value in values):
-                self.garage.save(manual_ids=[int(value.strip()) for value in values], mode='manual')
-                self.editing = None
+                if self.garage.save(expected_version=self.edit_version, manual_ids=[int(value.strip()) for value in values], mode='manual'):
+                    self.editing = None
             else:
                 self.garage.error = 'Use up to four BC account IDs.'
         elif event.key == Keys.KEY_BACKSPACE:
@@ -256,12 +278,15 @@ class Panel(object):
             _logger.exception('could not save garage panel position')
 
     def close(self):
-        if self.root is not None:
+        root = self.root
+        attached = self.attached
+        self.root = None
+        self.body = None
+        self.buttons = []
+        self.attached = False
+        if root is not None and attached:
             import GUI
-            GUI.delRoot(self.root)
-            self.root = None
-            self.body = None
-            self.buttons = []
+            GUI.delRoot(root)
 
     def __getattr__(self, name):
         return lambda *args: False
