@@ -28,7 +28,8 @@ def check_quest_repairs():
           and session.sent[0]['headers'] == {'X-Mod-Secret': 'a' * 64})
     repairs.poll()
     check('one recovery poll in flight at a time', len(session.sent) == 1)
-    response = {'repair_requests': [{'arena_unique_id': '18446744073709551615'},
+    response = {'repair_requests': [{'arena_unique_id': u'\u00b2'}, {'arena_unique_id': u'\u0661'},
+                                    {'arena_unique_id': '1\n'}, {'arena_unique_id': '18446744073709551615'},
                                     {'arena_unique_id': '18446744073709551616'},
                                     {'arena_unique_id': 123}, {'arena_unique_id': '-1'}]}
     session.sent.pop(0)['answer'](_Response(200, response))
@@ -72,6 +73,19 @@ def check_quest_repairs():
     check('paging continues beyond earlier unrecoverable evidence', '&cursor=12:34' in session.sent[0]['url'])
     session.sent.pop(0)['answer'](_Response(200, {'repair_requests': [], 'next_cursor': 'x&secret=leak'}))
     repairs.poll()
+    session.sent.pop(0)['answer'](_Response(200, {'repair_requests': [], 'next_cursor': '12:34\n'}))
+    repairs.poll()
     check('an invalid cursor never becomes a query parameter', '&cursor=' not in session.sent[0]['url'])
     session.sent.pop(0)['answer'](_Response(200, {'repair_requests': [{'arena_unique_id': str(i)} for i in range(1, 31)]}))
     check('each response queues at most twenty recovery requests', len(repairs._seen) <= 21)
+    repairs.poll()
+    check('a slow cache keeps its page instead of fetching work it could drop', not session.sent)
+    # Every entry in this page gets its cache turn before the next page is polled.
+    served = []
+    while asked:
+        arena, callback = asked.pop(0)
+        served.append(arena)
+        callback(0, {'common': {}})
+    check('all twenty queued arenas get an attempt without eviction', served == list(range(1, 21)))
+    repairs.poll()
+    check('polling resumes once the previous page is drained', len(session.sent) == 1)

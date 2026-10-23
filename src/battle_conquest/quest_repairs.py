@@ -68,6 +68,10 @@ class Repairs(object):
                     self._deliver(results, source)
 
             self._requests = Requests(self._session, deliver, garage=active, cache=self._cache)
+        # Advancing pages while a slow cache is full would make Requests drop
+        # untried arenas which _seen would then refuse for the rest of this load.
+        if self._requests.busy():
+            return
         if self._poll is not None and self._now() - self._polled_at < 60.0:
             return
         ticket = object()
@@ -87,10 +91,10 @@ class Repairs(object):
             if not isinstance(requests, list):
                 return
             cursor = (payload or {}).get('next_cursor')
-            self._cursor = cursor if isinstance(cursor, basestring) and re.match(r'^\d{1,19}:\d{1,19}$', cursor) else None
+            self._cursor = cursor if isinstance(cursor, basestring) and re.match(r'^[0-9]{1,19}:[0-9]{1,19}\Z', cursor) else None
             for request in requests[:20]:
                 arena = request.get('arena_unique_id') if isinstance(request, dict) else None
-                if not isinstance(arena, basestring) or not arena.isdigit() or len(arena) > 20:
+                if not isinstance(arena, basestring) or not re.match(r'^[0-9]{1,20}\Z', arena):
                     continue
                 arena = long(arena)
                 if arena < 1 or arena > 18446744073709551615 or arena in self._seen:
