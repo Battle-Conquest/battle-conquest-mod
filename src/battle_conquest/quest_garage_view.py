@@ -190,6 +190,8 @@ class Panel(object):
         content = [u'Mode: %s' % mode] + lines(garage)
         if self.editing is not None:
             content = [u'Other BC IDs, comma separated (max 4). Enter: save. Esc: cancel.', self.editing]
+            if garage.offline:
+                content.append(u'Offline - input retained. Press Enter to retry.')
             if garage.error:
                 content.append(garage.error)
         self.body.text = u'\n'.join(content)

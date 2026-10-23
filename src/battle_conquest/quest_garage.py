@@ -50,7 +50,8 @@ def is_snapshot(data):
             score = player.get(source)
             if score is None:
                 continue
-            if not isinstance(score, dict) or not isinstance(score.get('known_totals', {}), dict):
+            if (not isinstance(score, dict) or not isinstance(score.get('known_totals', {}), dict)
+                    or (score.get('updated_at') is not None and not isinstance(score['updated_at'], basestring))):
                 return False
             if score.get('available') and score.get('comparable') is not False:
                 if not isinstance(score.get('totals'), dict) or not isinstance(score.get('battles'), (int, long)):
@@ -177,9 +178,18 @@ class Garage(object):
             if self.garage():
                 self.view.render(self)
 
-        self.session.fetch(url, answered, headers={'X-Mod-Secret': key[2], 'Content-Type': 'application/json'},
-                           timeout=config.API_TIMEOUT, method='POST' if payload is not None else 'GET',
-                           post_data=json.dumps(payload) if payload is not None else '')
+        try:
+            self.session.fetch(url, answered, headers={'X-Mod-Secret': key[2], 'Content-Type': 'application/json'},
+                               timeout=config.API_TIMEOUT, method='POST' if payload is not None else 'GET',
+                               post_data=json.dumps(payload) if payload is not None else '')
+        except Exception:
+            # The engine can fail before it installs a response callback. A
+            # dead ticket would otherwise block every subsequent garage poll.
+            self.busy = None
+            self.offline = True
+            self.error = None
+            return False
+        return True
 
     def save(self, expected_version=None, **changes):
         if self.data is None or self.conflict or self.busy is not None or not self.garage():
@@ -193,8 +203,7 @@ class Garage(object):
         if self.identity() != self.key:
             self.tick()
             return
-        self.request(self.url(), self.key, config_data)
-        return True
+        return self.request(self.url(), self.key, config_data)
 
     def reload(self):
         if self.busy is not None:

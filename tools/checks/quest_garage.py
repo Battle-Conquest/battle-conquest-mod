@@ -57,6 +57,20 @@ def check_quest_garage():
     garage.poll(force=True)
     session.sent.pop(0)['answer'](_Response(200, malformed))
     check('malformed score structures cannot replace readable values', garage.offline and garage.data == data)
+    malformed['players'][0]['official'] = {'available': False, 'updated_at': [1, 2]}
+    garage.poll(force=True)
+    session.sent.pop(0)['answer'](_Response(200, malformed))
+    check('malformed timestamps do not replace readable values', garage.offline and garage.data == data)
+    fetch = session.fetch
+    def unavailable(*args, **kwargs):
+        raise RuntimeError('network initiation failed')
+    session.fetch = unavailable
+    check('a synchronous transport failure does not acknowledge a save', not garage.save(mode='manual'))
+    check('transport failures release the in-flight gate and keep the data', garage.busy is None and garage.offline and garage.data == data)
+    session.fetch = fetch
+    garage.poll(force=True)
+    session.sent.pop(0)['answer'](_Response(200, copy.deepcopy(data)))
+    check('the poll recovers after a transport failure', not garage.offline)
     garage.save(mode='manual')
     repeated = copy.deepcopy(data)
     repeated['config']['version'] = 3
@@ -176,6 +190,10 @@ def check_quest_garage_panel():
         sys.modules['Keys'] = keys
         try:
             panel.editing = u'4'
+            garage.offline = True
+            panel.render(garage)
+            check('editing keeps network failures visible', 'Offline - input retained' in panel.body.text)
+            garage.offline = False
             panel.handleKeyEvent(enter)
             check('Enter while a poll is in flight retains the pending input', panel.editing == '4')
             session.sent.pop(0)['answer'](_Response(200, newer))
