@@ -148,3 +148,16 @@ The two observed SU-130PM battles from 22 October 2026 are regression fixtures;
 all account/arena ids have been removed. Premium, other bonuses, negative net
 and respawn totals still need live verification. A reopened result may enrich
 an accepted report but cannot replace known values or reopen a rejection.
+
+
+Missing quest evidence (#956)
+-----------------------------
+When the linked site reports missing quest fields, the mod polls
+`/api/mod/quest-repairs` every 60 seconds in the garage, authenticated with the
+current account and link. Requests are paged, bounded to 20 arenas at a time,
+and each arena is retried once per load/link through the existing results cache.
+Recovered results follow normal capture and the server’s missing-only merge.
+Account/link changes, paused sending and entering battle stop stale callbacks.
+No missing premium or multi-vehicle total is guessed. Deploy the site’s migration
+0057 before this mod; a server without this endpoint simply returns an error and
+normal capture continues. No automatic release is needed for this branch.

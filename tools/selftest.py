@@ -28,6 +28,7 @@ from checks.client import install_fake_client
 from checks.common import REPO, check, render_stub
 from checks.quest_details import check_quest_details
 from checks.quest_review import check_quest_review
+from checks.quest_repairs import check_quest_repairs
 from checks.destinations import (check_destination_capture, check_destination_modes,
                                  check_destination_pause_and_forget, check_destination_reading,
                                  check_destination_secrets, check_destination_silence,
@@ -113,6 +114,7 @@ def main():
         check_session_patches()
         check_quest_details()
         check_quest_review()
+        check_quest_repairs()
         check_battle_report_reading()
         check_battle_report_tank()
         check_battle_report_arena_id()
