@@ -161,3 +161,31 @@ Account/link changes, paused sending and entering battle stop stale callbacks.
 No missing premium or multi-vehicle total is guessed. Deploy the site’s migration
 0057 before this mod; a server without this endpoint simply returns an error and
 normal capture continues. No automatic release is needed for this branch.
+
+### Shared quest tracking in the garage (#958)
+
+A native BigWorld GUI panel works without either optional menu API. Click its
+title to fold it, or drag the title to move it. `Next quest` cycles through active
+individual quests and joined/already selected sessions. `Switch mode` selects
+automatic platoon tracking or a manual list. Click `Manual IDs`, type up to four
+other **Battle-Conquest account IDs** separated by commas, and press Enter to
+save (Escape cancels). Your account is always included in the five-player limit.
+
+Quest selection, mode and manual list synchronize with `/quest` on the site.
+Concurrent edits produce a visible conflict: click `Reload` to accept the latest
+configuration before editing again. A private session becomes readable after its
+share link has been opened under the same BC account on the site; tracking never
+enrolls anyone or grants rewards. The site also lets you select a session by ID.
+
+The panel refreshes every 15 seconds in the garage and after reports are sent.
+It hides during battle and restores its position/fold state on return. Offline
+responses retain the last values, their age and an offline indication. Switching
+accounts or links clears the old data and discards replies still in flight.
+Official values and comparable mod estimates are labelled separately. Other
+players' estimates use the current attempt/session period and carry no rewards.
+Unavailable values and incomparable historical XP are shown explicitly.
+
+Requires the server changes and migration in Battle-Conquest#958, delivered as
+part of #772 before this mod. The server feature switch remains off until the
+combined release is validated. Native rendering, keyboard input and the current
+client's platoon adapter still need the in-game acceptance test.
