@@ -89,3 +89,35 @@ def check_quest_repairs():
     check('all twenty queued arenas get an attempt without eviction', served == list(range(1, 21)))
     repairs.poll()
     check('polling resumes once the previous page is drained', len(session.sent) == 1)
+
+    # The site's repair can arrive after an earlier batch was acknowledged,
+    # while the rest of that drain is still in flight.
+    from checks.report_sender import _queue, _sender, _answer, HERE
+    queue = _queue(count=51)
+    sending, sender = _sender(queue)
+    sender.drain()
+    _answer(sending, 200, {'accepted': 50, 'results': [{'index': i, 'status': 'accepted'} for i in range(50)]})
+    richer = dict(queue.all()[0])
+    richer['quest_details'] = {'metrics': {'shots': 7}}
+    queue.add(richer)
+    _answer(sending, 200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]})
+    check('enrichment after acknowledgement survives the remaining backlog',
+          len(queue.pending(HERE, ('ranked',))) == 1)
+    sender.drain()
+    check('the recovered fields leave in a new duplicate report',
+          sending.sent[0]['body']['battles'][0]['quest_details']['metrics']['shots'] == 7)
+    _answer(sending, 200, {'duplicates': 1, 'results': [{'index': 0, 'status': 'duplicate'}]})
+    check('the completed report settles after its own acknowledgement', not queue.all())
+
+    queue = _queue(count=51)
+    queue.mark(HERE, ['1'], snapshots={'1': None})
+    richer = dict(queue.all()[0])
+    richer['quest_details'] = {'metrics': {'shots': 7}}
+    queue.add(richer)
+    sending, sender = _sender(queue)
+    sender.drain()
+    _answer(sending, 200, {'results': [{'index': i, 'status': 'rejected' if i == 0 else 'accepted'} for i in range(50)]})
+    richer['quest_details']['metrics']['hits'] = 4
+    queue.add(richer)
+    _answer(sending, 200, {'results': [{'index': 0, 'status': 'accepted'}]})
+    check('a later rejection revokes the earlier permission to rearm', not queue.all())

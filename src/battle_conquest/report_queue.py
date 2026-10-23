@@ -56,7 +56,15 @@ def deduplicate(reports):
         if identity in seen:
             first = seen[identity]
             if isinstance(report.get('quest_details'), dict):
-                first['quest_details'] = fill(first.get('quest_details', {}), report['quest_details'])
+                known = first.get('quest_details', {})
+                enriched = fill(known, report['quest_details'])
+                if enriched != known:
+                    # A repair can land after this arena was acknowledged but
+                    # before the sender finishes its other batches. Only a
+                    # proven acceptance can be rearmed; rejections stay final.
+                    accepted = first.get('accepted_by') or []
+                    first['sent'] = [key for key in (first.get('sent') or []) if key not in accepted]
+                first['quest_details'] = enriched
             continue
         seen[identity] = report
         out.append(report)
@@ -120,6 +128,17 @@ class Queue(object):
             arena = report.get('arena_unique_id')
             if arena not in taken or (account is not None and report.get('account') != account):
                 continue
+            # This acknowledgement may wait behind other batches. Preserve
+            # only a known acceptance as permission to send new fields later.
+            accepted = report.get('accepted_by')
+            if not isinstance(accepted, list):
+                accepted = []
+            if snapshots is not None and arena in snapshots:
+                if key not in accepted:
+                    accepted.append(key)
+            elif key in accepted:
+                accepted.remove(key)
+            report['accepted_by'] = accepted
             # An accepted report enriched while its request was in flight still
             # owes those newly observed fields. Rejections never get this path.
             if snapshots is not None and arena in snapshots and report.get('quest_details') != snapshots[arena]:
