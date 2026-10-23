@@ -344,6 +344,10 @@ class Requests(object):
         """The battles still to be asked about, oldest first."""
         return list(self._pending)
 
+    def busy(self):
+        """Whether a page is still being served, including its in-flight ask."""
+        return self._asking is not None or bool(self._pending)
+
     def drain(self):
         """Ask about the next battle, if this is a moment that can."""
         self._clear_stale()
