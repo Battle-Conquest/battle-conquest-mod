@@ -36,6 +36,7 @@ class Garage(object):
         self.key = None
         self.data = None
         self.offline = False
+        self.unavailable = False
         self.conflict = False
         self.error = None
         self.busy = None
@@ -72,12 +73,13 @@ class Garage(object):
             self.busy = None
             self.conflict = False
             self.offline = False
+            self.unavailable = False
             self.error = None
             self.last_received = None
             self.last_poll = 0
             self.view.reset()
         visible = self.garage() and key is not None
-        self.view.visible(visible)
+        self.view.visible(visible and not self.unavailable and (self.data is not None or self.offline))
         if visible:
             self.poll()
             self.view.render(self)
@@ -108,6 +110,13 @@ class Garage(object):
             self.busy = None
             code = getattr(response, 'responseCode', None)
             data = answer(response)
+            if code == 404:
+                # The combined quest release is still gated server-side, or
+                # this server predates it. Do not expose an unfinished panel.
+                self.unavailable = True
+                self.offline = False
+                self.view.visible(False)
+                return
             if code == 409:
                 self.offline = False
                 self.conflict = True
@@ -121,6 +130,7 @@ class Garage(object):
                 if not self.conflict:
                     self.data = data
                 self.last_received = self.now()
+                self.unavailable = False
                 self.offline = False
                 self.error = None if not self.conflict else self.error
             if self.garage():

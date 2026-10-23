@@ -40,11 +40,12 @@ def check_quest_garage():
             'choices': [{'key': 'individual:1', 'title': 'Quest', 'status': 'active'}], 'selected': {'title': 'Quest'},
             'players': [{'username': 'Self', 'participant': True, 'official': {'available': False, 'updated_at': None}}]}
     garage.tick()
-    check('native panel shown with no optional menu API', view.shown)
+    check('panel waits for an available server before appearing', not view.shown)
     check('garage uses the secret and bounds platoon to four other accounts',
           session.sent[0]['headers']['X-Mod-Secret'] == 'a' * 64 and session.sent[0]['url'].endswith('&platoon=2,3,4,5'))
     session.sent.pop(0)['answer'](_Response(200, copy.deepcopy(data)))
     garage.tick()
+    check('native panel shown with no optional menu API', view.shown)
     check('no second poll before fifteen seconds', not session.sent)
     clock[0] += 15
     garage.tick()
@@ -84,6 +85,13 @@ def check_quest_garage():
     destination.secret = 'b' * 64
     garage.tick()
     check('link changes also clear the old account data', garage.data is None)
+    session.sent.pop(0)['answer'](_Response(404, {'error': 'unavailable'}))
+    garage.tick()
+    check('disabled server feature keeps the native panel hidden', not view.shown and garage.unavailable)
+    garage.poll(force=True)
+    session.sent.pop(0)['answer'](_Response(200, newer))
+    garage.tick()
+    check('enabling the combined server release restores the panel', view.shown and not garage.unavailable)
 
 
 def check_quest_garage_panel():
