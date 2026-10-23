@@ -129,3 +129,22 @@ never presented to another.
 ## License
 
 [AGPL-3.0](./LICENSE), as the code it derives from.
+
+
+## Additional quest measurements (#954)
+
+Reports now include optional `quest_details`: actual battle start, complete
+vehicle ids when known, distinct base/total XP, direct shot counters and
+conditional gross/net credits. Missing measurements stay absent. The seven
+historical counters and current quest proof keep their meaning. Numeric raw
+observations remain separate per vehicle; premium and respawn totals are not
+inferred. Support and its verified scenarios are announced on the first linked
+`/api/mod/me` response, even before any battle and while sending is paused.
+
+Deploy the [server contract](https://github.com/Battle-Conquest/Battle-Conquest/blob/feat/954-mod-measures/docs/mod-battles-api.md)
+and migration `0055_add_mod_quest_details.php` first. Then use the normal build
+and installation commands. Optional diagnostics remain local and opt-in.
+The two observed SU-130PM battles from 22 October 2026 are regression fixtures;
+all account/arena ids have been removed. Premium, other bonuses, negative net
+and respawn totals still need live verification. A reopened result may enrich
+an accepted report but cannot replace known values or reopen a rejection.

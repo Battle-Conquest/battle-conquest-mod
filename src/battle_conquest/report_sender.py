@@ -33,15 +33,18 @@ playing. Sending one account's battles under the other's proof is how a report
 ends up attributed to the wrong player, which is the one fault that makes every
 number computed downstream wrong rather than merely late.
 """
+import copy
 import json
 import logging
 import os
 import time
 
 from battle_conquest import config
+from battle_conquest.quest_details import capabilities
 from battle_conquest import service_hooks
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
+from battle_conquest.report_wire import FIELDS, account_number, answer, rejections, wire
 
 _logger = logging.getLogger('battle_conquest.report_sender')
 
@@ -77,27 +80,6 @@ _ADVICE = {
     413: 'the batch was too large for it',
 }
 
-FIELDS = ('arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'vehicle', 'metrics')
-
-
-def wire(report):
-    """One report as it travels: the contract's fields, and nothing else.
-
-    The queue holds two things of its own alongside them -- which account
-    played the battle, and which destinations have already taken it. Both are
-    this machine's bookkeeping and neither is any destination's business.
-    """
-    return dict((field, report[field]) for field in FIELDS if field in report)
-
-
-def account_number(value):
-    """A Wargaming account id as the contract wants it, an integer, or None."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def retry_later(code):
     """Whether asking this destination again could change its answer.
 
@@ -110,34 +92,6 @@ def retry_later(code):
         # No answer at all: unreachable, or the request never left.
         return True
     return code in (401, 408, 429) or code >= 500
-
-
-def answer(response):
-    """A destination's answer as a dict, or None when it cannot be read."""
-    try:
-        payload = json.loads(response.body)
-    except (AttributeError, TypeError, ValueError):
-        return None
-    return payload if isinstance(payload, dict) else None
-
-
-def rejections(payload):
-    """The distinct reasons a batch was rejected for, for one log line.
-
-    The codes, never the messages: a reason is a stable machine code where the
-    message beside it is written for whoever is reading a server log.
-    """
-    results = payload.get('results')
-    if not isinstance(results, list):
-        return []
-    reasons = []
-    for result in results:
-        if not isinstance(result, dict) or result.get('status') != 'rejected':
-            continue
-        reason = result.get('reason') or 'unknown'
-        if reason not in reasons:
-            reasons.append(reason)
-    return reasons
 
 
 # Refusals about the address rather than the payload. Nothing read the batch,
@@ -325,7 +279,24 @@ class Sender(object):
             self._changed()
             return
         target, reports = work[0]
-        batch, rest = reports[:BATCH], reports[BATCH:]
+        active = next((current for current in self.targets()
+                       if current.url == target.url and current.headers == target.headers), None)
+        account = getattr(self._account, 'account', None)
+        # A backlog can span several responses. A fresh link/account or a new
+        # battle must stop the old work just as it stops the initial drain.
+        if not self._garage() or active is None or not reports or reports[0].get('account') != account:
+            self._send(work[1:])
+            return
+        reports = [report for report in reports
+                   if report.get('account') == account and report.get('mode') in active.modes]
+        if not reports:
+            self._send(work[1:])
+            return
+        batch, rest = copy.deepcopy(reports[:BATCH]), reports[BATCH:]
+        # Respawn observations are wider than a legacy report. Respect the
+        # server's body limit as well as its report-count limit.
+        while len(batch) > 1 and len(self.payload(batch)) > 240000:
+            rest.insert(0, batch.pop())
         remaining = ([(target, rest)] if rest else []) + work[1:]
 
         def answered(response):
@@ -352,7 +323,7 @@ class Sender(object):
         """A batch as a destination is given it, the account it belongs to and all."""
         return json.dumps({
             'schema': SCHEMA,
-            'client': {'mod': MOD_NAME, 'version': self._version},
+            'client': {'mod': MOD_NAME, 'version': self._version, 'capabilities': capabilities()},
             'account': {'id': account_number(reports[0].get('account')),
                         # A property of the client, not of a battle: one
                         # installation plays on one realm.
@@ -362,8 +333,18 @@ class Sender(object):
 
     def _took(self, target, batch, response):
         """A batch the destination has answered. Every verdict in it is final."""
-        self._queue.mark(target.url, [report['arena_unique_id'] for report in batch])
         payload = answer(response)
+        snapshots = {}
+        results = (payload or {}).get('results')
+        for result in (results if isinstance(results, list) else []):
+            if not isinstance(result, dict) or result.get('status') not in ('accepted', 'duplicate'):
+                continue
+            index = result.get('index')
+            if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(batch):
+                report = batch[index]
+                snapshots[report['arena_unique_id']] = report.get('quest_details')
+        self._queue.mark(target.url, [report['arena_unique_id'] for report in batch],
+                         account=batch[0].get('account'), snapshots=snapshots)
         self.last_sent = time.time()
         self.last_result = {'code': 200, 'battles': len(batch),
                             'accepted': (payload or {}).get('accepted'),
