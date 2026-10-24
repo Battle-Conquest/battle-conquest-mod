@@ -170,14 +170,38 @@ def check_quest_garage_panel():
     roots = []
     module.Text = Node
     module.Window = window
+    resolution = [2560.0, 1440.0]
+    module.screenResolution = lambda: tuple(resolution)
     module.addRoot = roots.append
     module.delRoot = roots.remove
-    module.mcursor = lambda: type('Cursor', (object,), {'position': (0.3, 0.4)})()
+    cursor = [0.3, 0.4]
+    module.mcursor = lambda: type('Cursor', (object,), {'position': tuple(cursor)})()
     previous = sys.modules.get('GUI')
     sys.modules['GUI'] = module
     directory = tempfile.mkdtemp(prefix='bc-garage-test-')
     store = os.path.join(directory, 'panel.json')
     try:
+        for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
+            resolution[:] = [width, height]
+            fresh = Panel(None, store=store)
+            fresh.visible(True)
+            x, y = fresh.root.screen_position()
+            check('the first panel fits inside a %sx%s viewport' % (width, height),
+                  x >= 16 and y >= 16 and x + fresh.root.width <= width - 16 and y + fresh.root.height <= height - 16)
+            fresh.close()
+        resolution[:] = [2560, 1440]
+        dragged = Panel(None, store=os.path.join(directory, 'drag.json'))
+        dragged.visible(True)
+        cursor[:] = [-0.7, 0.6]
+        start = dragged.position
+        dragged.handleDragStartEvent(dragged.title, tuple(cursor))
+        cursor[:] = [-0.5, 0.4]
+        dragged.move()
+        check('dragging converts clip cursor movement to positive-down pixel offsets',
+              abs(dragged.position[0] - start[0] - 256) < 0.001 and abs(dragged.position[1] - start[1] - 144) < 0.001)
+        dragged.handleDragStopEvent()
+        dragged.close()
+        cursor[:] = [0.3, 0.4]
         panel = Panel(None, store=store)
         panel.visible(True)
         check('native panel builds without any third party API', len(roots) == 1 and len(panel.buttons) == 4)
@@ -199,6 +223,21 @@ def check_quest_garage_panel():
         check('reloading preserves saved panel placement', restored.collapsed and restored.position == position)
         panel.close()
         check('stopping releases native GUI root', not roots)
+        with open(store, 'wb') as handle:
+            handle.write('{"coordinate_space":"pixels","position":[-500,9999,0.2]}')
+        recovered = Panel(None, store=store)
+        recovered.visible(True)
+        x, y = recovered.root.screen_position()
+        check('saved off-screen positions are brought back into the visible viewport',
+              x >= 16 and y >= 16 and x + recovered.root.width <= resolution[0] - 16 and y + recovered.root.height <= resolution[1] - 16)
+        recovered.close()
+        with open(store, 'wb') as handle:
+            handle.write('{"position":[-0.5,0.5,0.2],"collapsed":true}')
+        recovered = Panel(None, store=store)
+        recovered.visible(True)
+        check('legacy clip positions are converted to pixels without losing the fold state',
+              recovered.position[:2] == (640.0, 360.0) and recovered.collapsed)
+        recovered.close()
 
         # Full native editor with a poll arriving between typing and Enter.
         from battle_conquest.quest_garage import Garage
