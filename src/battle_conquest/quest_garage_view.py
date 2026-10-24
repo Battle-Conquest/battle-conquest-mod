@@ -41,6 +41,8 @@ def lines(garage):
     timestamps = []
     for player in data.get('players', [])[:5]:
         result.append(u'%s%s' % (clean(player['username'], 30), u'' if player['participant'] else u' - indicative, no rewards'))
+        if player.get('official') is None and player.get('estimate') is None:
+            result.append(u'  no data')
         for source in ('official', 'estimate'):
             score = player.get(source)
             if score is None:
@@ -222,15 +224,22 @@ class Panel(object):
         elif event.key == Keys.KEY_RETURN:
             values = self.editing.split(',') if self.editing.strip() else []
             if len(values) <= 4 and all(value.strip().isdigit() for value in values):
-                if self.garage.save(expected_version=self.edit_version, manual_ids=[int(value.strip()) for value in values], mode='manual'):
-                    self.editing = None
+                draft, version = self.editing, self.edit_version
+                def acknowledged():
+                    # A late acknowledgement must not replace newer typing.
+                    if self.edit_version == version:
+                        self.edit_version = version + 1
+                        if self.editing == draft:
+                            self.editing = None
+                self.garage.save(expected_version=version, on_saved=acknowledged,
+                                 manual_ids=[int(value.strip()) for value in values], mode='manual')
             else:
                 self.garage.error = 'Use up to four BC account IDs.'
         elif event.key == Keys.KEY_BACKSPACE:
             self.editing = self.editing[:-1]
         else:
-            char = getattr(event, 'char', '')
-            if char and char in '0123456789, ' and len(self.editing) < 100:
+            char = getattr(event, 'character', None)
+            if char and all(c in '0123456789, ' for c in char) and len(self.editing) + len(char) <= 100:
                 self.editing += char
         self.render(self.garage)
         return True

@@ -136,7 +136,7 @@ class Garage(object):
         url = self.url() + ('&platoon=' + ','.join(members) if members else '')
         self.request(url, key)
 
-    def request(self, url, key, payload=None):
+    def request(self, url, key, payload=None, on_saved=None):
         ticket = object()
         self.busy = ticket
         self.last_poll = self.now()
@@ -171,6 +171,8 @@ class Garage(object):
                 # Reload action is the only way to accept its newer version.
                 if not self.conflict:
                     self.data = data
+                    if payload is not None and on_saved is not None:
+                        on_saved()
                 self.last_received = self.now()
                 self.unavailable = False
                 self.offline = False
@@ -191,7 +193,7 @@ class Garage(object):
             return False
         return True
 
-    def save(self, expected_version=None, **changes):
+    def save(self, expected_version=None, on_saved=None, **changes):
         if self.data is None or self.conflict or self.busy is not None or not self.garage():
             return
         config_data = dict(self.data['config'])
@@ -203,7 +205,7 @@ class Garage(object):
         if self.identity() != self.key:
             self.tick()
             return
-        return self.request(self.url(), self.key, config_data)
+        return self.request(self.url(), self.key, config_data, on_saved)
 
     def reload(self):
         if self.busy is not None:

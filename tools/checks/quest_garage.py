@@ -41,6 +41,10 @@ def check_quest_garage():
     data = {'schema': 1, 'config': {'version': 1, 'selection': 'individual:1', 'mode': 'platoon', 'manual_ids': []},
             'choices': [{'key': 'individual:1', 'title': 'Quest', 'status': 'active'}], 'selected': {'title': 'Quest'},
             'players': [{'username': 'Self', 'participant': True, 'official': {'available': False, 'updated_at': None}}]}
+    garage.data = copy.deepcopy(data)
+    garage.data['players'][0].update(official=None, estimate=None, participant=False)
+    check('a followed player without a started period has an explicit no-data label', '  no data' in lines(garage))
+    garage.data = None
     garage.tick()
     check('panel waits for an available server before appearing', not view.shown)
     check('garage uses the secret and bounds platoon to four other accounts',
@@ -189,6 +193,10 @@ def check_quest_garage_panel():
         previous_keys = sys.modules.get('Keys')
         sys.modules['Keys'] = keys
         try:
+            panel.editing = u''
+            typed = type('Key', (object,), {'key': 4, 'character': u'4', 'isKeyDown': lambda self: True})()
+            panel.handleKeyEvent(typed)
+            check('native character events populate the manual account editor', panel.editing == u'4')
             panel.editing = u'4'
             garage.offline = True
             panel.render(garage)
@@ -205,6 +213,29 @@ def check_quest_garage_panel():
             panel.reload()
             session.sent.pop(0)['answer'](_Response(200, newer))
             check('explicit Reload discards the old draft and accepts fresh settings', panel.editing is None and garage.data['config']['version'] == 2)
+            panel.edit()
+            panel.editing = u'4'
+            panel.handleKeyEvent(enter)
+            check('an asynchronous save keeps the draft until acknowledged', panel.editing == u'4')
+            session.sent.pop(0)['answer'](_Response(503))
+            check('a failed asynchronous save leaves the draft ready to retry', panel.editing == u'4' and garage.offline)
+            panel.handleKeyEvent(enter)
+            session.sent.pop(0)['answer'](_Response(422))
+            check('a rejected configuration retains the entered IDs and error', panel.editing == u'4' and garage.error)
+            panel.handleKeyEvent(enter)
+            request = session.sent.pop(0)
+            panel.editing = u'5'
+            saved = copy.deepcopy(newer)
+            saved['config'].update(request['body'], version=3)
+            request['answer'](_Response(200, saved))
+            check('typing during a successful save preserves the new draft and advances its version',
+                  panel.editing == u'5' and panel.edit_version == 3)
+            panel.handleKeyEvent(enter)
+            request = session.sent.pop(0)
+            check('the retained draft uses the version of its acknowledged write', request['body']['version'] == 3)
+            saved['config'].update(request['body'], version=4)
+            request['answer'](_Response(200, saved))
+            check('a successful acknowledgement closes only the saved draft', panel.editing is None)
         finally:
             if previous_keys is None:
                 del sys.modules['Keys']

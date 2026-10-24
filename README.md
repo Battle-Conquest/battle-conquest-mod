@@ -170,6 +170,8 @@ individual quests and joined/already selected sessions. `Switch mode` selects
 automatic platoon tracking or a manual list. Click `Manual IDs`, type up to four
 other **Battle-Conquest account IDs** separated by commas, and press Enter to
 save (Escape cancels). Your account is always included in the five-player limit.
+The editor retains its draft until the site acknowledges the save, including
+after a timeout or validation error. Typing while a save is in flight is kept.
 
 Quest selection, mode and manual list synchronize with `/quest` on the site.
 Concurrent edits produce a visible conflict: click `Reload` to accept the latest
