@@ -94,6 +94,7 @@ class Panel(object):
         self.session = session
         self.store = store
         self.root = None
+        self.title = None
         self.body = None
         self.garage = None
         self.collapsed = False
@@ -118,16 +119,23 @@ class Panel(object):
 
     def build(self):
         import GUI
-        self.root = GUI.Text(u'Battle-Conquest quests [click to fold, drag to move]')
-        self.root.colourFormatting = False
+        # A Text parent does not translate its children. Window supplies the
+        # shared pixel origin for the title, content and controls when dragged.
+        self.root = GUI.Window('')
+        self.root.widthMode = self.root.heightMode = 'PIXEL'
+        self.root.horizontalPositionMode = self.root.verticalPositionMode = 'CLIP'
         self.root.horizontalAnchor = 'LEFT'
         self.root.verticalAnchor = 'TOP'
         self.root.position = self.position
         self.root.script = self
         self.root.focus = True
-        self.root.mouseButtonFocus = True
-        self.root.dragFocus = True
-        self.root.moveFocus = True
+        self.root.mouseButtonFocus = False
+        self.title = self.label(u'Battle-Conquest quests [click to fold, drag to move]', 0)
+        self.title.script = self
+        self.title.focus = True
+        self.title.mouseButtonFocus = True
+        self.title.dragFocus = True
+        self.title.moveFocus = True
         self.body = self.label(u'', 24)
         for offset, label, action in (
                 (0, u'Next quest', lambda: self.garage.next_quest()),
@@ -139,6 +147,7 @@ class Panel(object):
             button.mouseButtonFocus = True
             button.script = Click(action)
             self.buttons.append(button)
+        self.layout()
         GUI.addRoot(self.root)
         self.attached = True
 
@@ -153,7 +162,7 @@ class Panel(object):
         node.verticalAnchor = 'TOP'
         node.horizontalPositionMode = 'PIXEL'
         node.verticalPositionMode = 'PIXEL'
-        node.position = (x, -y, 0)
+        node.position = (x, y, 0)
         self.root.addChild(node, 'part%s' % len(self.root.children))
         return node
 
@@ -187,6 +196,7 @@ class Panel(object):
         for button in self.buttons:
             button.visible = not self.collapsed
         if self.collapsed:
+            self.layout()
             return
         mode = garage.data['config']['mode'] if garage.data else 'unknown'
         content = [u'Mode: %s' % mode] + lines(garage)
@@ -197,9 +207,19 @@ class Panel(object):
             if garage.error:
                 content.append(garage.error)
         self.body.text = u'\n'.join(content)
+        self.layout()
+
+    def layout(self):
+        if self.collapsed:
+            self.root.width, self.root.height = self.title.width, self.title.height
+            return
         height = self.body.height
         for button in self.buttons:
-            button.position = (button.position[0], -height - 36, 0)
+            button.position = (button.position[0], height + 36, 0)
+        # Window clips its descendants; include the full text and last control.
+        parts = [self.title, self.body] + self.buttons
+        self.root.width = max(node.position[0] + node.width for node in parts)
+        self.root.height = max(node.position[1] + node.height for node in parts)
 
     def edit(self):
         if self.garage and self.garage.data and not self.garage.conflict:
@@ -214,7 +234,11 @@ class Panel(object):
             self.garage.reload()
 
     def handleKeyEvent(self, event):
-        if self.editing is None or not self.root.visible:
+        if self.editing is None or self.root is None or not self.root.visible or self.collapsed:
+            return False
+        # Mouse buttons also arrive as key events. Leave them to the GUI hit
+        # testing instead of consuming clicks anywhere in the garage.
+        if event.isMouseButton():
             return False
         import Keys
         if not event.isKeyDown():
@@ -292,6 +316,7 @@ class Panel(object):
         root = self.root
         attached = self.attached
         self.root = None
+        self.title = None
         self.body = None
         self.buttons = []
         self.attached = False

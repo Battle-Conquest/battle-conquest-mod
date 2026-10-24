@@ -183,6 +183,8 @@ The panel refreshes every 15 seconds in the garage and after reports are sent.
 It hides during battle and restores its position/fold state on return. Offline
 responses retain the last values, their age and an offline indication. Switching
 accounts or links clears the old data and discards replies still in flight.
+Folding the editor keeps its draft and returns keyboard input to the garage;
+mouse clicks outside the panel remain available while editing.
 Official values and comparable mod estimates are labelled separately. Other
 players' estimates use the current attempt/session period and carry no rewards.
 Unavailable values and incomparable historical XP are shown explicitly.
@@ -191,3 +193,7 @@ Requires the server changes and migration in Battle-Conquest#958, delivered as
 part of #772 before this mod. The server feature switch remains off until the
 combined release is validated. Native rendering, keyboard input and the current
 client's platoon adapter still need the in-game acceptance test.
+
+The native layout uses a transparent `GUI.Window`: BigWorld only translates
+child positions with a Window parent, and pixel coordinates start at its top
+left. See the [engine GUI documentation](https://howarduong.github.io/github.io/doc/api_python/client_python_api/doc/WindowGUIComponent.html).

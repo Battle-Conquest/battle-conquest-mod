@@ -138,13 +138,38 @@ def check_quest_garage_panel():
             self.position = (0, 0, 0)
             self.children = []
             self.height = 200
+            self.width = 400
             self.visible = True
+            self.parent = None
+            self.window = False
         def addChild(self, child, name):
             self.children.append((name, child))
+            child.parent = self
+        def screen_position(self):
+            # BigWorld PIXEL positions start at the screen's top left. Only
+            # a Window changes that origin to its own top left for children.
+            origin = self.parent.screen_position() if self.parent is not None and self.parent.window else (0, 0)
+            x, y = self.position[:2]
+            if getattr(self, 'horizontalPositionMode', 'CLIP') != 'PIXEL':
+                x = (x + 1) * 960
+            if getattr(self, 'verticalPositionMode', 'CLIP') != 'PIXEL':
+                y = (1 - y) * 540
+            return origin[0] + x, origin[1] + y
+        def clipped(self):
+            if self.parent is None or not self.parent.window:
+                return False
+            x, y = self.position[:2]
+            return x < 0 or y < 0 or x + self.width > self.parent.width or y + self.height > self.parent.height
+
+    def window(texture):
+        node = Node(texture)
+        node.window = True
+        return node
 
     module = types.ModuleType('GUI')
     roots = []
     module.Text = Node
+    module.Window = window
     module.addRoot = roots.append
     module.delRoot = roots.remove
     module.mcursor = lambda: type('Cursor', (object,), {'position': (0.3, 0.4)})()
@@ -156,9 +181,15 @@ def check_quest_garage_panel():
         panel = Panel(None, store=store)
         panel.visible(True)
         check('native panel builds without any third party API', len(roots) == 1 and len(panel.buttons) == 4)
+        before = [node.screen_position() for node in [panel.title, panel.body] + panel.buttons]
+        check('panel content starts below the draggable title', before[1][0] == before[0][0] and before[1][1] > before[0][1])
         panel.handleMouseClickEvent()
-        panel.handleDragStartEvent(panel.root, (0.0, 0.0))
+        panel.title.script.handleDragStartEvent(panel.title, (0.0, 0.0))
         panel.handleDragStopEvent()
+        after = [node.screen_position() for node in [panel.title, panel.body] + panel.buttons]
+        delta = tuple(after[0][i] - before[0][i] for i in (0, 1))
+        check('moving the title moves every content and action by the same distance',
+              all(all(abs((new[i] - old[i]) - delta[i]) < 0.001 for i in (0, 1)) for old, new in zip(before, after)))
         position = panel.position
         panel.visible(False)
         check('battle hides all panel children through their root', not panel.root.visible)
@@ -187,16 +218,28 @@ def check_quest_garage_panel():
         newer = copy.deepcopy(garage.data)
         newer['config'].update(version=2, manual_ids=[3])
         garage.poll(force=True)
-        enter = type('Key', (object,), {'key': 13, 'isKeyDown': lambda self: True})()
+        enter = type('Key', (object,), {'key': 13, 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: False})()
         keys = types.ModuleType('Keys')
         keys.KEY_RETURN, keys.KEY_ESCAPE, keys.KEY_BACKSPACE = 13, 27, 8
         previous_keys = sys.modules.get('Keys')
         sys.modules['Keys'] = keys
         try:
             panel.editing = u''
-            typed = type('Key', (object,), {'key': 4, 'character': u'4', 'isKeyDown': lambda self: True})()
+            typed = type('Key', (object,), {'key': 4, 'character': u'4', 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: False})()
             panel.handleKeyEvent(typed)
             check('native character events populate the manual account editor', panel.editing == u'4')
+            check('the window includes the complete content and all controls',
+                  not any(node.clipped() for node in [panel.title, panel.body] + panel.buttons))
+            panel.handleMouseClickEvent()
+            check('folding hides content and controls while retaining the title',
+                  not panel.body.visible and not any(button.visible for button in panel.buttons) and not panel.title.clipped())
+            check('folding an editor returns keyboard input to the garage', not panel.handleKeyEvent(typed) and panel.editing == u'4')
+            check('a folded editor cannot submit a hidden draft', not panel.handleKeyEvent(enter) and panel.editing == u'4')
+            panel.handleMouseClickEvent()
+            check('unfolding restores every control inside the window bounds',
+                  panel.body.visible and all(button.visible and not button.clipped() for button in panel.buttons))
+            mouse = type('Mouse', (object,), {'key': 256, 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: True})()
+            check('editing does not swallow mouse events outside the panel', not panel.handleKeyEvent(mouse))
             panel.editing = u'4'
             garage.offline = True
             panel.render(garage)
