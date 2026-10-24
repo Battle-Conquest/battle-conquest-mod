@@ -4,11 +4,24 @@ import logging
 import os
 import time
 import calendar
+import math
 
 from battle_conquest import config
 
 _logger = logging.getLogger('battle_conquest.quest_garage')
 STORE = os.path.join(config.CONFIG_DIR, 'garage-panel.json')
+
+
+def screen_size():
+    import GUI
+    width, height = GUI.screenResolution()
+    return max(1.0, float(width)), max(1.0, float(height))
+
+
+def bounded_position(position, size):
+    width, height = screen_size()
+    return (max(16.0, min(max(16.0, width - size[0] - 16), position[0])),
+            max(16.0, min(max(16.0, height - size[1] - 16), position[1])), 0.2)
 
 
 def clean(value, limit=64):
@@ -98,7 +111,8 @@ class Panel(object):
         self.body = None
         self.garage = None
         self.collapsed = False
-        self.position = (-0.95, 0.75, 0.2)
+        self.position = (32.0, 120.0, 0.2)
+        self.legacy_position = None
         self.drag = None
         self.editing = None
         self.edit_version = None
@@ -112,7 +126,13 @@ class Panel(object):
                 return
             pos = state.get('position')
             if isinstance(pos, list) and len(pos) == 3:
-                self.position = (max(-0.95, min(0.45, float(pos[0]))), max(-0.5, min(0.95, float(pos[1]))), 0.2)
+                pos = (float(pos[0]), float(pos[1]), 0.2)
+                if any(math.isnan(value) or math.isinf(value) for value in pos):
+                    raise ValueError('non-finite panel position')
+                if state.get('coordinate_space') == 'pixels':
+                    self.position = pos
+                else:
+                    self.legacy_position = pos
             self.collapsed = bool(state.get('collapsed'))
         except (ValueError, TypeError, IOError, OSError):
             pass
@@ -123,9 +143,14 @@ class Panel(object):
         # shared pixel origin for the title, content and controls when dragged.
         self.root = GUI.Window('')
         self.root.widthMode = self.root.heightMode = 'PIXEL'
-        self.root.horizontalPositionMode = self.root.verticalPositionMode = 'CLIP'
+        self.root.horizontalPositionMode = self.root.verticalPositionMode = 'PIXEL'
         self.root.horizontalAnchor = 'LEFT'
         self.root.verticalAnchor = 'TOP'
+        if self.legacy_position is not None:
+            width, height = screen_size()
+            x, y = self.legacy_position[:2]
+            self.position = ((x + 1) * width / 2, (1 - y) * height / 2, 0.2)
+            self.legacy_position = None
         self.root.position = self.position
         self.root.script = self
         self.root.focus = True
@@ -150,6 +175,8 @@ class Panel(object):
         self.layout()
         GUI.addRoot(self.root)
         self.attached = True
+        _logger.info('garage geometry pixel-v2: viewport=%s position=%s size=%s',
+                     screen_size(), self.position, (self.root.width, self.root.height))
 
     def label(self, value, y, x=0):
         import GUI
@@ -212,6 +239,7 @@ class Panel(object):
     def layout(self):
         if self.collapsed:
             self.root.width, self.root.height = self.title.width, self.title.height
+            self.place()
             return
         height = self.body.height
         for button in self.buttons:
@@ -220,6 +248,11 @@ class Panel(object):
         parts = [self.title, self.body] + self.buttons
         self.root.width = max(node.position[0] + node.width for node in parts)
         self.root.height = max(node.position[1] + node.height for node in parts)
+        self.place()
+
+    def place(self):
+        self.position = bounded_position(self.root.position, (self.root.width, self.root.height))
+        self.root.position = self.position
 
     def edit(self):
         if self.garage and self.garage.data and not self.garage.conflict:
@@ -280,6 +313,7 @@ class Panel(object):
 
     def handleDragStartEvent(self, component, position):
         self.drag = (position[0], position[1], self.root.position[0], self.root.position[1])
+        _logger.info('garage drag started at %s', self.root.position)
         if self.session is not None:
             self.session.callback(0.02, self.follow_drag)
         return True
@@ -294,12 +328,16 @@ class Panel(object):
             import GUI
             cursor = GUI.mcursor().position
             x, y, px, py = self.drag
-            self.root.position = (max(-0.95, min(0.45, px + cursor[0] - x)), max(-0.5, min(0.95, py + cursor[1] - y)), 0.2)
+            width, height = screen_size()
+            self.root.position = (px + (cursor[0] - x) * width / 2,
+                                  py - (cursor[1] - y) * height / 2, 0.2)
+            self.place()
 
     def handleDragStopEvent(self, *args):
         self.move()
         self.drag = None
         self.position = tuple(self.root.position)
+        _logger.info('garage drag stopped at %s', self.position)
         self.remember()
 
     def remember(self):
@@ -308,7 +346,7 @@ class Panel(object):
             if directory and not os.path.isdir(directory):
                 os.makedirs(directory)
             with open(self.store, 'wb') as handle:
-                json.dump({'position': self.position, 'collapsed': self.collapsed}, handle)
+                json.dump({'coordinate_space': 'pixels', 'position': self.position, 'collapsed': self.collapsed}, handle)
         except (IOError, OSError):
             _logger.exception('could not save garage panel position')
 
