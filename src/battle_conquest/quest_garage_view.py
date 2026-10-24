@@ -24,6 +24,13 @@ def bounded_position(position, size):
             max(16.0, min(max(16.0, height - size[1] - 16), position[1])), 0.2)
 
 
+def text_pixels(node):
+    # WoT reports native Text dimensions in legacy screen clip units, even
+    # when its containing Window is sized in pixels (observed at 2560x1440).
+    width, height = screen_size()
+    return node.width * width / 2, node.height * height / 2
+
+
 def clean(value, limit=64):
     return u' '.join(unicode(value).split())[:limit]
 
@@ -175,16 +182,18 @@ class Panel(object):
         self.layout()
         GUI.addRoot(self.root)
         self.attached = True
-        _logger.info('garage geometry pixel-v2: viewport=%s position=%s size=%s',
-                     screen_size(), self.position, (self.root.width, self.root.height))
+        _logger.info('garage geometry pixel-v3: viewport=%s position=%s size=%s title_clip=%s title_pixels=%s',
+                     screen_size(), self.position, (self.root.width, self.root.height),
+                     (self.title.width, self.title.height), text_pixels(self.title))
 
     def label(self, value, y, x=0):
         import GUI
         node = GUI.Text(value)
         node.colourFormatting = False
         node.multiline = True
-        node.heightMode = 'PIXEL'
-        node.widthMode = 'PIXEL'
+        node.explicitSize = False
+        node.heightMode = 'LEGACY'
+        node.widthMode = 'LEGACY'
         node.horizontalAnchor = 'LEFT'
         node.verticalAnchor = 'TOP'
         node.horizontalPositionMode = 'PIXEL'
@@ -238,16 +247,16 @@ class Panel(object):
 
     def layout(self):
         if self.collapsed:
-            self.root.width, self.root.height = self.title.width, self.title.height
+            self.root.width, self.root.height = text_pixels(self.title)
             self.place()
             return
-        height = self.body.height
+        height = text_pixels(self.body)[1]
         for button in self.buttons:
             button.position = (button.position[0], height + 36, 0)
         # Window clips its descendants; include the full text and last control.
         parts = [self.title, self.body] + self.buttons
-        self.root.width = max(node.position[0] + node.width for node in parts)
-        self.root.height = max(node.position[1] + node.height for node in parts)
+        self.root.width = max(node.position[0] + text_pixels(node)[0] for node in parts)
+        self.root.height = max(node.position[1] + text_pixels(node)[1] for node in parts)
         self.place()
 
     def place(self):

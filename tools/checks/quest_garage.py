@@ -130,18 +130,33 @@ def check_quest_garage():
 
 
 def check_quest_garage_panel():
-    from battle_conquest.quest_garage_view import Panel
+    from battle_conquest.quest_garage_view import Panel, text_pixels
 
     class Node(object):
         def __init__(self, text):
             self.text = text
             self.position = (0, 0, 0)
             self.children = []
-            self.height = 200
-            self.width = 400
+            self._height = 200
+            self._width = 400
             self.visible = True
             self.parent = None
             self.window = False
+        def stringDimensions(self, value):
+            rows = value.split('\n')
+            return max(len(row) for row in rows) * 9, len(rows) * 24
+        @property
+        def width(self):
+            return self._width if self.window else self.stringDimensions(self.text)[0] * 2.0 / resolution[0]
+        @width.setter
+        def width(self, value):
+            self._width = value
+        @property
+        def height(self):
+            return self._height if self.window else self.stringDimensions(self.text)[1] * 2.0 / resolution[1]
+        @height.setter
+        def height(self, value):
+            self._height = value
         def addChild(self, child, name):
             self.children.append((name, child))
             child.parent = self
@@ -159,7 +174,8 @@ def check_quest_garage_panel():
             if self.parent is None or not self.parent.window:
                 return False
             x, y = self.position[:2]
-            return x < 0 or y < 0 or x + self.width > self.parent.width or y + self.height > self.parent.height
+            width, height = self.stringDimensions(self.text)
+            return x < 0 or y < 0 or x + width > self.parent.width or y + height > self.parent.height
 
     def window(texture):
         node = Node(texture)
@@ -181,6 +197,9 @@ def check_quest_garage_panel():
     directory = tempfile.mkdtemp(prefix='bc-garage-test-')
     store = os.path.join(directory, 'panel.json')
     try:
+        observed = type('Text', (object,), {'width': 0.049224853515625, 'height': 0.03333282470703125})()
+        width, height = text_pixels(observed)
+        check('the live 2560x1440 text metrics represent about 63x24 pixels', abs(width - 63) < 0.05 and abs(height - 24) < 0.01)
         for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
             resolution[:] = [width, height]
             fresh = Panel(None, store=store)
@@ -188,6 +207,10 @@ def check_quest_garage_panel():
             x, y = fresh.root.screen_position()
             check('the first panel fits inside a %sx%s viewport' % (width, height),
                   x >= 16 and y >= 16 and x + fresh.root.width <= width - 16 and y + fresh.root.height <= height - 16)
+            check('native clip text metrics cannot shrink the window and clip its title or actions',
+                  not any(node.clipped() for node in [fresh.title, fresh.body] + fresh.buttons))
+            check('native text keeps its natural legacy size instead of interpreting clip sizes as pixels',
+                  all(node.widthMode == 'LEGACY' and node.heightMode == 'LEGACY' and not node.explicitSize for node in [fresh.title, fresh.body] + fresh.buttons))
             fresh.close()
         resolution[:] = [2560, 1440]
         dragged = Panel(None, store=os.path.join(directory, 'drag.json'))
