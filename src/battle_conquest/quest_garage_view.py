@@ -149,10 +149,10 @@ class Panel(object):
         # A Text parent does not translate its children. Window supplies the
         # shared pixel origin for the title, content and controls when dragged.
         self.root = GUI.Window('')
-        self.root.widthMode = self.root.heightMode = 'PIXEL'
-        self.root.horizontalPositionMode = self.root.verticalPositionMode = 'PIXEL'
-        self.root.horizontalAnchor = 'LEFT'
-        self.root.verticalAnchor = 'TOP'
+        self.root.widthMode = self.root.heightMode = GUI.Simple.eSizeMode.PIXEL
+        self.root.horizontalPositionMode = self.root.verticalPositionMode = GUI.Simple.ePositionMode.PIXEL
+        self.root.horizontalAnchor = GUI.Simple.eHAnchor.LEFT
+        self.root.verticalAnchor = GUI.Simple.eVAnchor.TOP
         if self.legacy_position is not None:
             width, height = screen_size()
             x, y = self.legacy_position[:2]
@@ -182,8 +182,10 @@ class Panel(object):
         self.layout()
         GUI.addRoot(self.root)
         self.attached = True
-        _logger.info('garage geometry pixel-v3: viewport=%s position=%s size=%s title_clip=%s title_pixels=%s',
+        _logger.info('garage geometry native-v4: viewport=%s position=%s size=%s projected=%s root_modes=%s title_clip=%s title_pixels=%s',
                      screen_size(), self.position, (self.root.width, self.root.height),
+                     self.root.localToScreen((0, 0)),
+                     (self.root.horizontalPositionMode, self.root.verticalPositionMode, self.root.widthMode, self.root.heightMode),
                      (self.title.width, self.title.height), text_pixels(self.title))
 
     def label(self, value, y, x=0):
@@ -192,12 +194,12 @@ class Panel(object):
         node.colourFormatting = False
         node.multiline = True
         node.explicitSize = False
-        node.heightMode = 'LEGACY'
-        node.widthMode = 'LEGACY'
-        node.horizontalAnchor = 'LEFT'
-        node.verticalAnchor = 'TOP'
-        node.horizontalPositionMode = 'PIXEL'
-        node.verticalPositionMode = 'PIXEL'
+        node.heightMode = GUI.Simple.eSizeMode.LEGACY
+        node.widthMode = GUI.Simple.eSizeMode.LEGACY
+        node.horizontalAnchor = GUI.Simple.eHAnchor.LEFT
+        node.verticalAnchor = GUI.Simple.eVAnchor.TOP
+        node.horizontalPositionMode = GUI.Simple.ePositionMode.PIXEL
+        node.verticalPositionMode = GUI.Simple.ePositionMode.PIXEL
         node.position = (x, y, 0)
         self.root.addChild(node, 'part%s' % len(self.root.children))
         return node

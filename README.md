@@ -174,7 +174,8 @@ The panel starts at a pixel offset inside the visible GUI viewport. Its position
 is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
-`game.log` records `geometry pixel-v3`
+Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
+the client scripts; string names are not used. `game.log` records `geometry native-v4`
 and drag start/stop positions to diagnose a client that cannot move the title.
 The editor retains its draft until the site acknowledges the save, including
 after a timeout or validation error. Typing while a save is in flight is kept.

@@ -132,7 +132,17 @@ def check_quest_garage():
 def check_quest_garage_panel():
     from battle_conquest.quest_garage_view import Panel, text_pixels
 
+    modes = type('Modes', (object,), {'CLIP': 0, 'PIXEL': 1, 'LEGACY': 2})
+    horizontal = type('Anchors', (object,), {'LEFT': 0, 'CENTER': 1, 'RIGHT': 2})
+    vertical = type('Anchors', (object,), {'TOP': 0, 'CENTER': 1, 'BOTTOM': 2})
+
     class Node(object):
+        def __setattr__(self, name, value):
+            # The client uses native enums. Bad strings must not appear to
+            # switch the rendering coordinate system in a permissive fake.
+            if name in ('widthMode', 'heightMode', 'horizontalPositionMode', 'verticalPositionMode', 'horizontalAnchor', 'verticalAnchor') and not isinstance(value, int):
+                return
+            object.__setattr__(self, name, value)
         def __init__(self, text):
             self.text = text
             self.position = (0, 0, 0)
@@ -142,6 +152,8 @@ def check_quest_garage_panel():
             self.visible = True
             self.parent = None
             self.window = False
+            self.horizontalPositionMode = self.verticalPositionMode = modes.LEGACY
+            self.widthMode = self.heightMode = modes.LEGACY
         def stringDimensions(self, value):
             rows = value.split('\n')
             return max(len(row) for row in rows) * 9, len(rows) * 24
@@ -165,11 +177,14 @@ def check_quest_garage_panel():
             # a Window changes that origin to its own top left for children.
             origin = self.parent.screen_position() if self.parent is not None and self.parent.window else (0, 0)
             x, y = self.position[:2]
-            if getattr(self, 'horizontalPositionMode', 'CLIP') != 'PIXEL':
-                x = (x + 1) * 960
-            if getattr(self, 'verticalPositionMode', 'CLIP') != 'PIXEL':
-                y = (1 - y) * 540
+            if self.horizontalPositionMode != modes.PIXEL:
+                x = (x + 1) * resolution[0] / 2
+            if self.verticalPositionMode != modes.PIXEL:
+                y = (1 - y) * resolution[1] / 2
             return origin[0] + x, origin[1] + y
+        def localToScreen(self, position):
+            x, y = self.screen_position()
+            return (x + position[0]) * 2.0 / resolution[0] - 1, 1 - (y + position[1]) * 2.0 / resolution[1]
         def clipped(self):
             if self.parent is None or not self.parent.window:
                 return False
@@ -183,6 +198,7 @@ def check_quest_garage_panel():
         return node
 
     module = types.ModuleType('GUI')
+    module.Simple = type('Simple', (object,), {'eSizeMode': modes, 'ePositionMode': modes, 'eHAnchor': horizontal, 'eVAnchor': vertical})
     roots = []
     module.Text = Node
     module.Window = window
@@ -207,10 +223,13 @@ def check_quest_garage_panel():
             x, y = fresh.root.screen_position()
             check('the first panel fits inside a %sx%s viewport' % (width, height),
                   x >= 16 and y >= 16 and x + fresh.root.width <= width - 16 and y + fresh.root.height <= height - 16)
+            projected = fresh.root.localToScreen((0, 0))
+            check('the native projected origin is inside the screen clip range',
+                  -1 <= projected[0] <= 1 and -1 <= projected[1] <= 1)
             check('native clip text metrics cannot shrink the window and clip its title or actions',
                   not any(node.clipped() for node in [fresh.title, fresh.body] + fresh.buttons))
             check('native text keeps its natural legacy size instead of interpreting clip sizes as pixels',
-                  all(node.widthMode == 'LEGACY' and node.heightMode == 'LEGACY' and not node.explicitSize for node in [fresh.title, fresh.body] + fresh.buttons))
+                  all(node.widthMode == modes.LEGACY and node.heightMode == modes.LEGACY and not node.explicitSize for node in [fresh.title, fresh.body] + fresh.buttons))
             fresh.close()
         resolution[:] = [2560, 1440]
         dragged = Panel(None, store=os.path.join(directory, 'drag.json'))
