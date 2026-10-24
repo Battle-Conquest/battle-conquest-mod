@@ -27,6 +27,7 @@ from checks.battle_reports import (check_battle_report_arena_id, check_battle_re
 from checks.client import install_fake_client
 from checks.common import REPO, check, render_stub
 from checks.quest_garage import check_quest_garage, check_quest_garage_panel, check_quest_garage_platoon
+from checks.quest_garage_input import check_quest_garage_input
 from checks.quest_details import check_quest_details
 from checks.quest_review import check_quest_review
 from checks.quest_repairs import check_quest_repairs
@@ -115,6 +116,7 @@ def main():
         check_session_patches()
         check_quest_garage()
         check_quest_garage_panel()
+        check_quest_garage_input()
         check_quest_garage_platoon()
         check_quest_details()
         check_quest_review()

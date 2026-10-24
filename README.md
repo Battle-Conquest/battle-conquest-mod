@@ -164,19 +164,24 @@ normal capture continues. No automatic release is needed for this branch.
 
 ### Shared quest tracking in the garage (#958)
 
-A native BigWorld GUI panel works without either optional menu API. Click its
-title to fold it, or drag the title to move it. `Next quest` cycles through active
-individual quests and joined/already selected sessions. `Switch mode` selects
-automatic platoon tracking or a manual list. Click `Manual IDs`, type up to four
-other **Battle-Conquest account IDs** separated by commas, and press Enter to
-save (Escape cancels). Your account is always included in the five-player limit.
+A native BigWorld GUI panel works without either optional menu API. Its dark
+card has a draggable header and a separate `Collapse` / `Expand` button.
+`Change quest` cycles through active individual quests and joined/already
+selected sessions. The mode button selects automatic platoon tracking or a
+manual list. Click `Edit players`, type up to four other **Battle-Conquest
+account IDs** separated by commas, then click `Save` (or press Enter).
+`Cancel` / Escape discards the draft; `Clear` empties the input without saving.
+Your account is always included in the five-player limit. Long content scrolls
+with the mouse wheel inside the card; actions and connection status stay visible.
 The panel starts at a pixel offset inside the visible GUI viewport. Its position
 is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry native-v4`
-and drag start/stop positions to diagnose a client that cannot move the title.
+the client scripts; string names are not used. `game.log` records `geometry window-v5`
+and drag start/stop positions. Session-owned hooks route mouse press, movement
+and release before garage Scaleform input, consuming only panel interactions.
+They delegate while hidden or in battle and are restored when the mod stops.
 The editor retains its draft until the site acknowledges the save, including
 after a timeout or validation error. Typing while a save is in flight is kept.
 
@@ -201,6 +206,6 @@ part of #772 before this mod. The server feature switch remains off until the
 combined release is validated. Native rendering, keyboard input and the current
 client's platoon adapter still need the in-game acceptance test.
 
-The native layout uses a transparent `GUI.Window`: BigWorld only translates
+The native layout uses nested `GUI.Window` components: BigWorld only translates
 child positions with a Window parent, and pixel coordinates start at its top
 left. See the [engine GUI documentation](https://howarduong.github.io/github.io/doc/api_python/client_python_api/doc/WindowGUIComponent.html).
