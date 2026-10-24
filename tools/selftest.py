@@ -26,6 +26,7 @@ from checks.battle_reports import (check_battle_report_arena_id, check_battle_re
                                    check_battle_report_tank)
 from checks.client import install_fake_client
 from checks.common import REPO, check, render_stub
+from checks.quest_garage import check_quest_garage, check_quest_garage_panel, check_quest_garage_platoon
 from checks.quest_details import check_quest_details
 from checks.quest_review import check_quest_review
 from checks.quest_repairs import check_quest_repairs
@@ -112,6 +113,9 @@ def main():
         check('watcher armed', bool(bigworld.pending))
 
         check_session_patches()
+        check_quest_garage()
+        check_quest_garage_panel()
+        check_quest_garage_platoon()
         check_quest_details()
         check_quest_review()
         check_quest_repairs()
