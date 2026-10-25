@@ -1,5 +1,6 @@
 """Native GUI building blocks using the enum and metric contract of the client."""
 from battle_conquest.i18n import tr
+import unicodedata
 
 PALETTE = {
     'panel': (17, 23, 30, 255), 'header': (27, 36, 46, 255),
@@ -13,6 +14,13 @@ PALETTE = {
     'clear': (0, 0, 0, 0),
 }
 TEXTURES = 'gui/maps/battle_conquest/garage/'
+FONT = 'battle_conquest/garage.font'
+
+
+def native_text(value):
+    if isinstance(value, str):
+        value = value.decode('utf-8', 'replace')
+    return unicodedata.normalize('NFC', unicode(value))
 
 
 def paint(node, role):
@@ -71,9 +79,10 @@ def surface(parent, name, color=None):
 
 def label(parent, name, value='', color='text'):
     import GUI
-    node = GUI.Text(tr(value))
+    node = GUI.Text(u'')
     passive(node)
-    node.font = 'default_medium.font'
+    node.font = FONT
+    node.text = native_text(tr(value))
     node.colourFormatting = False
     node.multiline = True
     node.explicitSize = False
@@ -89,7 +98,7 @@ def wrapped(node, rows, width):
     result = []
     for row in rows:
         line = u''
-        for word in unicode(row).split():
+        for word in native_text(row).split():
             candidate = (line + u' ' + word).strip()
             node.text = candidate
             if text_pixels(node)[0] <= width:
@@ -112,7 +121,7 @@ def wrapped(node, rows, width):
 
 
 def caption(button, node, value, enabled=True):
-    node.text = tr(value)
+    node.text = native_text(tr(value))
     node.colour = PALETTE['text' if enabled else 'muted']
     width, height = text_pixels(node)
     place(node, max(6, (button.width - width) / 2), max(4, (button.height - height) / 2))

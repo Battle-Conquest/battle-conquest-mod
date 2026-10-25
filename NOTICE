@@ -18,3 +18,9 @@ authors, which it neither contains nor ships:
 
   modsSettingsApi, by izeberg      https://github.com/izeberg/modssettingsapi
   modsListApi, by poliroid         https://gitlab.com/wot-public-mods/mods-list
+
+The isolated garage bitmap font is generated from DejaVu Sans 2.37.
+Bitstream copyright and trademark notices, the redistribution permission and
+the public-domain notice for DejaVu changes ship alongside the generated
+font in res/system/fonts/battle_conquest/LICENSE-DejaVu.txt.
+Source: https://dejavu-fonts.github.io/

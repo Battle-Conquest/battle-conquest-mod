@@ -194,7 +194,7 @@ is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry input-v7`
+the client scripts; string names are not used. `game.log` records `geometry font-v8`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.
@@ -204,7 +204,14 @@ reported `TypeError: Unregistered type : BW::KeyEvent` followed by a native
 crash with that second input path enabled. Only the game input hooks dispatch
 panel actions; the log confirms `game-hooks-only`. Local tests model the failing
 conversion boundary and verify that clicking, dragging and typing work without
-entering it. The real native crash still requires in-game confirmation.
+entering it. The first live retest no longer crashed; stability over longer
+use remains part of in-game acceptance.
+The native garage font is isolated under `system/fonts/battle_conquest/` and
+ships its own DejaVu-derived glyph atlas. Explicit Unicode ranges avoid the
+Windows code-page interpretation of legacy byte ranges, keeping French accents,
+ligatures and punctuation distinct. The game needs no font installation and
+the mod does not replace any shared client font. Text is normalized to Unicode
+NFC before measuring/rendering. The log records `garage font: bundled-unicode`.
 The editor retains its draft until the site acknowledges the save, including
 after a timeout or validation error. Typing while a save is in flight is kept.
 
@@ -235,3 +242,7 @@ left. See the [engine GUI documentation](https://howarduong.github.io/github.io/
 Regenerate the flat DDS surfaces after palette changes with
 `python3 tools/build_garage_theme.py`; the selftests check their pixels/alpha
 and contrast, and the release check verifies that every surface is packaged.
+To regenerate the font, install `tools/font-requirements.txt` in a development
+environment, then run `python3 tools/build_garage_font.py --source /path/to/DejaVuSans.ttf`.
+Use the source SHA-256 pinned in that tool. The shipped XML/DDS and licence are
+checked by the Python 2.7 tests and release checker; Pillow is only a build tool.

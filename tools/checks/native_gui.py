@@ -1,8 +1,10 @@
 """Native GUI fake with client enum types and clip-space text metrics."""
 import types
+from checks.native_font import metrics
 
 
 def native_gui():
+    font_tree, font_glyphs, font_height = metrics()
     modes = type('Modes', (object,), {'CLIP': 0, 'PIXEL': 1, 'LEGACY': 2})
     horizontal = type('Anchors', (object,), {'LEFT': 0, 'CENTER': 1, 'RIGHT': 2})
     vertical = type('Anchors', (object,), {'TOP': 0, 'CENTER': 1, 'BOTTOM': 2})
@@ -31,6 +33,9 @@ def native_gui():
             self.widthMode = self.heightMode = modes.LEGACY
         def stringDimensions(self, value):
             rows = value.split('\n')
+            if getattr(self, 'font', None) == 'battle_conquest/garage.font':
+                return (max(sum(font_glyphs.get(ord(char), font_glyphs[ord('?')])[2] for char in row) for row in rows),
+                        len(rows) * font_height)
             return max(len(row) for row in rows) * 9, len(rows) * 24
         @property
         def width(self):

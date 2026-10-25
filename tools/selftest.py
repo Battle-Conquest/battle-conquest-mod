@@ -30,6 +30,7 @@ from checks.quest_garage import check_quest_garage, check_quest_garage_panel, ch
 from checks.quest_garage_input import check_quest_garage_input
 from checks.quest_garage_theme import check_quest_garage_theme
 from checks.i18n import check_i18n
+from checks.native_font import check_native_font
 from checks.quest_details import check_quest_details
 from checks.quest_review import check_quest_review
 from checks.quest_repairs import check_quest_repairs
@@ -121,6 +122,7 @@ def main():
         check_quest_garage_input()
         check_quest_garage_theme()
         check_i18n()
+        check_native_font()
         check_quest_garage_platoon()
         check_quest_details()
         check_quest_review()
