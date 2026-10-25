@@ -54,7 +54,7 @@ def check_i18n():
         check('a garage refresh adopts the authenticated site language without relinking', i18n.locale() == 'fr')
         check('French captions, source labels and server criterion names render in the native window',
               panel.button_labels[0].text == u'Quête suivante' and panel.fold_label.text == u'Replier'
-              and u'OFFICIEL | 3 batailles' in texts(panel.content.node)
+              and u'OFFICIEL' in texts(panel.content.node) and u'3 batailles' in texts(panel.content.node)
               and u'Dégâts infligés: 350 / 1 000' in texts(panel.content.node))
         check('quest titles and usernames are never translated as interface messages',
               'Reload' in texts(panel.content.node) and 'Save' in texts(panel.content.node))

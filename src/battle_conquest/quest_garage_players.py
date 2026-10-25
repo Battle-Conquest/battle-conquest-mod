@@ -42,9 +42,14 @@ class Picker(object):
         if self.panel.garage is not None:
             self.panel.garage.search_ticket = None
 
+    def reveal(self):
+        node = self.result_rows[max(0, self.active)][0] if self.results else self.field
+        self.panel.scroller.reveal(node.position[1], node.height)
+
     def changed(self):
         self.panel.editing = u','.join(str(row['id']) for row in self.entries)
         self.panel.render(self.panel.garage)
+        self.reveal()
 
     def clear(self):
         self.cancel()
@@ -92,10 +97,12 @@ class Picker(object):
                     self.message = (u'Player search unavailable. Try again.' if rows is None else
                                     u'Choose a player below.' if self.results else u'No matching players.')
                     panel.render(panel.garage)
+                    self.reveal()
                 panel.garage.search_players(query, answered)
             session = self.panel.session or self.panel.garage.session
             session.callback(0.3, search)
         self.panel.render(self.panel.garage)
+        self.reveal()
 
     def key(self, event):
         import Keys
@@ -124,6 +131,8 @@ class Picker(object):
                 if all(not unicodedata.category(c).startswith('C') for c in char) and len(self.query) + len(char) <= 64:
                     self.type(self.query + char)
         self.panel.render(self.panel.garage)
+        if self.panel.editing is not None:
+            self.reveal()
 
     def fit(self, node, value, width):
         value = native_text(value)

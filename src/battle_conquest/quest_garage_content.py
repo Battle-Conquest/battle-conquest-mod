@@ -32,7 +32,8 @@ class Card(object):
         self.node = surface(parent, name, 'card')
         self.node.width = width
         place(self.node, 0, y)
-        self.width, self.y, self.index = width, 12, 0
+        self.width, self.y, self.index = width, 8, 0
+        self.x, self.text_width = 12, width - 24
         if accent:
             self.edge = surface(self.node, 'edge', accent)
             self.edge.width = 3
@@ -42,9 +43,9 @@ class Card(object):
     def text(self, value, color='text', translate=True):
         node = label(self.node, 'text%s' % self.index, color=color)
         self.index += 1
-        width, height = wrapped(node, [tr(value) if translate else value], self.width - 32)
-        place(node, 16, self.y)
-        self.y += height + 6
+        width, height = wrapped(node, [tr(value) if translate else value], self.text_width)
+        place(node, self.x, self.y)
+        self.y += height + 2
         return node
 
     def progress(self, value, target, color):
@@ -52,20 +53,18 @@ class Card(object):
         if ratio is None:
             return
         track = surface(self.node, 'track%s' % self.index, 'track')
-        track.width, track.height = self.width - 32, 4
-        place(track, 16, self.y)
+        track.width, track.height = self.text_width, 3
+        place(track, self.x, self.y)
         if ratio:
             fill = surface(track, 'fill', color)
-            fill.width, fill.height = track.width * ratio, 4
+            fill.width, fill.height = track.width * ratio, 3
         self.index += 1
-        self.y += 14
+        self.y += 7
 
     def source(self, title, score, criteria, color, localized=True):
         if score is None:
             return
-        self.y += 6
-        count = score.get('battles')
-        self.text(tr(u'%s  |  %s battles') % (tr(title), count) if count is not None else tr(title), color)
+        self.text(title, color)
         if not score.get('available'):
             self.text(u'No data for this period.', 'muted')
         elif score.get('comparable') is False:
@@ -78,14 +77,16 @@ class Card(object):
                 self.progress(score.get('totals', {}).get(metric), target, color)
             if not criteria:
                 self.text(u'No objectives to display.', 'muted')
+        if score.get('battles') is not None:
+            self.text(tr(u'%s battles') % score['battles'], 'muted', translate=False)
         if score.get('incomplete'):
-            self.text(u'Incomplete data - unknown values stay marked ?.', 'muted')
+            self.text(u'Incomplete data (?)', 'muted')
 
     def finish(self):
         self.node.height = self.y + 6
         if self.edge is not None:
             self.edge.height = self.node.height
-        return self.node.height + 12
+        return self.node.height + 8
 
 
 class Content(object):
@@ -106,7 +107,8 @@ class Content(object):
             self.node.visible = visible
 
     def render(self, data, width):
-        key = (json.dumps(data, sort_keys=True), width, locale())
+        shown = dict((name, (data or {}).get(name)) for name in ('selected', 'criteria', 'players', 'language'))
+        key = (json.dumps(shown, sort_keys=True), width, locale())
         if key == self.key:
             return False
         self.clear()
@@ -114,36 +116,32 @@ class Content(object):
         self.node.width = width
         y = 0
         card = Card(self.node, 'quest', width, y, 'accent')
-        card.text(u'TRACKED QUEST', 'muted')
         selected = data.get('selected') if data else None
         card.text(clean(selected['title']) if selected else tr(u'No quest selected'), 'accent', translate=False)
         if not selected:
             card.text(u'Click Change quest, or choose one on the website.', 'muted')
-        period = data.get('period') if data else None
-        if period:
-            card.text(tr(u'Period (UTC): %s / %s') % (period['start'], period['end']), 'muted')
         y += card.finish()
         if data:
             for index, player in enumerate(data.get('players', [])[:5]):
                 card = Card(self.node, 'player%s' % index, width, y)
                 card.text(clean(player['username'], 30), translate=False)
-                card.text(u'Participant' if player['participant'] else u'Followed only - no rewards', 'muted')
+                if not player['participant']:
+                    card.text(u'Followed only - no rewards', 'muted')
                 localized = data.get('language', 'en') == locale()
-                card.source(u'OFFICIAL', player.get('official'), data.get('criteria', []), 'official', localized)
-                card.source(u'MOD ESTIMATE - indicative', player.get('estimate'), data.get('criteria', []), 'estimate', localized)
+                sources = [(title, player.get(source_key), color) for title, source_key, color in
+                           ((u'OFFICIAL', 'official', 'official'), (u'MOD ESTIMATE', 'estimate', 'estimate'))
+                           if player.get(source_key) is not None]
+                top, bottoms = card.y, [card.y]
+                column = (width - 36) / 2 if len(sources) == 2 else width - 24
+                for source_index, (title, score, color) in enumerate(sources):
+                    card.x, card.text_width, card.y = 12 + source_index * (column + 12), column, top
+                    card.source(title, score, data.get('criteria', []), color, localized)
+                    bottoms.append(card.y)
+                card.x, card.text_width, card.y = 12, width - 24, max(bottoms)
                 if player.get('official') is None and player.get('estimate') is None:
                     card.text(u'No results for this period.', 'muted')
                 y += card.finish()
-            choices = [choice for choice in data.get('choices', []) if choice.get('joined', True)]
-            if choices:
-                card = Card(self.node, 'choices', width, y)
-                card.text(u'AVAILABLE QUESTS / JOINED SESSIONS', 'muted')
-                for choice in choices[:5]:
-                    card.text(u'%s  (%s)' % (clean(choice['title']), tr(clean(choice['status']))))
-                if len(choices) > 5:
-                    card.text(tr(u'+%s more on the website') % (len(choices) - 5), 'muted')
-                y += card.finish()
-        self.height = max(0, y - 12)
+        self.height = max(0, y - 8)
         self.node.height = self.height
         self.key = key
         return True

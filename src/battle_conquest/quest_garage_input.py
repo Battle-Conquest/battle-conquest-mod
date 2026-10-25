@@ -21,6 +21,8 @@ class Input(object):
                   and panel.garage.garage())
         if not active:
             panel.drag = panel.pressed = None
+            if panel.scroller is not None:
+                panel.scroller.cancel()
             self.owned_keys.clear()
         return active
 

@@ -26,6 +26,8 @@ class Panel(object):
         self.buttons, self.button_labels, self.actions = [], [], []
         self.disabled = set()
         self.scroll = self.overflow = 0
+        self.scroller = None
+        self.scroll_key = None
         self.content_key = None
         self.content = None
         self.picker = None
@@ -67,7 +69,7 @@ class Panel(object):
         self.body = label(self.region, 'text')
         from battle_conquest.quest_garage_content import Content
         self.content = Content(self.region)
-        self.input_box = surface(self.root, 'input', 'input')
+        self.input_box = surface(self.region, 'input', 'input')
         from battle_conquest.quest_garage_players import Picker
         self.picker = Picker(self)
         self.picker.build()
@@ -75,6 +77,8 @@ class Panel(object):
         self.status_dot = surface(self.root, 'connection', 'official')
         self.track = surface(self.root, 'track', 'track')
         self.thumb = surface(self.root, 'thumb', 'accent')
+        from battle_conquest.quest_garage_scroll import Scroll
+        self.scroller = Scroll(self)
         for index in range(4):
             button = surface(self.root, 'button%s' % index, 'button')
             self.buttons.append(button)
@@ -86,7 +90,7 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry players-v10: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry compact-v11: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
         _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
                      self.root.textureName, self.root.materialFX, self.root.colour)
@@ -107,6 +111,7 @@ class Panel(object):
             self.root.visible = visible
             if not visible:
                 self.picker.cancel()
+                self.scroller.cancel()
                 self.drag = self.pressed = self.editing = None
                 self.hovered = None
                 self.restyle()
@@ -115,8 +120,10 @@ class Panel(object):
         if self.picker is not None:
             self.picker.cancel()
         self.editing = self.edit_version = self.drag = self.pressed = None
-        self.content_key = None
+        self.content_key = self.scroll_key = None
         self.scroll = 0
+        if self.scroller is not None:
+            self.scroller.cancel()
         if self.content is not None:
             self.content.clear()
         if self.body is not None:
@@ -126,7 +133,7 @@ class Panel(object):
         self.garage = garage
         if self.root is None:
             return
-        rows = lines(garage)
+        rows = [] if garage.data else [u'Offline - no data yet.' if garage.offline else u'Waiting for quest data...']
         status = status_line(garage) if garage.data else tr(u'Connecting...')
         rows = [row for row in rows if row != status and row != garage.error]
         editing = self.editing is not None
@@ -146,11 +153,14 @@ class Panel(object):
         key = (tuple(rows), width, editing)
         if key != self.content_key:
             wrapped(self.body, rows, width - 44)
-            self.content_key, self.scroll = key, 0
+            self.content_key = key
         self.cards_shown = garage.data is not None and not editing
-        self.body.visible = not self.cards_shown
-        if self.cards_shown and self.content.render(garage.data, width - 44):
-            self.scroll = 0
+        self.body.visible = not self.cards_shown and not editing
+        scope = ((garage.data or {}).get('config', {}).get('selection'), editing)
+        if scope != self.scroll_key:
+            self.scroll, self.scroll_key = 0, scope
+        if self.cards_shown:
+            self.content.render(garage.data, width - 48)
         self.content.show(self.cards_shown)
         busy = garage.busy is not None
         editable = garage.data is not None and not garage.conflict and not busy
@@ -187,7 +197,9 @@ class Panel(object):
         if node is not self.root:
             x, y = x + node.position[0], y + node.position[1]
             if self.picker is not None and node in self.picker.targets:
-                x, y = x + self.input_box.position[0], y + self.input_box.position[1]
+                x, y = x + self.input_box.position[0] + self.region.position[0], y + self.input_box.position[1] + self.region.position[1]
+                if not self.region.visible or not self.contains(self.region, point):
+                    return False
         return x <= point[0] <= x + node.width and y <= point[1] <= y + node.height
 
     def pointer(self, event):
@@ -198,6 +210,8 @@ class Panel(object):
             return False
         pos = point(event)
         if event.isKeyDown():
+            if self.scroller.press(pos):
+                return True
             for node, action in self.actions:
                 if node.visible and self.contains(node, pos):
                     if id(node) not in self.disabled:
@@ -208,6 +222,8 @@ class Panel(object):
                 self.handleDragStartEvent(self.header, event.cursorPosition)
                 return True
         else:
+            if self.scroller.release():
+                return True
             if self.drag is not None:
                 self.move(event.cursorPosition)
                 self.handleDragStopEvent()
@@ -225,6 +241,9 @@ class Panel(object):
 
     def pointer_move(self, event):
         from battle_conquest.quest_garage_input import point
+        if self.scroller.drag is not None:
+            self.scroller.move(point(event)[1])
+            return True
         if self.drag is not None:
             self.move(event.cursorPosition)
             return True
@@ -233,10 +252,8 @@ class Panel(object):
         if hovered is not self.hovered:
             self.hovered = hovered
             self.restyle()
-        if not self.collapsed and getattr(event, 'dz', 0) and self.contains(self.region, pos):
-            delta = event.dz / 120.0 if abs(event.dz) >= 120 else event.dz
-            self.scroll = max(0, min(self.overflow, self.scroll - delta * 48))
-            self.layout()
+        if not self.collapsed and getattr(event, 'dz', 0) and (self.contains(self.region, pos) or self.contains(self.track, pos)):
+            self.scroller.wheel(event.dz)
             return True
         return False
 
@@ -329,6 +346,9 @@ class Panel(object):
         if self.picker is not None:
             self.picker.cancel()
         self.picker = None
+        if self.scroller is not None:
+            self.scroller.cancel()
+        self.scroller = None
         root, attached = self.root, self.attached
         if self.content is not None:
             self.content.clear()

@@ -197,14 +197,24 @@ and outdated replies cannot replace the current suggestions. The website uses
 the same name search; IDs remain internal to the saved configuration. Deploy
 the server `/api/mod/quest-garage/players` route and `manual_players` metadata
 before this package; no additional migration or configuration is needed.
-Your account is always included in the five-player limit. Long content scrolls
-with the mouse wheel inside the card; actions and connection status stay visible.
+Your account is always included in the five-player limit. The expanded window
+has a fixed 520-pixel height, reduced to fit smaller screens. Its content and
+player editor scroll with the mouse wheel, a click on the scrollbar track or
+a drag of its thumb. Actions and connection status stay pinned below the
+viewport. Keyboard navigation keeps the active suggestion visible; clipped rows
+cannot receive clicks. Refreshing scores preserves the reading position.
+
+Compact cards show the selected quest, names and progress; official and
+indicative mod figures sit in separate columns when both exist. Unknown and
+incomparable values, incomplete data, battle counts and the no-reward status
+remain explicit. The duplicated quest overview and raw UTC dates are omitted
+from the panel; full quest/session details remain on the website.
 The panel starts at a pixel offset inside the visible GUI viewport. Its position
 is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry players-v10`
+the client scripts; string names are not used. `game.log` records `geometry compact-v11`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.
