@@ -1,8 +1,9 @@
 """Account-bound garage snapshots and optimistic configuration writes."""
 import json
 import time
+from urllib import quote
 
-from battle_conquest import config
+from battle_conquest import config, i18n
 from battle_conquest.destinations import battles_url
 from battle_conquest.report_sender import at_garage, account_number, answer
 
@@ -33,6 +34,12 @@ def is_snapshot(data):
             or not isinstance(settings.get('manual_ids'), list)):
         return False
     choices, players = data.get('choices'), data.get('players')
+    manual = data.get('manual_players', [])
+    if (not isinstance(manual, list) or len(manual) > 4
+            or not all(isinstance(row, dict) and isinstance(row.get('id'), (int, long))
+                       and not isinstance(row['id'], bool) and row['id'] > 0
+                       and isinstance(row.get('username'), basestring) for row in manual)):
+        return False
     if (not isinstance(choices, list) or not isinstance(players, list) or len(players) > 5
             or not all(isinstance(choice, dict) and all(key in choice for key in ('key', 'title', 'status')) for choice in choices)
             or not all(isinstance(player, dict) and all(key in player for key in ('username', 'participant')) for player in players)):
@@ -80,6 +87,7 @@ class Garage(object):
         self.last_poll = 0
         self.last_received = None
         self.last_sent = None
+        self.search_ticket = None
 
     def identity(self):
         current = self.places.current
@@ -105,6 +113,7 @@ class Garage(object):
     def tick(self):
         key = self.identity()
         if key != self.key:
+            self.search_ticket = None
             self.key = key
             self.data = None
             self.busy = None
@@ -147,6 +156,8 @@ class Garage(object):
             self.busy = None
             code = getattr(response, 'responseCode', None)
             data = answer(response)
+            if code == 200 and is_snapshot(data):
+                i18n.accept(data, key[0], key[2])
             if code == 404:
                 # The combined quest release is still gated server-side, or
                 # this server predates it. Do not expose an unfinished panel.
@@ -206,6 +217,34 @@ class Garage(object):
             self.tick()
             return
         return self.request(self.url(), self.key, config_data, on_saved)
+
+    def search_players(self, query, completed):
+        key = self.identity()
+        if key is None or key != self.key or not self.garage():
+            completed(None)
+            return False
+        ticket = object()
+        self.search_ticket = ticket
+        url = self.url().replace('/quest-garage?', '/quest-garage/players?') + '&q=' + quote(query.encode('utf-8'))
+        def answered(response):
+            if self.search_ticket is not ticket or self.identity() != key or not self.garage():
+                return
+            self.search_ticket = None
+            data = answer(response)
+            rows = data.get('results') if isinstance(data, dict) else None
+            valid = (getattr(response, 'responseCode', None) == 200 and isinstance(rows, list)
+                     and len(rows) <= 8 and all(isinstance(row, dict) and isinstance(row.get('id'), (int, long))
+                     and not isinstance(row['id'], bool) and row['id'] > 0 and isinstance(row.get('username'), basestring)
+                     and bool(row['username'].strip()) for row in rows))
+            completed(rows if valid else None)
+        try:
+            self.session.fetch(url, answered, headers={'X-Mod-Secret': key[2]}, timeout=config.API_TIMEOUT)
+        except Exception:
+            if self.search_ticket is ticket:
+                self.search_ticket = None
+                completed(None)
+            return False
+        return True
 
     def reload(self):
         if self.busy is not None:

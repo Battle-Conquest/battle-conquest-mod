@@ -11,7 +11,7 @@ is nothing more than stop() followed by a fresh start().
 """
 import logging
 
-from battle_conquest import (account, battle_reports, destinations, mods_list, notices, report_sender, quest_repairs, quest_garage_view,
+from battle_conquest import (account, battle_reports, destinations, i18n, mods_list, notices, report_sender, quest_repairs, quest_garage_view,
                              results_request, settings_window, site_link)
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
@@ -35,6 +35,7 @@ def start(generation=0):
     try:
         player = account.install(_session)
         places = destinations.install(_session, MODES)
+        i18n.install(_session, player, places)
         site = site_link.install(_session, places, player, version=VERSION)
         # One queue for both halves: the capture writes to it and the sender
         # reads from it, and two objects over one file would each hold their

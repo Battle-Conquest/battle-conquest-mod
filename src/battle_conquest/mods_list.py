@@ -27,6 +27,8 @@ builtin, with a source string that imports the current module at click time.
 """
 import functools
 import logging
+
+from battle_conquest.i18n import tr, on_change
 import time
 
 import BigWorld
@@ -75,13 +77,21 @@ class ModsListEntry(object):
             _logger.info('modsListApi not installed, no menu entry')
             return
         self._api = g_modsListApi
-        g_modsListApi.addModification(
-            id=MOD_ID, name='Battle-Conquest',
-            description='Link this game to Battle-Conquest and see your battles leave',
-            icon=config.ICON_RES_PATH, enabled=True, login=False, lobby=True,
-            callback=_CALLBACK)
+        self._register()
+        on_change(self._session, self._refresh_language)
         self._session.on_close(self._remove)
         _logger.info('added to modsListApi as %s', MOD_ID)
+
+    def _register(self):
+        self._api.addModification(
+            id=MOD_ID, name='Battle-Conquest',
+            description=tr('Link this game to Battle-Conquest and see your battles leave'),
+            icon=config.ICON_RES_PATH, enabled=True, login=False, lobby=True,
+            callback=_CALLBACK)
+
+    def _refresh_language(self):
+        self._remove()
+        self._register()
 
     def _remove(self):
         try:

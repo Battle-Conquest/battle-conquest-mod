@@ -129,62 +129,79 @@ def check_quest_garage():
     check('enabling the combined server release restores the panel', view.shown and not garage.unavailable)
 
 
+def check_quest_garage_age():
+    import calendar
+    import time
+    from battle_conquest.quest_garage_text import duration, status_line
+    cases = [(0, '00:00:00'), (59, '00:00:59'), (60, '00:01:00'),
+             (3661, '01:01:01'), (86399, '23:59:59'), (86400, '24:00:00'),
+             (176461, '49:01:01'), (-1, '00:00:00')]
+    check('data age uses readable durations without wrapping after 24 hours',
+          all(duration(seconds) == expected for seconds, expected in cases))
+    stamp = '2026-10-25 00:00:00'
+    epoch = calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S'))
+    data = {'players': [{'official': {'updated_at': stamp}, 'estimate': {'updated_at': '2026-10-25 01:00:00'}}]}
+    clock = [epoch + 3661]
+    garage = type('Garage', (object,), {'data': data, 'offline': False, 'now': lambda self: clock[0]})()
+    check('the displayed duration still uses the oldest UTC score timestamp', status_line(garage).endswith('01:01:01'))
+    garage.offline = True
+    clock[0] += 86400
+    check('offline durations continue past one day', 'Offline' in status_line(garage) and status_line(garage).endswith('25:01:01'))
+    data['players'] = [{'official': {'updated_at': 'invalid'}}]
+    check('missing or invalid age is unknown rather than an invented zero duration', status_line(garage).endswith('unknown'))
+    data['players'] = [{'official': {'updated_at': stamp}}]
+    clock[0] = epoch - 5
+    check('a future timestamp is clamped at zero age', status_line(garage).endswith('00:00:00'))
+
+
 def check_quest_garage_panel():
-    from battle_conquest.quest_garage_view import Panel
+    from battle_conquest.quest_garage_view import Panel, text_pixels
 
-    class Node(object):
-        def __init__(self, text):
-            self.text = text
-            self.position = (0, 0, 0)
-            self.children = []
-            self.height = 200
-            self.width = 400
-            self.visible = True
-            self.parent = None
-            self.window = False
-        def addChild(self, child, name):
-            self.children.append((name, child))
-            child.parent = self
-        def screen_position(self):
-            # BigWorld PIXEL positions start at the screen's top left. Only
-            # a Window changes that origin to its own top left for children.
-            origin = self.parent.screen_position() if self.parent is not None and self.parent.window else (0, 0)
-            x, y = self.position[:2]
-            if getattr(self, 'horizontalPositionMode', 'CLIP') != 'PIXEL':
-                x = (x + 1) * 960
-            if getattr(self, 'verticalPositionMode', 'CLIP') != 'PIXEL':
-                y = (1 - y) * 540
-            return origin[0] + x, origin[1] + y
-        def clipped(self):
-            if self.parent is None or not self.parent.window:
-                return False
-            x, y = self.position[:2]
-            return x < 0 or y < 0 or x + self.width > self.parent.width or y + self.height > self.parent.height
-
-    def window(texture):
-        node = Node(texture)
-        node.window = True
-        return node
-
-    module = types.ModuleType('GUI')
-    roots = []
-    module.Text = Node
-    module.Window = window
-    module.addRoot = roots.append
-    module.delRoot = roots.remove
-    module.mcursor = lambda: type('Cursor', (object,), {'position': (0.3, 0.4)})()
+    from checks.native_gui import native_gui
+    module, roots, resolution, cursor, Node, modes = native_gui()
     previous = sys.modules.get('GUI')
     sys.modules['GUI'] = module
     directory = tempfile.mkdtemp(prefix='bc-garage-test-')
     store = os.path.join(directory, 'panel.json')
     try:
+        observed = type('Text', (object,), {'width': 0.049224853515625, 'height': 0.03333282470703125})()
+        width, height = text_pixels(observed)
+        check('the live 2560x1440 text metrics represent about 63x24 pixels', abs(width - 63) < 0.05 and abs(height - 24) < 0.01)
+        for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
+            resolution[:] = [width, height]
+            fresh = Panel(None, store=store)
+            fresh.visible(True)
+            x, y = fresh.root.screen_position()
+            check('the first panel fits inside a %sx%s viewport' % (width, height),
+                  x >= 16 and y >= 16 and x + fresh.root.width <= width - 16 and y + fresh.root.height <= height - 16)
+            projected = fresh.root.localToScreen((0, 0))
+            check('the native projected origin is inside the screen clip range',
+                  -1 <= projected[0] <= 1 and -1 <= projected[1] <= 1)
+            check('native clip text metrics cannot shrink the window and clip its title or actions',
+                  not any(node.clipped() for node in [fresh.title, fresh.body] + fresh.buttons))
+            check('native text keeps its natural legacy size instead of interpreting clip sizes as pixels',
+                  all(node.widthMode == modes.LEGACY and node.heightMode == modes.LEGACY and not node.explicitSize for node in [fresh.title, fresh.body] + fresh.button_labels))
+            fresh.close()
+        resolution[:] = [2560, 1440]
+        dragged = Panel(None, store=os.path.join(directory, 'drag.json'))
+        dragged.visible(True)
+        cursor[:] = [-0.7, 0.6]
+        start = dragged.position
+        dragged.handleDragStartEvent(dragged.title, tuple(cursor))
+        cursor[:] = [-0.5, 0.4]
+        dragged.move()
+        check('dragging converts clip cursor movement to positive-down pixel offsets',
+              abs(dragged.position[0] - start[0] - 256) < 0.001 and abs(dragged.position[1] - start[1] - 144) < 0.001)
+        dragged.handleDragStopEvent()
+        dragged.close()
+        cursor[:] = [0.3, 0.4]
         panel = Panel(None, store=store)
         panel.visible(True)
         check('native panel builds without any third party API', len(roots) == 1 and len(panel.buttons) == 4)
         before = [node.screen_position() for node in [panel.title, panel.body] + panel.buttons]
         check('panel content starts below the draggable title', before[1][0] == before[0][0] and before[1][1] > before[0][1])
-        panel.handleMouseClickEvent()
-        panel.title.script.handleDragStartEvent(panel.title, (0.0, 0.0))
+        panel.toggle()
+        panel.handleDragStartEvent(panel.header, (0.0, 0.0))
         panel.handleDragStopEvent()
         after = [node.screen_position() for node in [panel.title, panel.body] + panel.buttons]
         delta = tuple(after[0][i] - before[0][i] for i in (0, 1))
@@ -199,6 +216,21 @@ def check_quest_garage_panel():
         check('reloading preserves saved panel placement', restored.collapsed and restored.position == position)
         panel.close()
         check('stopping releases native GUI root', not roots)
+        with open(store, 'wb') as handle:
+            handle.write('{"coordinate_space":"pixels","position":[-500,9999,0.2]}')
+        recovered = Panel(None, store=store)
+        recovered.visible(True)
+        x, y = recovered.root.screen_position()
+        check('saved off-screen positions are brought back into the visible viewport',
+              x >= 16 and y >= 16 and x + recovered.root.width <= resolution[0] - 16 and y + recovered.root.height <= resolution[1] - 16)
+        recovered.close()
+        with open(store, 'wb') as handle:
+            handle.write('{"position":[-0.5,0.5,0.2],"collapsed":true}')
+        recovered = Panel(None, store=store)
+        recovered.visible(True)
+        check('legacy clip positions are converted to pixels without losing the fold state',
+              recovered.position[:2] == (640.0, 360.0) and recovered.collapsed)
+        recovered.close()
 
         # Full native editor with a poll arriving between typing and Enter.
         from battle_conquest.quest_garage import Garage
@@ -224,26 +256,27 @@ def check_quest_garage_panel():
         previous_keys = sys.modules.get('Keys')
         sys.modules['Keys'] = keys
         try:
-            panel.editing = u''
+            panel.clear_edit()
             typed = type('Key', (object,), {'key': 4, 'character': u'4', 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: False})()
             panel.handleKeyEvent(typed)
-            check('native character events populate the manual account editor', panel.editing == u'4')
+            check('native character events populate name search without treating text as an account ID', panel.editing == u'' and panel.picker.query == u'4')
             check('the window includes the complete content and all controls',
                   not any(node.clipped() for node in [panel.title, panel.body] + panel.buttons))
-            panel.handleMouseClickEvent()
+            panel.toggle()
             check('folding hides content and controls while retaining the title',
-                  not panel.body.visible and not any(button.visible for button in panel.buttons) and not panel.title.clipped())
-            check('folding an editor returns keyboard input to the garage', not panel.handleKeyEvent(typed) and panel.editing == u'4')
-            check('a folded editor cannot submit a hidden draft', not panel.handleKeyEvent(enter) and panel.editing == u'4')
-            panel.handleMouseClickEvent()
+                  not panel.region.visible and not any(button.visible for button in panel.buttons) and not panel.title.clipped())
+            check('folding an editor returns keyboard input to the garage', not panel.handleKeyEvent(typed) and panel.picker.query == u'4')
+            check('a folded editor cannot submit a hidden draft', not panel.handleKeyEvent(enter) and panel.picker.query == u'4')
+            panel.toggle()
             check('unfolding restores every control inside the window bounds',
-                  panel.body.visible and all(button.visible and not button.clipped() for button in panel.buttons))
+                  panel.region.visible and all(button.visible and not button.clipped() for button in panel.buttons))
             mouse = type('Mouse', (object,), {'key': 256, 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: True})()
             check('editing does not swallow mouse events outside the panel', not panel.handleKeyEvent(mouse))
             panel.editing = u'4'
+            panel.picker.cancel()
             garage.offline = True
             panel.render(garage)
-            check('editing keeps network failures visible', 'Offline - input retained' in panel.body.text)
+            check('editing keeps network failures visible', 'Offline' in panel.subtitle.text and panel.input_box.visible)
             garage.offline = False
             panel.handleKeyEvent(enter)
             check('Enter while a poll is in flight retains the pending input', panel.editing == '4')

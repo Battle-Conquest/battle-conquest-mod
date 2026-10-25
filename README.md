@@ -164,12 +164,74 @@ normal capture continues. No automatic release is needed for this branch.
 
 ### Shared quest tracking in the garage (#958)
 
-A native BigWorld GUI panel works without either optional menu API. Click its
-title to fold it, or drag the title to move it. `Next quest` cycles through active
-individual quests and joined/already selected sessions. `Switch mode` selects
-automatic platoon tracking or a manual list. Click `Manual IDs`, type up to four
-other **Battle-Conquest account IDs** separated by commas, and press Enter to
-save (Escape cancels). Your account is always included in the five-player limit.
+The mod follows the language selected for your account on the website (French
+or English). The authenticated `/api/mod/me` and garage responses carry that
+preference and its WG account ID. A garage refresh, every 15 seconds or with
+Reload, updates cards, buttons, errors, settings and new notifications without
+restarting or losing an open player draft. The server supplies individual quest
+titles in the account language, using the site's available translations.
+Usernames and user-written session titles stay as written. Offline responses
+keep the last valid session language; another
+account or link clears it. Older servers remain compatible with English as
+the fallback. Deploy the matching server preference fields before this build;
+no new migration or configuration is needed.
+
+A native BigWorld GUI panel works without either optional menu API. Its dark
+card has a draggable header and a separate `Collapse` / `Expand` button.
+The selected quest and each player have separate cards. Official results and
+indicative mod estimates have their own labels and progress bars; unknown or
+incomparable values never become invented progress. The palette uses opaque
+dark backgrounds, white body text and warm accents, with at least 4.5:1 text
+contrast. Native DDS surfaces carry their actual colours, including a fully
+transparent content texture, rather than relying on tinting a white texture.
+`Change quest` cycles through active individual quests and joined/already
+selected sessions. The mode button selects automatic platoon tracking or a
+manual list. Click `Edit players`, type at least two characters of a
+Battle-Conquest username, then choose a suggestion by clicking or with the arrow
+keys and Enter. Up to five suggestions are shown; type more characters to narrow
+the search. Select up to four other players, remove a selected name with `×`,
+then click `Save`. Enter selects a suggestion, or saves when the search is empty.
+Escape closes the search first, then cancels the draft; `Clear` removes the
+selected players without saving. Failed searches preserve the selected names,
+and outdated replies cannot replace the current suggestions. The website uses
+the same name search; IDs remain internal to the saved configuration. Deploy
+the server `/api/mod/quest-garage/players` route and `manual_players` metadata
+before this package; no additional migration or configuration is needed.
+Your account is always included in the five-player limit. The expanded window
+has a fixed 520-pixel height, reduced to fit smaller screens. Its content and
+player editor scroll with the mouse wheel, a click on the scrollbar track or
+a drag of its thumb. Actions and connection status stay pinned below the
+viewport. Keyboard navigation keeps the active suggestion visible; clipped rows
+cannot receive clicks. Refreshing scores preserves the reading position.
+
+Compact cards show the selected quest, names and progress; official and
+indicative mod figures sit in separate columns when both exist. Unknown and
+incomparable values, incomplete data, battle counts and the no-reward status
+remain explicit. The duplicated quest overview and raw UTC dates are omitted
+from the panel; full quest/session details remain on the website.
+The panel starts at a pixel offset inside the visible GUI viewport. Its position
+is clamped again when its content or the resolution changes; older saved clip
+coordinates are migrated automatically. Native text retains its automatic size;
+legacy text dimensions are converted into pixels for the window layout.
+Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
+the client scripts; string names are not used. `game.log` records `geometry compact-v11`
+and drag start/stop positions. Session-owned hooks route mouse press, movement
+and release before garage Scaleform input, consuming only panel interactions.
+They delegate while hidden or in battle and are restored when the mod stops.
+Every native GUI component is passive: no script or key, mouse, drag or drop
+focus is registered with the native GUI event bridge. The current client
+reported `TypeError: Unregistered type : BW::KeyEvent` followed by a native
+crash with that second input path enabled. Only the game input hooks dispatch
+panel actions; the log confirms `game-hooks-only`. Local tests model the failing
+conversion boundary and verify that clicking, dragging and typing work without
+entering it. The first live retest no longer crashed; stability over longer
+use remains part of in-game acceptance.
+The native garage font is isolated under `system/fonts/battle_conquest/` and
+ships its own DejaVu-derived glyph atlas. Explicit Unicode ranges avoid the
+Windows code-page interpretation of legacy byte ranges, keeping French accents,
+ligatures and punctuation distinct. The game needs no font installation and
+the mod does not replace any shared client font. Text is normalized to Unicode
+NFC before measuring/rendering. The log records `garage font: bundled-unicode`.
 The editor retains its draft until the site acknowledges the save, including
 after a timeout or validation error. Typing while a save is in flight is kept.
 
@@ -180,6 +242,8 @@ share link has been opened under the same BC account on the site; tracking never
 enrolls anyone or grants rewards. The site also lets you select a session by ID.
 
 The panel refreshes every 15 seconds in the garage and after reports are sent.
+Data age uses `hh:mm:ss` with cumulative hours (for example `25:01:02`),
+including while offline. Missing timestamps remain explicitly unknown.
 It hides during battle and restores its position/fold state on return. Offline
 responses retain the last values, their age and an offline indication. Switching
 accounts or links clears the old data and discards replies still in flight.
@@ -194,6 +258,13 @@ part of #772 before this mod. The server feature switch remains off until the
 combined release is validated. Native rendering, keyboard input and the current
 client's platoon adapter still need the in-game acceptance test.
 
-The native layout uses a transparent `GUI.Window`: BigWorld only translates
+The native layout uses nested `GUI.Window` components: BigWorld only translates
 child positions with a Window parent, and pixel coordinates start at its top
 left. See the [engine GUI documentation](https://howarduong.github.io/github.io/doc/api_python/client_python_api/doc/WindowGUIComponent.html).
+Regenerate the flat DDS surfaces after palette changes with
+`python3 tools/build_garage_theme.py`; the selftests check their pixels/alpha
+and contrast, and the release check verifies that every surface is packaged.
+To regenerate the font, install `tools/font-requirements.txt` in a development
+environment, then run `python3 tools/build_garage_font.py --source /path/to/DejaVuSans.ttf`.
+Use the source SHA-256 pinned in that tool. The shipped XML/DDS and licence are
+checked by the Python 2.7 tests and release checker; Pillow is only a build tool.
