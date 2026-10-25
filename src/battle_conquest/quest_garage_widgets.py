@@ -48,9 +48,18 @@ def place(node, x, y):
     node.position = (x, y, 0)
 
 
+def passive(node):
+    # Avoid native GUI event conversion after a reported unregistered
+    # BW::KeyEvent crash. Input already owns dispatch through game.
+    node.script = None
+    node.focus = node.mouseButtonFocus = node.moveFocus = False
+    node.crossFocus = node.dragFocus = node.dropFocus = False
+
+
 def surface(parent, name, color=None):
     import GUI
     node = GUI.Window(TEXTURES + (color or 'clear') + '.dds')
+    passive(node)
     node.widthMode = node.heightMode = GUI.Simple.eSizeMode.PIXEL
     node.materialFX = GUI.Simple.eMaterialFX.BLEND
     paint(node, color)
@@ -63,6 +72,7 @@ def surface(parent, name, color=None):
 def label(parent, name, value='', color='text'):
     import GUI
     node = GUI.Text(tr(value))
+    passive(node)
     node.font = 'default_medium.font'
     node.colourFormatting = False
     node.multiline = True

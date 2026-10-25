@@ -40,9 +40,11 @@ def check_quest_garage_input():
         delegated = []
         def original_key(event):
             delegated.append(('key', event))
+            gui.handleKeyEvent(event)
             return 'game-key'
         def original_mouse(event):
             delegated.append(('mouse', event))
+            gui.handleMouseEvent(event)
             return 'game-mouse'
         game.handleKeyEvent, game.handleMouseEvent = original_key, original_mouse
         router = Input(ownership, panel, game)
@@ -66,6 +68,12 @@ def check_quest_garage_input():
 
         start = panel.position
         x, y = start[0] + 100, start[1] + 20
+        safe = True
+        try:
+            gui.handleKeyEvent(event(x, y))
+        except TypeError:
+            safe = False
+        check('native GUI dispatch cannot enter the unsupported KeyEvent conversion bridge', safe)
         check('left mouse down on the header starts dragging through game input',
               game.handleKeyEvent(event(x, y)) is True and panel.drag is not None)
         game.handleMouseEvent(event(x + 700, y + 200))
@@ -133,7 +141,7 @@ def check_quest_garage_input():
         check('battle immediately stops a drag and delegates input even before the next visibility tick',
               game.handleMouseEvent(event(x + 50, y + 50)) == 'game-mouse' and panel.drag is None
               and game.handleKeyEvent(event(x, y, False)) == 'game-key')
-        check('native GUI fallback also ignores stale panel events in battle', not panel.handleMouseButtonEvent(event(x, y)))
+        check('native GUI dispatch also stays passive in battle before the visibility tick', not gui.handleKeyEvent(event(x, y)))
         in_garage[0] = True
         panel.visible(False)
         check('a hidden panel never captures game commands', game.handleKeyEvent(event(x, y)) == 'game-key')

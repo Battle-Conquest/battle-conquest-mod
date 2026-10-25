@@ -176,7 +176,7 @@ def check_quest_garage_panel():
         before = [node.screen_position() for node in [panel.title, panel.body] + panel.buttons]
         check('panel content starts below the draggable title', before[1][0] == before[0][0] and before[1][1] > before[0][1])
         panel.toggle()
-        panel.header.script.handleDragStartEvent(panel.header, (0.0, 0.0))
+        panel.handleDragStartEvent(panel.header, (0.0, 0.0))
         panel.handleDragStopEvent()
         after = [node.screen_position() for node in [panel.title, panel.body] + panel.buttons]
         delta = tuple(after[0][i] - before[0][i] for i in (0, 1))

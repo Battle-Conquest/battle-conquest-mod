@@ -24,6 +24,9 @@ def native_gui():
             self.visible = True
             self.parent = None
             self.window = False
+            self.script = None
+            self.focus = self.mouseButtonFocus = self.moveFocus = False
+            self.crossFocus = self.dragFocus = self.dropFocus = False
             self.horizontalPositionMode = self.verticalPositionMode = modes.LEGACY
             self.widthMode = self.heightMode = modes.LEGACY
         def stringDimensions(self, value):
@@ -83,4 +86,17 @@ def native_gui():
     module.delRoot = roots.remove
     cursor = [0.3, 0.4]
     module.mcursor = lambda: type('Cursor', (object,), {'position': tuple(cursor)})()
+    def native_dispatch(event):
+        # Model the reported native-to-Python boundary failing before the
+        # script callback runs. An exception guard inside Panel cannot help.
+        def receives(component):
+            if not component.visible:
+                return False
+            focused = any(getattr(component, name) for name in
+                          ('focus', 'mouseButtonFocus', 'moveFocus', 'crossFocus', 'dragFocus', 'dropFocus'))
+            return (component.script is not None and focused) or any(receives(child) for name, child in component.children)
+        if any(receives(root) for root in roots):
+            raise TypeError('Unregistered type : BW::KeyEvent')
+        return False
+    module.handleKeyEvent = module.handleMouseEvent = native_dispatch
     return module, roots, resolution, cursor, Node, modes

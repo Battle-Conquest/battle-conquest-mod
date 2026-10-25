@@ -194,10 +194,17 @@ is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry cards-v6`
+the client scripts; string names are not used. `game.log` records `geometry input-v7`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.
+Every native GUI component is passive: no script or key, mouse, drag or drop
+focus is registered with the native GUI event bridge. The current client
+reported `TypeError: Unregistered type : BW::KeyEvent` followed by a native
+crash with that second input path enabled. Only the game input hooks dispatch
+panel actions; the log confirms `game-hooks-only`. Local tests model the failing
+conversion boundary and verify that clicking, dragging and typing work without
+entering it. The real native crash still requires in-game confirmation.
 The editor retains its draft until the site acknowledges the save, including
 after a timeout or validation error. Typing while a save is in flight is kept.
 

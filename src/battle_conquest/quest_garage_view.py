@@ -56,9 +56,7 @@ class Panel(object):
             self.position = ((x + 1) * width / 2, (1 - y) * height / 2, 0.2)
             self.legacy_position = None
         self.root.position = self.position
-        self.root.script, self.root.focus, self.root.mouseButtonFocus = self, True, True
         self.header = surface(self.root, 'header', 'header')
-        self.header.script, self.header.mouseButtonFocus = self, True
         self.accent = surface(self.root, 'accent', 'accent')
         self.title = label(self.header, 'title', u'Battle-Conquest', 'accent')
         self.subtitle = label(self.header, 'subtitle', u'Quest tracker - drag header to move', 'muted')
@@ -78,8 +76,6 @@ class Panel(object):
             button = surface(self.root, 'button%s' % index, 'button')
             self.buttons.append(button)
             self.button_labels.append(label(button, 'caption'))
-        for node in [self.fold_button] + self.buttons:
-            node.script, node.mouseButtonFocus = self, True
         self.layout()
         import GUI
         GUI.addRoot(self.root)
@@ -87,10 +83,11 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry cards-v6: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry input-v7: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
         _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
                      self.root.textureName, self.root.materialFX, self.root.colour)
+        _logger.info('garage input: game-hooks-only; native GUI callbacks disabled')
 
     def visible(self, visible):
         if self.root is None and visible and not self.failed:
@@ -289,12 +286,6 @@ class Panel(object):
         self.remember()
         if self.garage:
             self.render(self.garage)
-
-    def handleMouseClickEvent(self, *args):
-        return True
-
-    def handleMouseButtonEvent(self, *args):
-        return self.pointer(args[-1])
 
     def handleDragStartEvent(self, component, position):
         self.drag = (position[0], position[1], self.root.position[0], self.root.position[1])
