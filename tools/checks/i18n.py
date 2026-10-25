@@ -79,6 +79,9 @@ def check_i18n():
         transport.sent.pop(0)['answer'](_Response(200, {'modes': ['random'], 'language': 'fr', 'account_id': account.account}))
         check('/api/mod/me also applies the linked account language', i18n.locale() == 'fr')
         page = settings_window.template(settings_window.State(linked=True, modes=['random']), _Templates)
+        from battle_conquest.modes import MODES
+        check('every supported battle mode has a French display name without changing wire IDs',
+              all(mode in MESSAGES for mode in MODES) and u'Bastion' in settings_window.modes_label(MODES, True))
         check('optional settings and notifications use French too',
               page['column1'][1]['button']['text'] == u'Délier'
               and u'Compte : lié' == page['column1'][1]['text']

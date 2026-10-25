@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """French UI catalogue; English source messages are the fallback catalogue."""
 MESSAGES = {
+    'ranked': u'classées',
+    'stronghold': u'Bastion',
+    'frontline': u'Ligne de front',
+    'training': u'entraînement',
+    'other': u'autres',
     '%s  |  %s battles': u'%s  |  %s batailles',
     '%s accepted': u'%s acceptée(s)',
     '%s already known': u'%s déjà connue(s)',
