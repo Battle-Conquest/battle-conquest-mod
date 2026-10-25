@@ -20,7 +20,7 @@ def check_quest_garage():
             self.resets = 0
         def reset(self):
             self.resets += 1
-        def visible(self, state):
+        def visible(self, state, preserve_draft=False):
             self.shown = state
         def render(self, garage):
             pass

@@ -310,7 +310,14 @@ class Sender(object):
             self._send(work[1:])
 
         _logger.info('sending %d battle(s) to %s', len(batch), target.label)
-        self._post(target, batch, answered)
+        try:
+            self._post(target, batch, answered)
+        except Exception:
+            # A transport setup failure installs no callback to release _busy.
+            # Keep the reports and apply the ordinary unreachable-site backoff.
+            _logger.exception('could not initiate battle delivery to %s', target.label)
+            self._refused(target, batch, None)
+            self._send(work[1:])
 
     def _post(self, target, batch, answered):
         headers = dict(target.headers)

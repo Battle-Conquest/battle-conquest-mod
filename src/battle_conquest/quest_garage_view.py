@@ -98,7 +98,7 @@ class Panel(object):
         _logger.info('garage font: bundled-unicode font=%s', self.title.font)
         _logger.info('garage display: data-age=hh:mm:ss')
 
-    def visible(self, visible):
+    def visible(self, visible, preserve_draft=False):
         if self.root is None and visible and not self.failed:
             try:
                 self.build()
@@ -108,13 +108,20 @@ class Panel(object):
                 self.close()
                 return
         if self.root is not None:
+            was_visible = self.root.visible
             self.root.visible = visible
             if not visible:
+                query = self.picker.query
                 self.picker.cancel()
                 self.scroller.cancel()
-                self.drag = self.pressed = self.editing = None
-                self.hovered = None
+                self.drag = self.pressed = self.hovered = None
+                if preserve_draft:
+                    self.picker.query = query
+                else:
+                    self.editing = self.edit_version = None
                 self.restyle()
+            elif not was_visible and not self.collapsed and self.editing is not None and self.picker.query:
+                self.picker.type(self.picker.query)
 
     def reset(self):
         if self.picker is not None:
@@ -312,6 +319,8 @@ class Panel(object):
         self.remember()
         if self.garage:
             self.render(self.garage)
+            if not self.collapsed and self.editing is not None and self.picker.query:
+                self.picker.type(self.picker.query)
 
     def handleDragStartEvent(self, component, position):
         self.drag = (position[0], position[1], self.root.position[0], self.root.position[1])

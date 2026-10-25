@@ -127,7 +127,9 @@ class Garage(object):
             self.last_poll = 0
             self.view.reset()
         visible = self.garage() and key is not None
-        self.view.visible(visible and self.ready() and not self.unavailable and (self.data is not None or self.offline))
+        ready = visible and self.ready()
+        self.view.visible(ready and not self.unavailable and (self.data is not None or self.offline),
+                          preserve_draft=visible and not ready and not self.unavailable)
         if visible:
             self.poll()
             self.view.render(self)

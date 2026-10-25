@@ -252,12 +252,16 @@ share link has been opened under the same BC account on the site; tracking never
 enrolls anyone or grants rewards. The site also lets you select a session by ID.
 
 The panel waits for the hangar space to load and the client waiting overlay to
-close before it appears or captures input. This display gate is independent
+close before it appears or captures input. Transient waiting overlays preserve
+the selected names, typed query and draft version; an interrupted search resumes
+when the panel is visible and expanded again. This display gate is independent
 of the account gate used to request and send results during the return. The
 sender checks its local queue every five seconds, including when results arrive
 after the account-becomes-player event. Empty ticks send no HTTP requests; the
 existing 15-minute refusal backoff is retained. A `sending ... battle(s)` log
-line separates the start of a request from its acceptance or refusal.
+line separates the start of a request from its acceptance or refusal. A transport
+setup failure retains the report and releases the sender for a later retry after
+the usual backoff, without requiring a client restart.
 
 The panel refreshes every 15 seconds in the garage and after reports are sent.
 Data age uses `hh:mm:ss` with cumulative hours (for example `25:01:02`),
