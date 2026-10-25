@@ -1,4 +1,5 @@
 """Native GUI building blocks using the enum and metric contract of the client."""
+from battle_conquest.i18n import tr
 
 PALETTE = {
     'panel': (17, 23, 30, 255), 'header': (27, 36, 46, 255),
@@ -61,7 +62,7 @@ def surface(parent, name, color=None):
 
 def label(parent, name, value='', color='text'):
     import GUI
-    node = GUI.Text(value)
+    node = GUI.Text(tr(value))
     node.font = 'default_medium.font'
     node.colourFormatting = False
     node.multiline = True
@@ -101,7 +102,7 @@ def wrapped(node, rows, width):
 
 
 def caption(button, node, value, enabled=True):
-    node.text = value
+    node.text = tr(value)
     node.colour = PALETTE['text' if enabled else 'muted']
     width, height = text_pixels(node)
     place(node, max(6, (button.width - width) / 2), max(4, (button.height - height) / 2))

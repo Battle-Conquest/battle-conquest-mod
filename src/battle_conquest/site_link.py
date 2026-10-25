@@ -23,7 +23,7 @@ capture without the player linking again.
 import json
 import logging
 
-from battle_conquest import config, mod_updates
+from battle_conquest import config, i18n, mod_updates
 from battle_conquest.quest_details import header as capabilities_header
 from battle_conquest.destinations import LABEL, new_secret, secret_hash
 
@@ -132,9 +132,10 @@ class Attempt(object):
         if me is None:
             return
         label, modes = me
+        destination = self._destinations.remember(label, modes, self._secret)
         if self._on_update is not None:
             self._on_update(response)
-        self._finish(self._destinations.remember(label, modes, self._secret))
+        self._finish(destination)
 
     def _finish(self, destination):
         self._over = True
@@ -164,8 +165,15 @@ class SiteLink(object):
         return self._version
 
     def _read_update(self, response):
+        try:
+            payload = json.loads(response.body)
+        except (ValueError, TypeError, AttributeError):
+            payload = None
+        destination = self._destinations.current
+        language_changed = i18n.accept(payload, getattr(self._account, 'account', None),
+                                       destination.secret if destination else None)
         update = mod_updates.read(response, self._version)
-        if update != self.mod_update:
+        if update != self.mod_update or language_changed:
             self.mod_update = update
             self._changed()
 

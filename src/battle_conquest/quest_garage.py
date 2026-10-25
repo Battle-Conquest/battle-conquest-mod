@@ -2,7 +2,7 @@
 import json
 import time
 
-from battle_conquest import config
+from battle_conquest import config, i18n
 from battle_conquest.destinations import battles_url
 from battle_conquest.report_sender import at_garage, account_number, answer
 
@@ -147,6 +147,8 @@ class Garage(object):
             self.busy = None
             code = getattr(response, 'responseCode', None)
             data = answer(response)
+            if code == 200 and is_snapshot(data):
+                i18n.accept(data, key[0], key[2])
             if code == 404:
                 # The combined quest release is still gated server-side, or
                 # this server predates it. Do not expose an unfinished panel.

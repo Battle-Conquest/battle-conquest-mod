@@ -1,6 +1,22 @@
 """Account snapshot text; official and indicative figures remain distinct."""
 import calendar
 import time
+from battle_conquest.i18n import tr
+
+
+def status_line(garage):
+    timestamps = []
+    for player in (garage.data or {}).get('players', [])[:5]:
+        for source in ('official', 'estimate'):
+            stamp = (player.get(source) or {}).get('updated_at')
+            if stamp:
+                try:
+                    timestamps.append(calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S')))
+                except ValueError:
+                    pass
+    age = max(0, int(garage.now() - min(timestamps))) if timestamps else None
+    return tr(u'%s | Data age: %s') % (tr(u'Offline' if garage.offline else u'Online'),
+                                     u'%ss' % age if age is not None else tr(u'unknown'))
 
 
 def clean(value, limit=64):
@@ -30,7 +46,6 @@ def lines(garage):
     period = data.get('period')
     if period:
         result.append(u'UTC: %s / %s' % (period['start'], period['end']))
-    timestamps = []
     for player in data.get('players', [])[:5]:
         result.append(u'%s%s' % (clean(player['username'], 30), u'' if player['participant'] else u' - indicative, no rewards'))
         if player.get('official') is None and player.get('estimate') is None:
@@ -52,15 +67,7 @@ def lines(garage):
             if score.get('incomplete'):
                 detail += u' - incomplete'
             result.append(u'  %s: %s' % (label, detail))
-            stamp = score.get('updated_at')
-            if stamp:
-                try:
-                    timestamps.append(calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S')))
-                except ValueError:
-                    pass
-    age = max(0, int(garage.now() - min(timestamps))) if timestamps else None
-    result.append(u'%s | Data age: %s' % (u'Offline' if garage.offline else u'Online',
-                                         u'%ss' % age if age is not None else u'unknown'))
+    result.append(status_line(garage))
     if garage.error:
         result.append(garage.error)
     return result

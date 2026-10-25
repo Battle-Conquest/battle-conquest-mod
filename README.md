@@ -164,6 +164,16 @@ normal capture continues. No automatic release is needed for this branch.
 
 ### Shared quest tracking in the garage (#958)
 
+The mod follows the language selected for your account on the website (French
+or English). The authenticated `/api/mod/me` and garage responses carry that
+preference and its WG account ID. A garage refresh, every 15 seconds or with
+Reload, updates cards, buttons, errors, settings and new notifications without
+restarting or losing an open player draft. Usernames and quest titles are kept
+as written. Offline responses keep the last valid session language; another
+account or link clears it. Older servers remain compatible with English as
+the fallback. Deploy the matching server preference fields before this build;
+no new migration or configuration is needed.
+
 A native BigWorld GUI panel works without either optional menu API. Its dark
 card has a draggable header and a separate `Collapse` / `Expand` button.
 The selected quest and each player have separate cards. Official results and

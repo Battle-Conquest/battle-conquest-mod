@@ -5,7 +5,8 @@ import math
 import os
 
 from battle_conquest import config
-from battle_conquest.quest_garage_text import clean, lines, metric_value
+from battle_conquest.quest_garage_text import clean, lines, metric_value, status_line
+from battle_conquest.i18n import tr
 from battle_conquest.quest_garage_widgets import (PALETTE, bounded_position, caption, label,
                                                 paint, screen_size, surface, text_pixels, wrapped)
 
@@ -121,7 +122,7 @@ class Panel(object):
         if self.root is None:
             return
         rows = lines(garage)
-        status = next((row for row in rows if u' | Data age:' in row), u'Connecting...')
+        status = status_line(garage) if garage.data else tr(u'Connecting...')
         rows = [row for row in rows if row != status and row != garage.error]
         editing = self.editing is not None
         if editing:
@@ -129,14 +130,15 @@ class Panel(object):
             self.input_label.text = self.editing + u'|'
         elif garage.data and not garage.data.get('selected'):
             rows += [u'', u'Choose a quest on the website or click Change quest.']
-        self.subtitle.text = (u'Configuration conflict - Reload' if garage.conflict else
-                              u'Offline - values retained' if garage.offline else u'QUEST TRACKER - drag to move')
+        self.subtitle.text = tr(u'Configuration conflict - Reload' if garage.conflict else
+                               u'Offline - values retained' if garage.offline else u'QUEST TRACKER - drag to move')
         if garage.busy is not None:
-            status = u'Updating...  |  ' + status
-        wrapped(self.footer, [garage.error or status], max(200, min(640, screen_size()[0] - 32)) - 48)
+            status = tr(u'Updating...  |  ') + status
+        wrapped(self.footer, [tr(garage.error) if garage.error else status], max(200, min(640, screen_size()[0] - 32)) - 48)
         self.footer.colour = PALETTE['error' if garage.error else 'muted']
         paint(self.status_dot, 'error' if garage.error or garage.offline else 'official')
         width = max(240, min(640, screen_size()[0] - 32))
+        rows = [tr(row) for row in rows]
         key = (tuple(rows), width, editing)
         if key != self.content_key:
             wrapped(self.body, rows, width - 44)

@@ -3,10 +3,14 @@ import json
 import math
 
 from battle_conquest.quest_garage_text import clean, metric_value
+from battle_conquest.i18n import locale, tr
 from battle_conquest.quest_garage_widgets import label, place, surface, wrapped
 
-NAMES = {'damage': 'Damage', 'kills': 'Kills', 'xp': 'XP', 'xp_base': 'Base XP',
-         'xp_total': 'Total XP', 'credits_net': 'Net credits', 'credits_gross': 'Gross credits'}
+NAMES = {'damage': 'Damage', 'damage_dealt': 'Damage dealt', 'kills': 'Kills',
+         'xp': 'Experience', 'wins': 'Wins', 'frags': 'Tanks destroyed', 'spotted': 'Tanks spotted',
+         'battles': 'Battles', 'shots': 'Shots', 'hits': 'Hits', 'piercings': 'Penetrations',
+         'explosion_hits': 'Explosion hits', 'xp_base': 'Base XP', 'xp_total': 'Total XP',
+         'credits_net': 'Net credits', 'credits_gross': 'Gross credits'}
 
 
 def number(value):
@@ -35,10 +39,10 @@ class Card(object):
         else:
             self.edge = None
 
-    def text(self, value, color='text'):
+    def text(self, value, color='text', translate=True):
         node = label(self.node, 'text%s' % self.index, color=color)
         self.index += 1
-        width, height = wrapped(node, [value], self.width - 32)
+        width, height = wrapped(node, [tr(value) if translate else value], self.width - 32)
         place(node, 16, self.y)
         self.y += height + 6
         return node
@@ -56,12 +60,12 @@ class Card(object):
         self.index += 1
         self.y += 14
 
-    def source(self, title, score, criteria, color):
+    def source(self, title, score, criteria, color, localized=True):
         if score is None:
             return
         self.y += 6
         count = score.get('battles')
-        self.text(u'%s  |  %s battles' % (title, count) if count is not None else title, color)
+        self.text(tr(u'%s  |  %s battles') % (tr(title), count) if count is not None else tr(title), color)
         if not score.get('available'):
             self.text(u'No data for this period.', 'muted')
         elif score.get('comparable') is False:
@@ -69,7 +73,7 @@ class Card(object):
         else:
             for criterion in criteria:
                 metric, target = criterion['criterion_type'], criterion['target_value']
-                name = NAMES.get(metric, metric.replace('_', ' ').capitalize())
+                name = (criterion.get('label') if localized else None) or tr(NAMES.get(metric, metric.replace('_', ' ').capitalize()))
                 self.text(u'%s:  %s / %s' % (name, number(metric_value(score, metric)), number(target)))
                 self.progress(score.get('totals', {}).get(metric), target, color)
             if not criteria:
@@ -102,7 +106,7 @@ class Content(object):
             self.node.visible = visible
 
     def render(self, data, width):
-        key = (json.dumps(data, sort_keys=True), width)
+        key = (json.dumps(data, sort_keys=True), width, locale())
         if key == self.key:
             return False
         self.clear()
@@ -112,20 +116,21 @@ class Content(object):
         card = Card(self.node, 'quest', width, y, 'accent')
         card.text(u'TRACKED QUEST', 'muted')
         selected = data.get('selected') if data else None
-        card.text(clean(selected['title']) if selected else u'No quest selected', 'accent')
+        card.text(clean(selected['title']) if selected else tr(u'No quest selected'), 'accent', translate=False)
         if not selected:
             card.text(u'Click Change quest, or choose one on the website.', 'muted')
         period = data.get('period') if data else None
         if period:
-            card.text(u'Period (UTC): %s / %s' % (period['start'], period['end']), 'muted')
+            card.text(tr(u'Period (UTC): %s / %s') % (period['start'], period['end']), 'muted')
         y += card.finish()
         if data:
             for index, player in enumerate(data.get('players', [])[:5]):
                 card = Card(self.node, 'player%s' % index, width, y)
-                card.text(clean(player['username'], 30))
+                card.text(clean(player['username'], 30), translate=False)
                 card.text(u'Participant' if player['participant'] else u'Followed only - no rewards', 'muted')
-                card.source(u'OFFICIAL', player.get('official'), data.get('criteria', []), 'official')
-                card.source(u'MOD ESTIMATE - indicative', player.get('estimate'), data.get('criteria', []), 'estimate')
+                localized = data.get('language', 'en') == locale()
+                card.source(u'OFFICIAL', player.get('official'), data.get('criteria', []), 'official', localized)
+                card.source(u'MOD ESTIMATE - indicative', player.get('estimate'), data.get('criteria', []), 'estimate', localized)
                 if player.get('official') is None and player.get('estimate') is None:
                     card.text(u'No results for this period.', 'muted')
                 y += card.finish()
@@ -134,9 +139,9 @@ class Content(object):
                 card = Card(self.node, 'choices', width, y)
                 card.text(u'AVAILABLE QUESTS / JOINED SESSIONS', 'muted')
                 for choice in choices[:5]:
-                    card.text(u'%s  (%s)' % (clean(choice['title']), clean(choice['status'])))
+                    card.text(u'%s  (%s)' % (clean(choice['title']), tr(clean(choice['status']))))
                 if len(choices) > 5:
-                    card.text(u'+%s more on the website' % (len(choices) - 5), 'muted')
+                    card.text(tr(u'+%s more on the website') % (len(choices) - 5), 'muted')
                 y += card.finish()
         self.height = max(0, y - 12)
         self.node.height = self.height
