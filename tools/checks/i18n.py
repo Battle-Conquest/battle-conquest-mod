@@ -36,7 +36,7 @@ def check_i18n():
     try:
         panel.visible(True)
         transport = _Session()
-        garage = Garage(transport, account, places, panel, garage=lambda: True, platoon=lambda: [], now=lambda: 100.0)
+        garage = Garage(transport, account, places, panel, garage=lambda: True, ready=lambda: True, platoon=lambda: [], now=lambda: 100.0)
         garage.key = garage.identity()
         data = {'schema': 1, 'language': 'fr', 'account_id': account.account,
                 'config': {'version': 1, 'selection': 'individual:1', 'mode': 'manual', 'manual_ids': [2]},

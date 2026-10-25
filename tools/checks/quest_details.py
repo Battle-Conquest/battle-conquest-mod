@@ -66,13 +66,20 @@ def check_quest_details():
         TOURNAMENT_COMP7 = 125
         CLAN = 126
 
-    for bonus in [Types.TRAINING, Types.TRAINING_COMP7, Types.EPIC_BATTLE_TRAINING, Types.TOURNAMENT_COMP7, Types.CLAN, 999, True]:
+    for bonus in [Types.TRAINING, Types.TRAINING_COMP7, Types.EPIC_BATTLE_TRAINING, Types.TOURNAMENT_COMP7, Types.CLAN, 0, True]:
         raw['common']['bonusType'] = bonus
-        check('training/unknown variants provide no challenge eligibility: %s' % bonus, details_of(raw, Types) is None)
+        check('training/invalid variants provide no challenge eligibility: %s' % bonus, details_of(raw, Types) is None)
     for bonus, mode in [(Bonus.REGULAR, 'random'), (Bonus.RANKED, 'ranked'), (Bonus.COMP7, 'onslaught'),
                         (Bonus.SORTIE_2, 'stronghold'), (Bonus.EPIC_BATTLE, 'frontline')]:
         raw['common']['bonusType'] = bonus
         check('explicit identified mode: %s' % mode, details_of(raw, Types)['mode'] == mode)
+    raw = copy.deepcopy(fixtures[0])
+    raw['common']['bonusType'] = 999
+    special = details_of(raw, Types)
+    check('unclassified event modes carry explicit Other evidence without invented credit formulas',
+          special['mode'] == 'other' and special['vehicles'] == [45057]
+          and 'credits_net' not in special.get('metrics', {}) and 'credits_gross' not in special.get('metrics', {})
+          and 'other' in capabilities()['modes'])
     merged = fill({'metrics': {'shots': 0}, 'vehicles': [1]}, {'metrics': {'shots': 9, 'hits': 4}, 'vehicles': [2]})
     check('enrichment never overwrites known zeroes or lists', merged == {'metrics': {'shots': 0, 'hits': 4}, 'vehicles': [1]})
     check('capabilities available with no battles, validation scope explicit',

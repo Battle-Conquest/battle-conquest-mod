@@ -8,7 +8,7 @@ import copy
 import json
 import time
 
-MODES = ('random', 'ranked', 'onslaught', 'stronghold', 'frontline')
+MODES = ('random', 'ranked', 'onslaught', 'stronghold', 'frontline', 'other')
 METRICS = ('xp_base', 'xp_total', 'credits_gross', 'credits_net',
            'shots', 'hits', 'piercings', 'explosion_hits')
 ECONOMY = ('originalCredits', 'credits', 'factualCredits', 'petSystemCredits',
@@ -39,7 +39,7 @@ def integer(value, bound=100000000, signed=False):
 
 
 def quest_mode(bonus, constants=None):
-    if not integer(bonus):
+    if not integer(bonus) or bonus < 1:
         return None
     if constants is None:
         from constants import ARENA_BONUS_TYPE as constants
@@ -51,7 +51,8 @@ def quest_mode(bonus, constants=None):
     for mode, candidates in names.items():
         if bonus in [getattr(constants, name) for name in candidates if hasattr(constants, name)]:
             return mode
-    return None
+    from battle_conquest.modes import mode_of
+    return 'other' if mode_of(bonus, constants) == 'other' else None
 
 
 def fill(known, incoming):

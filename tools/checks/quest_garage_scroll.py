@@ -32,7 +32,7 @@ def check_quest_garage_scroll():
         in_garage = [True]
         account = type('Account', (object,), {'account': '500883375'})()
         places = type('Places', (object,), {'current': Destination(battles_url(), secret='a' * 64, enabled=True, modes=['random'])})()
-        garage = Garage(_Session(), account, places, panel, garage=lambda: in_garage[0], platoon=lambda: [], now=lambda: 100.0)
+        garage = Garage(_Session(), account, places, panel, garage=lambda: in_garage[0], ready=lambda: in_garage[0], platoon=lambda: [], now=lambda: 100.0)
         garage.key = garage.identity()
         score = {'available': True, 'battles': 2, 'totals': {'damage': 350, 'kills': 3}, 'updated_at': None}
         data = {'config': {'version': 1, 'selection': 'session:1', 'mode': 'manual', 'manual_ids': [2, 3, 4]},
