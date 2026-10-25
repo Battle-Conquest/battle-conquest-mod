@@ -107,7 +107,11 @@ def check_quest_garage_input():
               and [label.text for label in panel.button_labels[:2]] == [u'Save', u'Cancel'])
         click(panel.buttons[2])
         game.handleKeyEvent(event(1, 1, key=52, character=u'4'))
-        check('Clear followed by keyboard input updates the player draft', panel.editing == u'4')
+        check('Clear followed by keyboard input searches names without adding an arbitrary ID', panel.editing == u'' and panel.picker.query == u'4')
+        panel.picker.results = [{'id': 4, 'username': u'Player Four'}]
+        panel.render(garage)
+        click(panel.picker.result_rows[0][0])
+        check('clicking a name suggestion selects its hidden identifier', panel.editing == u'4' and not panel.picker.query)
         click(panel.buttons[0])
         check('Save sends the draft once and disables writes while the answer is pending',
               len(transport.sent) == 1 and transport.sent[0]['body']['manual_ids'] == [4]

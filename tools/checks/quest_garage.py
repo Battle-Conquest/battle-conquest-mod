@@ -256,23 +256,24 @@ def check_quest_garage_panel():
         previous_keys = sys.modules.get('Keys')
         sys.modules['Keys'] = keys
         try:
-            panel.editing = u''
+            panel.clear_edit()
             typed = type('Key', (object,), {'key': 4, 'character': u'4', 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: False})()
             panel.handleKeyEvent(typed)
-            check('native character events populate the manual account editor', panel.editing == u'4')
+            check('native character events populate name search without treating text as an account ID', panel.editing == u'' and panel.picker.query == u'4')
             check('the window includes the complete content and all controls',
                   not any(node.clipped() for node in [panel.title, panel.body] + panel.buttons))
             panel.toggle()
             check('folding hides content and controls while retaining the title',
                   not panel.region.visible and not any(button.visible for button in panel.buttons) and not panel.title.clipped())
-            check('folding an editor returns keyboard input to the garage', not panel.handleKeyEvent(typed) and panel.editing == u'4')
-            check('a folded editor cannot submit a hidden draft', not panel.handleKeyEvent(enter) and panel.editing == u'4')
+            check('folding an editor returns keyboard input to the garage', not panel.handleKeyEvent(typed) and panel.picker.query == u'4')
+            check('a folded editor cannot submit a hidden draft', not panel.handleKeyEvent(enter) and panel.picker.query == u'4')
             panel.toggle()
             check('unfolding restores every control inside the window bounds',
                   panel.region.visible and all(button.visible and not button.clipped() for button in panel.buttons))
             mouse = type('Mouse', (object,), {'key': 256, 'isKeyDown': lambda self: True, 'isMouseButton': lambda self: True})()
             check('editing does not swallow mouse events outside the panel', not panel.handleKeyEvent(mouse))
             panel.editing = u'4'
+            panel.picker.cancel()
             garage.offline = True
             panel.render(garage)
             check('editing keeps network failures visible', 'Offline' in panel.subtitle.text and panel.input_box.visible)

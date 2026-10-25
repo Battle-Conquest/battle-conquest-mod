@@ -186,9 +186,17 @@ contrast. Native DDS surfaces carry their actual colours, including a fully
 transparent content texture, rather than relying on tinting a white texture.
 `Change quest` cycles through active individual quests and joined/already
 selected sessions. The mode button selects automatic platoon tracking or a
-manual list. Click `Edit players`, type up to four other **Battle-Conquest
-account IDs** separated by commas, then click `Save` (or press Enter).
-`Cancel` / Escape discards the draft; `Clear` empties the input without saving.
+manual list. Click `Edit players`, type at least two characters of a
+Battle-Conquest username, then choose a suggestion by clicking or with the arrow
+keys and Enter. Up to five suggestions are shown; type more characters to narrow
+the search. Select up to four other players, remove a selected name with `×`,
+then click `Save`. Enter selects a suggestion, or saves when the search is empty.
+Escape closes the search first, then cancels the draft; `Clear` removes the
+selected players without saving. Failed searches preserve the selected names,
+and outdated replies cannot replace the current suggestions. The website uses
+the same name search; IDs remain internal to the saved configuration. Deploy
+the server `/api/mod/quest-garage/players` route and `manual_players` metadata
+before this package; no additional migration or configuration is needed.
 Your account is always included in the five-player limit. Long content scrolls
 with the mouse wheel inside the card; actions and connection status stay visible.
 The panel starts at a pixel offset inside the visible GUI viewport. Its position
@@ -196,7 +204,7 @@ is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry display-v9`
+the client scripts; string names are not used. `game.log` records `geometry players-v10`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.

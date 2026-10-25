@@ -19,20 +19,21 @@ def layout(self):
         self.place()
         return
     editing = self.editing is not None
+    extra = 0
+    if editing:
+        self.actions = self.actions[:5]
+        self.actions += self.picker.layout(width - 32)
+        extra = self.input_box.height + 16
     height = self.content.height if self.cards_shown else text_pixels(self.body)[1]
     self.region.width = width - 32
-    self.region.height = min(height, max(24, screen_size()[1] - 192 - text_pixels(self.footer)[1] - (56 if editing else 0)))
+    self.region.height = min(height, max(24, screen_size()[1] - 192 - text_pixels(self.footer)[1] - extra))
     place(self.region, 16, 80)
     self.input_box.visible = editing
     y = 80 + self.region.height + 16
     if editing:
-        self.input_box.width, self.input_box.height = width - 32, 40
+        self.input_box.width = width - 32
         place(self.input_box, 16, y)
-        place(self.input_label, 10, 8)
-        overflow = max(0, text_pixels(self.input_label)[0] + 20 - self.input_box.width)
-        self.input_box.minScroll, self.input_box.maxScroll = (-overflow * 2 / screen_size()[0], 0), (0, 0)
-        self.input_box.scroll = (-overflow * 2 / screen_size()[0], 0)
-        y += 56
+        y += extra
     button_width = (width - 56) / 4
     for index, button in enumerate(self.buttons):
         button.width, button.height = button_width, 40

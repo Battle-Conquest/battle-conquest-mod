@@ -28,6 +28,7 @@ class Panel(object):
         self.scroll = self.overflow = 0
         self.content_key = None
         self.content = None
+        self.picker = None
         self.cards_shown = False
         self.hovered, self.styles = None, {}
         try:
@@ -67,7 +68,9 @@ class Panel(object):
         from battle_conquest.quest_garage_content import Content
         self.content = Content(self.region)
         self.input_box = surface(self.root, 'input', 'input')
-        self.input_label = label(self.input_box, 'text')
+        from battle_conquest.quest_garage_players import Picker
+        self.picker = Picker(self)
+        self.picker.build()
         self.footer = label(self.root, 'status', '', 'muted')
         self.status_dot = surface(self.root, 'connection', 'official')
         self.track = surface(self.root, 'track', 'track')
@@ -83,7 +86,7 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry display-v9: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry players-v10: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
         _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
                      self.root.textureName, self.root.materialFX, self.root.colour)
@@ -103,11 +106,14 @@ class Panel(object):
         if self.root is not None:
             self.root.visible = visible
             if not visible:
+                self.picker.cancel()
                 self.drag = self.pressed = self.editing = None
                 self.hovered = None
                 self.restyle()
 
     def reset(self):
+        if self.picker is not None:
+            self.picker.cancel()
         self.editing = self.edit_version = self.drag = self.pressed = None
         self.content_key = None
         self.scroll = 0
@@ -125,8 +131,7 @@ class Panel(object):
         rows = [row for row in rows if row != status and row != garage.error]
         editing = self.editing is not None
         if editing:
-            rows = [u'Follow up to four other Battle-Conquest players.', u'Type their BC IDs, separated by commas.']
-            self.input_label.text = self.editing + u'|'
+            rows = [u'Follow up to four other Battle-Conquest players.', u'Search by player name and choose a suggestion.']
         elif garage.data and not garage.data.get('selected'):
             rows += [u'', u'Choose a quest on the website or click Change quest.']
         self.subtitle.text = tr(u'Configuration conflict - Reload' if garage.conflict else
@@ -162,7 +167,7 @@ class Panel(object):
         self.restyle()
 
     def restyle(self):
-        for node in [self.fold_button] + self.buttons:
+        for node in [self.fold_button] + self.buttons + (self.picker.targets if self.picker else []):
             role = self.styles.get(id(node), 'button')
             active = self.pressed[0] if self.pressed else self.hovered
             if node is active and id(node) not in self.disabled:
@@ -181,6 +186,8 @@ class Panel(object):
         x, y = self.root.position[:2]
         if node is not self.root:
             x, y = x + node.position[0], y + node.position[1]
+            if self.picker is not None and node in self.picker.targets:
+                x, y = x + self.input_box.position[0], y + self.input_box.position[1]
         return x <= point[0] <= x + node.width and y <= point[1] <= y + node.height
 
     def pointer(self, event):
@@ -194,7 +201,7 @@ class Panel(object):
             for node, action in self.actions:
                 if node.visible and self.contains(node, pos):
                     if id(node) not in self.disabled:
-                        self.pressed = (node, action)
+                        self.pressed = (node, action, self.editing is not None, self.edit_version)
                         self.restyle()
                     return True
             if self.contains(self.header, pos):
@@ -206,10 +213,11 @@ class Panel(object):
                 self.handleDragStopEvent()
                 return True
             if self.pressed is not None:
-                node, action = self.pressed
+                node, action, editing, version = self.pressed
                 self.pressed = None
                 self.restyle()
-                if node.visible and self.contains(node, pos) and id(node) not in self.disabled:
+                if (node.visible and self.contains(node, pos) and id(node) not in self.disabled
+                        and editing == (self.editing is not None) and version == self.edit_version):
                     action()
                     self.render(self.garage)
                 return True
@@ -236,55 +244,54 @@ class Panel(object):
         if self.garage and self.garage.data and not self.garage.conflict:
             self.edit_version = self.garage.data['config']['version']
             self.editing = u','.join(str(i) for i in self.garage.data['config']['manual_ids'])
+            self.picker.open()
             self.render(self.garage)
 
     def cancel_edit(self):
+        self.picker.cancel()
         self.editing = self.edit_version = None
         self.render(self.garage)
 
     def clear_edit(self):
-        self.editing = u''
-        self.render(self.garage)
+        self.picker.clear()
 
     def submit_edit(self):
+        if self.picker.query.strip():
+            self.picker.message = u'Choose a player from the suggestions first.'
+            self.render(self.garage)
+            return
         values = self.editing.split(',') if self.editing.strip() else []
         if len(values) > 4 or not all(value.strip().isdigit() for value in values):
-            self.garage.error = 'Use up to four BC account IDs.'
+            self.garage.error = 'Choose up to four players.'
             return
         draft, version = self.editing, self.edit_version
         def acknowledged():
             if self.edit_version == version:
                 self.edit_version = version + 1
-                if self.editing == draft:
+                if self.editing == draft and not self.picker.query:
                     self.editing = None
         self.garage.save(expected_version=version, on_saved=acknowledged,
                                  manual_ids=[int(value.strip()) for value in values], mode='manual')
 
     def reload(self):
         if self.garage.busy is None:
+            self.picker.cancel()
             self.editing = self.edit_version = None
             self.garage.reload()
 
     def handleKeyEvent(self, event):
         if self.editing is None or self.root is None or not self.root.visible or self.collapsed or event.isMouseButton():
             return False
-        import Keys
-        if event.isKeyDown():
-            if event.key == Keys.KEY_ESCAPE:
-                self.cancel_edit()
-            elif event.key == Keys.KEY_RETURN:
-                self.submit_edit()
-            elif event.key == Keys.KEY_BACKSPACE:
-                self.editing = self.editing[:-1]
-            else:
-                char = getattr(event, 'character', None)
-                if char and all(c in '0123456789, ' for c in char) and len(self.editing) + len(char) <= 100:
-                    self.editing += char
-            self.render(self.garage)
+        self.picker.key(event)
         return True
 
     def toggle(self):
         self.collapsed = not self.collapsed
+        if self.collapsed:
+            self.picker.sequence += 1
+            self.picker.results = []
+            if self.garage:
+                self.garage.search_ticket = None
         self.remember()
         if self.garage:
             self.render(self.garage)
@@ -319,6 +326,9 @@ class Panel(object):
             _logger.exception('could not save garage panel position')
 
     def close(self):
+        if self.picker is not None:
+            self.picker.cancel()
+        self.picker = None
         root, attached = self.root, self.attached
         if self.content is not None:
             self.content.clear()
