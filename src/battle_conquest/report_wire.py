@@ -48,7 +48,9 @@ def rejections(payload):
     for result in results:
         if not isinstance(result, dict) or result.get('status') != 'rejected':
             continue
-        reason = result.get('reason') or 'unknown'
+        reason = result.get('reason')
+        if not isinstance(reason, basestring) or not reason:
+            reason = 'unknown'
         if reason not in reasons:
             reasons.append(reason)
     return reasons
