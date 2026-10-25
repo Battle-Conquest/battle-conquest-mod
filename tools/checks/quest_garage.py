@@ -129,6 +129,31 @@ def check_quest_garage():
     check('enabling the combined server release restores the panel', view.shown and not garage.unavailable)
 
 
+def check_quest_garage_age():
+    import calendar
+    import time
+    from battle_conquest.quest_garage_text import duration, status_line
+    cases = [(0, '00:00:00'), (59, '00:00:59'), (60, '00:01:00'),
+             (3661, '01:01:01'), (86399, '23:59:59'), (86400, '24:00:00'),
+             (176461, '49:01:01'), (-1, '00:00:00')]
+    check('data age uses readable durations without wrapping after 24 hours',
+          all(duration(seconds) == expected for seconds, expected in cases))
+    stamp = '2026-10-25 00:00:00'
+    epoch = calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S'))
+    data = {'players': [{'official': {'updated_at': stamp}, 'estimate': {'updated_at': '2026-10-25 01:00:00'}}]}
+    clock = [epoch + 3661]
+    garage = type('Garage', (object,), {'data': data, 'offline': False, 'now': lambda self: clock[0]})()
+    check('the displayed duration still uses the oldest UTC score timestamp', status_line(garage).endswith('01:01:01'))
+    garage.offline = True
+    clock[0] += 86400
+    check('offline durations continue past one day', 'Offline' in status_line(garage) and status_line(garage).endswith('25:01:01'))
+    data['players'] = [{'official': {'updated_at': 'invalid'}}]
+    check('missing or invalid age is unknown rather than an invented zero duration', status_line(garage).endswith('unknown'))
+    data['players'] = [{'official': {'updated_at': stamp}}]
+    clock[0] = epoch - 5
+    check('a future timestamp is clamped at zero age', status_line(garage).endswith('00:00:00'))
+
+
 def check_quest_garage_panel():
     from battle_conquest.quest_garage_view import Panel, text_pixels
 

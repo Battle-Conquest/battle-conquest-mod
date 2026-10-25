@@ -83,12 +83,13 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry font-v8: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry display-v9: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
         _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
                      self.root.textureName, self.root.materialFX, self.root.colour)
         _logger.info('garage input: game-hooks-only; native GUI callbacks disabled')
         _logger.info('garage font: bundled-unicode font=%s', self.title.font)
+        _logger.info('garage display: data-age=hh:mm:ss')
 
     def visible(self, visible):
         if self.root is None and visible and not self.failed:

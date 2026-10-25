@@ -168,8 +168,10 @@ The mod follows the language selected for your account on the website (French
 or English). The authenticated `/api/mod/me` and garage responses carry that
 preference and its WG account ID. A garage refresh, every 15 seconds or with
 Reload, updates cards, buttons, errors, settings and new notifications without
-restarting or losing an open player draft. Usernames and quest titles are kept
-as written. Offline responses keep the last valid session language; another
+restarting or losing an open player draft. The server supplies individual quest
+titles in the account language, using the site's available translations.
+Usernames and user-written session titles stay as written. Offline responses
+keep the last valid session language; another
 account or link clears it. Older servers remain compatible with English as
 the fallback. Deploy the matching server preference fields before this build;
 no new migration or configuration is needed.
@@ -194,7 +196,7 @@ is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry font-v8`
+the client scripts; string names are not used. `game.log` records `geometry display-v9`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.
@@ -222,6 +224,8 @@ share link has been opened under the same BC account on the site; tracking never
 enrolls anyone or grants rewards. The site also lets you select a session by ID.
 
 The panel refreshes every 15 seconds in the garage and after reports are sent.
+Data age uses `hh:mm:ss` with cumulative hours (for example `25:01:02`),
+including while offline. Missing timestamps remain explicitly unknown.
 It hides during battle and restores its position/fold state on return. Offline
 responses retain the last values, their age and an offline indication. Switching
 accounts or links clears the old data and discards replies still in flight.

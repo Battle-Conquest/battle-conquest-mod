@@ -4,6 +4,12 @@ import time
 from battle_conquest.i18n import tr
 
 
+def duration(seconds):
+    hours, remainder = divmod(max(0, int(seconds)), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return u'%02d:%02d:%02d' % (hours, minutes, seconds)
+
+
 def status_line(garage):
     timestamps = []
     for player in (garage.data or {}).get('players', [])[:5]:
@@ -16,7 +22,7 @@ def status_line(garage):
                     pass
     age = max(0, int(garage.now() - min(timestamps))) if timestamps else None
     return tr(u'%s | Data age: %s') % (tr(u'Offline' if garage.offline else u'Online'),
-                                     u'%ss' % age if age is not None else tr(u'unknown'))
+                                     duration(age) if age is not None else tr(u'unknown'))
 
 
 def clean(value, limit=64):
