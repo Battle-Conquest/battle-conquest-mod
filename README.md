@@ -166,6 +166,12 @@ normal capture continues. No automatic release is needed for this branch.
 
 A native BigWorld GUI panel works without either optional menu API. Its dark
 card has a draggable header and a separate `Collapse` / `Expand` button.
+The selected quest and each player have separate cards. Official results and
+indicative mod estimates have their own labels and progress bars; unknown or
+incomparable values never become invented progress. The palette uses opaque
+dark backgrounds, white body text and warm accents, with at least 4.5:1 text
+contrast. Native DDS surfaces carry their actual colours, including a fully
+transparent content texture, rather than relying on tinting a white texture.
 `Change quest` cycles through active individual quests and joined/already
 selected sessions. The mode button selects automatic platoon tracking or a
 manual list. Click `Edit players`, type up to four other **Battle-Conquest
@@ -178,7 +184,7 @@ is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry window-v5`
+the client scripts; string names are not used. `game.log` records `geometry cards-v6`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.
@@ -209,3 +215,6 @@ client's platoon adapter still need the in-game acceptance test.
 The native layout uses nested `GUI.Window` components: BigWorld only translates
 child positions with a Window parent, and pixel coordinates start at its top
 left. See the [engine GUI documentation](https://howarduong.github.io/github.io/doc/api_python/client_python_api/doc/WindowGUIComponent.html).
+Regenerate the flat DDS surfaces after palette changes with
+`python3 tools/build_garage_theme.py`; the selftests check their pixels/alpha
+and contrast, and the release check verifies that every surface is packaged.

@@ -78,14 +78,19 @@ def check_quest_garage_input():
         check('garage mouse and keyboard commands outside the window are delegated',
               game.handleKeyEvent(event(1, 1)) == 'game-key' and game.handleMouseEvent(event(1, 1)) == 'game-mouse'
               and game.handleKeyEvent(event(1, 1, key=65, character='a')) == 'game-key')
-        check('the card has an opaque header, a tinted background and four visible action rectangles',
-              panel.root.colour[3] > 200 and panel.header.colour[3] == 255
+        check('the card uses its own baked dark surfaces and four visible action rectangles',
+              panel.root.textureName.endswith('/panel.dds') and panel.header.textureName.endswith('/header.dds')
               and all(button.visible and button.width > 100 and button.height >= 36 for button in panel.buttons))
         click(panel.fold_button)
         check('the Collapse button keeps only the header visible',
               panel.collapsed and panel.root.height == 64 and not panel.region.visible and not any(b.visible for b in panel.buttons))
         click(panel.fold_button)
         check('Expand restores the content and controls', not panel.collapsed and panel.region.visible)
+        x, y = center(panel.buttons[0])
+        game.handleMouseEvent(event(x, y))
+        check('the primary action has a baked hover state independent of vertex tint', panel.buttons[0].textureName.endswith('/primary_hover.dds'))
+        game.handleMouseEvent(event(1, 1))
+        check('leaving an action restores its normal surface', panel.buttons[0].textureName.endswith('/primary.dds'))
         click(panel.buttons[2], release=(1, 1))
         check('releasing a button outside it cancels the click', panel.editing is None)
         click(panel.buttons[2])
@@ -110,8 +115,10 @@ def check_quest_garage_input():
         game.handleKeyEvent(event(1, 1, key=27))
         check('Escape closes the editor and its key release cannot open the game menu',
               panel.editing is None and game.handleKeyEvent(event(1, 1, down=False, key=27)) is True)
-        panel.body.text = u'\n'.join([u'Long quest details'] * 100)
-        panel.layout()
+        score = {'available': True, 'battles': 12, 'totals': {'damage': 350}, 'updated_at': None}
+        garage.data['criteria'] = [{'criterion_type': 'damage', 'target_value': 1000}] * 10
+        garage.data['players'] = [{'username': 'Test player %s' % i, 'participant': True, 'official': score, 'estimate': score} for i in range(5)]
+        panel.render(garage)
         x, y = center(panel.region)
         game.handleMouseEvent(event(x, y, dz=-120))
         check('long content scrolls inside its region while all action buttons remain accessible',

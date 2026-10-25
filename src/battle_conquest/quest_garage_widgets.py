@@ -1,12 +1,25 @@
 """Native GUI building blocks using the enum and metric contract of the client."""
 
 PALETTE = {
-    'panel': (17, 24, 31, 242), 'header': (30, 42, 54, 255),
-    'button': (48, 63, 77, 255), 'hover': (73, 89, 67, 255),
-    'accent': (183, 197, 124, 255), 'text': (237, 241, 245, 255),
-    'muted': (168, 183, 195, 255), 'input': (9, 15, 21, 255),
-    'error': (249, 163, 127, 255), 'track': (48, 61, 70, 255),
+    'panel': (17, 23, 30, 255), 'header': (27, 36, 46, 255),
+    'card': (28, 38, 49, 255), 'button': (46, 61, 77, 255),
+    'hover': (72, 91, 111, 255), 'primary': (109, 82, 30, 255),
+    'primary_hover': (145, 108, 36, 255), 'disabled': (35, 45, 56, 255),
+    'accent': (240, 197, 109, 255), 'text': (255, 255, 255, 255),
+    'muted': (199, 211, 224, 255), 'input': (9, 15, 22, 255),
+    'error': (255, 184, 161, 255), 'track': (55, 71, 87, 255),
+    'official': (137, 225, 184, 255), 'estimate': (157, 205, 255, 255),
+    'clear': (0, 0, 0, 0),
 }
+TEXTURES = 'gui/maps/battle_conquest/garage/'
+
+
+def paint(node, role):
+    # Baked pixels also work when the native material ignores vertex tint.
+    texture = TEXTURES + (role or 'clear') + '.dds'
+    if node.textureName != texture:
+        node.textureName = texture
+    node.colour = (255, 255, 255, 255)
 
 
 def screen_size():
@@ -36,11 +49,10 @@ def place(node, x, y):
 
 def surface(parent, name, color=None):
     import GUI
-    node = GUI.Window('system/maps/col_white.bmp' if color else '')
+    node = GUI.Window(TEXTURES + (color or 'clear') + '.dds')
     node.widthMode = node.heightMode = GUI.Simple.eSizeMode.PIXEL
     node.materialFX = GUI.Simple.eMaterialFX.BLEND
-    if color:
-        node.colour = PALETTE[color]
+    paint(node, color)
     place(node, 0, 0)
     if parent is not None:
         parent.addChild(node, name)
@@ -50,6 +62,7 @@ def surface(parent, name, color=None):
 def label(parent, name, value='', color='text'):
     import GUI
     node = GUI.Text(value)
+    node.font = 'default_medium.font'
     node.colourFormatting = False
     node.multiline = True
     node.explicitSize = False

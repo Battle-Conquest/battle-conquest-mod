@@ -7,7 +7,7 @@ import os
 from battle_conquest import config
 from battle_conquest.quest_garage_text import clean, lines, metric_value
 from battle_conquest.quest_garage_widgets import (PALETTE, bounded_position, caption, label,
-                                                place, screen_size, surface, text_pixels, wrapped)
+                                                paint, screen_size, surface, text_pixels, wrapped)
 
 _logger = logging.getLogger('battle_conquest.quest_garage')
 STORE = os.path.join(config.CONFIG_DIR, 'garage-panel.json')
@@ -26,6 +26,9 @@ class Panel(object):
         self.disabled = set()
         self.scroll = self.overflow = 0
         self.content_key = None
+        self.content = None
+        self.cards_shown = False
+        self.hovered, self.styles = None, {}
         try:
             with open(store, 'rb') as handle:
                 state = json.load(handle)
@@ -62,9 +65,12 @@ class Panel(object):
         self.fold_label = label(self.fold_button, 'caption')
         self.region = surface(self.root, 'content')
         self.body = label(self.region, 'text')
+        from battle_conquest.quest_garage_content import Content
+        self.content = Content(self.region)
         self.input_box = surface(self.root, 'input', 'input')
         self.input_label = label(self.input_box, 'text')
         self.footer = label(self.root, 'status', '', 'muted')
+        self.status_dot = surface(self.root, 'connection', 'official')
         self.track = surface(self.root, 'track', 'track')
         self.thumb = surface(self.root, 'thumb', 'accent')
         for index in range(4):
@@ -80,8 +86,10 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry window-v5: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry cards-v6: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
+        _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
+                     self.root.textureName, self.root.materialFX, self.root.colour)
 
     def visible(self, visible):
         if self.root is None and visible and not self.failed:
@@ -96,11 +104,15 @@ class Panel(object):
             self.root.visible = visible
             if not visible:
                 self.drag = self.pressed = self.editing = None
+                self.hovered = None
+                self.restyle()
 
     def reset(self):
         self.editing = self.edit_version = self.drag = self.pressed = None
         self.content_key = None
         self.scroll = 0
+        if self.content is not None:
+            self.content.clear()
         if self.body is not None:
             self.body.text = u''
 
@@ -117,15 +129,23 @@ class Panel(object):
             self.input_label.text = self.editing + u'|'
         elif garage.data and not garage.data.get('selected'):
             rows += [u'', u'Choose a quest on the website or click Change quest.']
-        self.subtitle.text = (u'Configuration conflict - click Reload' if garage.conflict else
-                              u'Offline - last values retained' if garage.offline else u'Quest tracker - drag header to move')
-        wrapped(self.footer, [garage.error or status], max(200, min(640, screen_size()[0] - 32)) - 32)
+        self.subtitle.text = (u'Configuration conflict - Reload' if garage.conflict else
+                              u'Offline - values retained' if garage.offline else u'QUEST TRACKER - drag to move')
+        if garage.busy is not None:
+            status = u'Updating...  |  ' + status
+        wrapped(self.footer, [garage.error or status], max(200, min(640, screen_size()[0] - 32)) - 48)
         self.footer.colour = PALETTE['error' if garage.error else 'muted']
+        paint(self.status_dot, 'error' if garage.error or garage.offline else 'official')
         width = max(240, min(640, screen_size()[0] - 32))
         key = (tuple(rows), width, editing)
         if key != self.content_key:
             wrapped(self.body, rows, width - 44)
             self.content_key, self.scroll = key, 0
+        self.cards_shown = garage.data is not None and not editing
+        self.body.visible = not self.cards_shown
+        if self.cards_shown and self.content.render(garage.data, width - 44):
+            self.scroll = 0
+        self.content.show(self.cards_shown)
         busy = garage.busy is not None
         editable = garage.data is not None and not garage.conflict and not busy
         titles = [u'Save', u'Cancel', u'Clear', u'Reload'] if editing else [u'Change quest', u'Mode: Manual' if garage.data and garage.data['config']['mode'] == 'manual' else u'Mode: Platoon', u'Edit players', u'Reload']
@@ -133,57 +153,24 @@ class Panel(object):
         enabled = [editable, True, True, not busy] if editing else [editable, editable, editable, not busy]
         self.disabled = set(id(node) for node, ok in zip(self.buttons, enabled) if not ok)
         self.actions = [(self.fold_button, self.toggle)] + list(zip(self.buttons, callbacks))
+        self.styles = dict((id(node), 'disabled' if not ok else 'primary' if index == 0 else 'button')
+                           for index, (node, ok) in enumerate(zip(self.buttons, enabled)))
         self.layout()
         for node, text, value, ok in zip(self.buttons, self.button_labels, titles, enabled):
             caption(node, text, value, ok)
+        self.restyle()
+
+    def restyle(self):
+        for node in [self.fold_button] + self.buttons:
+            role = self.styles.get(id(node), 'button')
+            active = self.pressed[0] if self.pressed else self.hovered
+            if node is active and id(node) not in self.disabled:
+                role = 'primary_hover' if role == 'primary' else 'hover'
+            paint(node, role)
 
     def layout(self):
-        width = max(240, min(640, screen_size()[0] - 32))
-        self.root.width, self.header.width, self.header.height = width, width, 64
-        place(self.title, 16, 6)
-        place(self.subtitle, 16, 33)
-        self.fold_button.width, self.fold_button.height = 112, 36
-        place(self.fold_button, width - 128, 14)
-        caption(self.fold_button, self.fold_label, u'Expand' if self.collapsed else u'Collapse')
-        self.accent.width, self.accent.height = width, 2
-        place(self.accent, 0, 62)
-        for node in [self.region, self.input_box, self.footer, self.track, self.thumb] + self.buttons:
-            node.visible = not self.collapsed
-        if self.collapsed:
-            self.root.height = 64
-            self.place()
-            return
-        editing = self.editing is not None
-        height = text_pixels(self.body)[1]
-        self.region.width = width - 32
-        self.region.height = min(height, max(24, screen_size()[1] - 192 - text_pixels(self.footer)[1] - (56 if editing else 0)))
-        place(self.region, 16, 80)
-        self.input_box.visible = editing
-        y = 80 + self.region.height + 16
-        if editing:
-            self.input_box.width, self.input_box.height = width - 32, 40
-            place(self.input_box, 16, y)
-            place(self.input_label, 10, 8)
-            overflow = max(0, text_pixels(self.input_label)[0] + 20 - self.input_box.width)
-            self.input_box.minScroll, self.input_box.maxScroll = (-overflow * 2 / screen_size()[0], 0), (0, 0)
-            self.input_box.scroll = (-overflow * 2 / screen_size()[0], 0)
-            y += 56
-        button_width = (width - 56) / 4
-        for index, button in enumerate(self.buttons):
-            button.width, button.height = button_width, 40
-            place(button, 16 + index * (button_width + 8), y)
-        place(self.footer, 16, y + 48)
-        self.root.height = y + 64 + text_pixels(self.footer)[1]
-        self.overflow = max(0, height - self.region.height)
-        self.scroll = min(self.scroll, self.overflow)
-        self.region.minScroll, self.region.maxScroll = (0, 0), (0, self.overflow * 2 / screen_size()[1])
-        self.region.scroll = (0, self.scroll * 2 / screen_size()[1])
-        self.track.visible = self.thumb.visible = self.overflow > 0
-        self.track.width, self.track.height = 3, self.region.height
-        place(self.track, width - 20, 80)
-        self.thumb.width, self.thumb.height = 3, max(20, self.region.height ** 2 / max(1, height))
-        place(self.thumb, width - 20, 80 + (self.region.height - self.thumb.height) * self.scroll / max(1, self.overflow))
-        self.place()
+        from battle_conquest.quest_garage_layout import layout
+        layout(self)
 
     def place(self):
         self.position = bounded_position(self.root.position, (self.root.width, self.root.height))
@@ -207,7 +194,7 @@ class Panel(object):
                 if node.visible and self.contains(node, pos):
                     if id(node) not in self.disabled:
                         self.pressed = (node, action)
-                        node.colour = PALETTE['hover']
+                        self.restyle()
                     return True
             if self.contains(self.header, pos):
                 self.handleDragStartEvent(self.header, event.cursorPosition)
@@ -220,7 +207,7 @@ class Panel(object):
             if self.pressed is not None:
                 node, action = self.pressed
                 self.pressed = None
-                node.colour = PALETTE['button']
+                self.restyle()
                 if node.visible and self.contains(node, pos) and id(node) not in self.disabled:
                     action()
                     self.render(self.garage)
@@ -233,6 +220,10 @@ class Panel(object):
             self.move(event.cursorPosition)
             return True
         pos = point(event)
+        hovered = next((node for node, action in self.actions if node.visible and self.contains(node, pos)), None)
+        if hovered is not self.hovered:
+            self.hovered = hovered
+            self.restyle()
         if not self.collapsed and getattr(event, 'dz', 0) and self.contains(self.region, pos):
             delta = event.dz / 120.0 if abs(event.dz) >= 120 else event.dz
             self.scroll = max(0, min(self.overflow, self.scroll - delta * 48))
@@ -334,9 +325,12 @@ class Panel(object):
 
     def close(self):
         root, attached = self.root, self.attached
+        if self.content is not None:
+            self.content.clear()
+        self.content = self.hovered = None
         self.root = self.title = self.body = self.drag = self.pressed = None
         self.buttons, self.button_labels, self.actions = [], [], []
-        for name in ('header', 'accent', 'subtitle', 'fold_button', 'fold_label', 'region', 'input_box', 'input_label', 'footer', 'track', 'thumb'):
+        for name in ('header', 'accent', 'subtitle', 'fold_button', 'fold_label', 'region', 'input_box', 'input_label', 'footer', 'status_dot', 'track', 'thumb'):
             setattr(self, name, None)
         self.attached = False
         if root is not None and attached:

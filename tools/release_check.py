@@ -57,6 +57,9 @@ def main():
                                   os.path.join(res, 'scripts', 'client', 'gui', 'mods', 'mod_battle_conquest.pyc'))
         entry.init()
         import battle_conquest
+        from battle_conquest.quest_garage_widgets import PALETTE, TEXTURES
+        check('every native garage surface ships, including its transparent content texture',
+              all('res/' + TEXTURES + role + '.dds' in names for role in PALETTE))
         check('the package is the compiled one from the package',
               os.path.dirname(battle_conquest.__file__) == os.path.join(res, 'scripts', 'client', 'battle_conquest'))
         check('the entry point started the mod', entry._loaded is battle_conquest and battle_conquest._session is not None)

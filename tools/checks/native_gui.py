@@ -16,6 +16,7 @@ def native_gui():
             object.__setattr__(self, name, value)
         def __init__(self, text):
             self.text = text
+            self.textureName = text
             self.position = (0, 0, 0)
             self.children = []
             self._height = 200
@@ -43,6 +44,8 @@ def native_gui():
         def addChild(self, child, name):
             self.children.append((name, child))
             child.parent = self
+        def delChild(self, name):
+            self.children[:] = [(key, child) for key, child in self.children if key != name]
         def screen_position(self):
             # BigWorld PIXEL positions start at the screen's top left. Only
             # a Window changes that origin to its own top left for children.
