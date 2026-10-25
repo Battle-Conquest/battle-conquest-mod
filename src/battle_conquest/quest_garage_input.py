@@ -18,7 +18,7 @@ class Input(object):
     def active(self):
         panel = self.panel
         active = (panel.root is not None and panel.root.visible and panel.garage is not None
-                  and panel.garage.garage())
+                  and panel.garage.garage() and panel.garage.ready())
         if not active:
             panel.drag = panel.pressed = None
             if panel.scroller is not None:

@@ -39,7 +39,7 @@ def check_quest_garage_players():
         transport = Transport()
         account = type('Account', (object,), {'account': '500883375'})()
         places = type('Places', (object,), {'current': Destination(battles_url(), secret='a' * 64, enabled=True, modes=['random'])})()
-        garage = Garage(transport, account, places, panel, garage=lambda: True, platoon=lambda: [], now=lambda: 100.0)
+        garage = Garage(transport, account, places, panel, garage=lambda: True, ready=lambda: True, platoon=lambda: [], now=lambda: 100.0)
         garage.key = garage.identity()
         data = {'schema': 1, 'config': {'version': 1, 'selection': '', 'mode': 'manual', 'manual_ids': [2]},
                 'manual_players': [{'id': 2, 'username': 'Alice'}], 'selected': None, 'choices': [], 'players': []}

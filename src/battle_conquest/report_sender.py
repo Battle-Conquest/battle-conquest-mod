@@ -22,7 +22,7 @@ A destination answers per report: accepted, duplicate or rejected. All three are
 final, so all three end the same way -- the destination is marked as having
 taken the report, and the report is dropped once every destination owed it has
 taken it. Only an answer that asking again could change is retried. Without
-that distinction a rejected battle would be offered again every five minutes
+that distinction a rejected battle would be offered again on each tick
 for as long as the player kept the mod installed.
 
 One account at a time
@@ -59,12 +59,11 @@ BATCH = 50
 # has to find out why. One file, overwritten: a diagnosis, not a history.
 REFUSED_STORE = os.path.join(config.CONFIG_DIR, 'battle-reports-refused.json')
 
-# How long after the client starts the first drain runs, and how often after.
-# Nothing here is urgent -- the queue is on disk and a battle is worth the same
-# in ten minutes -- and the delay keeps this out of the garage's first seconds,
-# which the carousel sweep already has.
+# Startup wake-up plus the local queue check. Results may arrive after the
+# account-becomes-player event; they must not wait five minutes for a drain.
+# Empty ticks make no HTTP requests or disk writes, and refusal backoff remains.
 _START_DELAY = 20.0
-_INTERVAL = 300.0
+_INTERVAL = 5.0
 
 # How long a destination that could not take a batch is left alone. Matched to
 # the quarter of an hour a rate limit is usually counted over, so a mod that
@@ -310,7 +309,15 @@ class Sender(object):
             # this one stops the rest of its backlog just the same.
             self._send(work[1:])
 
-        self._post(target, batch, answered)
+        _logger.info('sending %d battle(s) to %s', len(batch), target.label)
+        try:
+            self._post(target, batch, answered)
+        except Exception:
+            # A transport setup failure installs no callback to release _busy.
+            # Keep the reports and apply the ordinary unreachable-site backoff.
+            _logger.exception('could not initiate battle delivery to %s', target.label)
+            self._refused(target, batch, None)
+            self._send(work[1:])
 
     def _post(self, target, batch, answered):
         headers = dict(target.headers)

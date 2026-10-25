@@ -5,6 +5,7 @@ from urllib import quote
 
 from battle_conquest import config, i18n
 from battle_conquest.destinations import battles_url
+from battle_conquest.garage_ready import garage_ready
 from battle_conquest.report_sender import at_garage, account_number, answer
 
 
@@ -69,12 +70,13 @@ def is_snapshot(data):
 class Garage(object):
 
     def __init__(self, session, account, places, view, garage=at_garage,
-                 platoon=platoon_accounts, now=time.time):
+                 platoon=platoon_accounts, now=time.time, ready=garage_ready):
         self.session = session
         self.account = account
         self.places = places
         self.view = view
         self.garage = garage
+        self.ready = ready
         self.platoon = platoon
         self.now = now
         self.key = None
@@ -125,7 +127,9 @@ class Garage(object):
             self.last_poll = 0
             self.view.reset()
         visible = self.garage() and key is not None
-        self.view.visible(visible and not self.unavailable and (self.data is not None or self.offline))
+        ready = visible and self.ready()
+        self.view.visible(ready and not self.unavailable and (self.data is not None or self.offline),
+                          preserve_draft=visible and not ready and not self.unavailable)
         if visible:
             self.poll()
             self.view.render(self)

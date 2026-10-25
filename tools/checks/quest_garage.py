@@ -20,7 +20,7 @@ def check_quest_garage():
             self.resets = 0
         def reset(self):
             self.resets += 1
-        def visible(self, state):
+        def visible(self, state, preserve_draft=False):
             self.shown = state
         def render(self, garage):
             pass
@@ -36,7 +36,7 @@ def check_quest_garage():
     places = type('Places', (object,), {'current': destination})()
     clock = [100.0]
     in_garage = [True]
-    garage = Garage(session, account, places, view, garage=lambda: in_garage[0],
+    garage = Garage(session, account, places, view, garage=lambda: in_garage[0], ready=lambda: in_garage[0],
                     platoon=lambda: ['500883375', '2', '3', '4', '5', '6'], now=lambda: clock[0])
     data = {'schema': 1, 'config': {'version': 1, 'selection': 'individual:1', 'mode': 'platoon', 'manual_ids': []},
             'choices': [{'key': 'individual:1', 'title': 'Quest', 'status': 'active'}], 'selected': {'title': 'Quest'},
@@ -241,7 +241,7 @@ def check_quest_garage_panel():
         panel = Panel(None, store=store)
         panel.collapsed = False
         panel.visible(True)
-        garage = Garage(session, account, places, panel, garage=lambda: True, platoon=lambda: [], now=lambda: 100.0)
+        garage = Garage(session, account, places, panel, garage=lambda: True, ready=lambda: True, platoon=lambda: [], now=lambda: 100.0)
         garage.key = garage.identity()
         garage.data = {'schema': 1, 'config': {'version': 1, 'selection': '', 'mode': 'manual', 'manual_ids': [2]},
                        'choices': [], 'selected': None, 'players': []}

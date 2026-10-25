@@ -162,6 +162,16 @@ No missing premium or multi-vehicle total is guessed. Deploy the site’s migrat
 0057 before this mod; a server without this endpoint simply returns an error and
 normal capture continues. No automatic release is needed for this branch.
 
+### Event/fun challenges
+
+The quest detail capability now includes `other`. Positive bonus types outside
+the historical families can supply their actual start, vehicles and observed
+measurements to a player-created Other challenge. Existing training/tournament
+exclusions remain; Other is not a wildcard for random or training. Missing data
+stays missing, and no event credit formula is inferred. Deploy the matching
+server contract before this package. In-game event evidence still requires live
+acceptance; this does not extend the verified economy scenarios.
+
 ### Shared quest tracking in the garage (#958)
 
 The mod follows the language selected for your account on the website (French
@@ -214,7 +224,7 @@ is clamped again when its content or the resolution changes; older saved clip
 coordinates are migrated automatically. Native text retains its automatic size;
 legacy text dimensions are converted into pixels for the window layout.
 Native coordinate modes and anchors use `GUI.Simple` enum constants, as in
-the client scripts; string names are not used. `game.log` records `geometry compact-v11`
+the client scripts; string names are not used. `game.log` records `geometry ready-v12`
 and drag start/stop positions. Session-owned hooks route mouse press, movement
 and release before garage Scaleform input, consuming only panel interactions.
 They delegate while hidden or in battle and are restored when the mod stops.
@@ -240,6 +250,18 @@ Concurrent edits produce a visible conflict: click `Reload` to accept the latest
 configuration before editing again. A private session becomes readable after its
 share link has been opened under the same BC account on the site; tracking never
 enrolls anyone or grants rewards. The site also lets you select a session by ID.
+
+The panel waits for the hangar space to load and the client waiting overlay to
+close before it appears or captures input. Transient waiting overlays preserve
+the selected names, typed query and draft version; an interrupted search resumes
+when the panel is visible and expanded again. This display gate is independent
+of the account gate used to request and send results during the return. The
+sender checks its local queue every five seconds, including when results arrive
+after the account-becomes-player event. Empty ticks send no HTTP requests; the
+existing 15-minute refusal backoff is retained. A `sending ... battle(s)` log
+line separates the start of a request from its acceptance or refusal. A transport
+setup failure retains the report and releases the sender for a later retry after
+the usual backoff, without requiring a client restart.
 
 The panel refreshes every 15 seconds in the garage and after reports are sent.
 Data age uses `hh:mm:ss` with cumulative hours (for example `25:01:02`),
