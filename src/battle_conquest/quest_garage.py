@@ -90,6 +90,19 @@ class Garage(object):
         self.last_received = None
         self.last_sent = None
         self.search_ticket = None
+        self.feedback = None
+        self.refresh_pending = False
+        self.refresh_serial = 0
+
+    def display_data(self):
+        data = dict(self.data or {})
+        data['battle_feedback'] = self.feedback.snapshot() if self.feedback is not None else None
+        return data
+
+    def refresh_after_delivery(self):
+        self.refresh_serial += 1
+        self.refresh_pending = True
+        self.last_poll = 0
 
     def identity(self):
         current = self.places.current
@@ -107,8 +120,9 @@ class Garage(object):
             def sent():
                 if sender.last_sent != self.last_sent:
                     self.last_sent = sender.last_sent
-                    self.last_poll = 0
-                    self.poll(force=True)
+                    if self.feedback is None:
+                        self.refresh_after_delivery()
+                        self.poll(force=True)
             sender.on_change(sent)
         self.tick()
 
@@ -125,7 +139,11 @@ class Garage(object):
             self.error = None
             self.last_received = None
             self.last_poll = 0
+            self.refresh_pending = False
+            self.refresh_serial += 1
             self.view.reset()
+        if self.feedback is not None:
+            self.feedback.snapshot()
         visible = self.garage() and key is not None
         ready = visible and self.ready()
         self.view.visible(ready and not self.unavailable and (self.data is not None or self.offline),
@@ -142,14 +160,18 @@ class Garage(object):
         key = self.identity()
         if key is None or key != self.key or not self.garage() or self.busy is not None:
             return
-        if not force and self.now() - self.last_poll < 15.0:
+        if not force and not self.refresh_pending and self.now() - self.last_poll < 15.0:
             return
         members = [str(value) for value in self.platoon()
                    if str(value).isdigit() and str(value) != str(key[0])][:4]
         url = self.url() + ('&platoon=' + ','.join(members) if members else '')
+        if self.feedback is not None and self.feedback.arena():
+            url += '&receipt_arena=' + self.feedback.arena()
         self.request(url, key)
 
     def request(self, url, key, payload=None, on_saved=None):
+        serial = self.refresh_serial
+        self.refresh_pending = False
         ticket = object()
         self.busy = ticket
         self.last_poll = self.now()
@@ -186,6 +208,8 @@ class Garage(object):
                 # Reload action is the only way to accept its newer version.
                 if not self.conflict:
                     self.data = data
+                    if self.feedback is not None and serial == self.refresh_serial:
+                        self.feedback.accept(data)
                     if payload is not None and on_saved is not None:
                         on_saved()
                 self.last_received = self.now()
@@ -194,6 +218,8 @@ class Garage(object):
                 self.error = None if not self.conflict else self.error
             if self.garage():
                 self.view.render(self)
+            if self.refresh_pending:
+                self.session.callback(0.0, lambda: self.poll(force=True))
 
         try:
             self.session.fetch(url, answered, headers={'X-Mod-Secret': key[2], 'Content-Type': 'application/json'},
@@ -261,7 +287,7 @@ class Garage(object):
         if not self.data:
             return
         keys = [''] + [choice['key'] for choice in self.data['choices']]
-        current = self.data['config']['selection']
+        current = (self.data.get('selected') or {}).get('key', self.data['config']['selection'])
         index = keys.index(current) if current in keys else 0
         self.save(selection=keys[(index + 1) % len(keys)])
 

@@ -89,6 +89,30 @@ class Card(object):
         return self.node.height + 8
 
 
+STAGES = {'retrieving': u'Waiting for the WoT result...', 'queued': u'Waiting to send...',
+          'sending': u'Sending to Battle-Conquest...', 'waiting': u'Delivery pending - result retained',
+          'confirming': u'Awaiting Battle-Conquest confirmation...', 'rejected': u'Battle rejected by Battle-Conquest',
+          'received': u'Received by Battle-Conquest - official progress below'}
+
+
+def battle_card(parent, width, y, data):
+    feedback = data.get('battle_feedback')
+    if not feedback:
+        return 0
+    card = Card(parent, 'last_battle', width, y, 'estimate')
+    card.text(u'LAST BATTLE - Battle-Conquest' if feedback.get('source') == 'site' else u'LAST BATTLE - provisional', 'accent')
+    card.text(STAGES.get(feedback.get('stage'), STAGES['confirming']), 'muted')
+    if 'mode' in feedback:
+        card.text(tr(feedback['mode']), 'muted', translate=False)
+    metrics = [c['criterion_type'] for c in data.get('criteria', [])] or ['damage_dealt', 'frags']
+    for metric in dict.fromkeys(metrics):
+        if 'totals' in feedback:
+            card.text(u'%s: %s' % (tr(NAMES.get(metric, metric)), number(feedback['totals'].get(metric, u'?'))), translate=False)
+    if feedback.get('source') != 'site' and 'totals' in feedback:
+        card.text(u'Eligibility and rewards are confirmed by the site.', 'muted')
+    return card.finish()
+
+
 class Content(object):
     def __init__(self, parent):
         self.parent = parent
@@ -107,7 +131,7 @@ class Content(object):
             self.node.visible = visible
 
     def render(self, data, width):
-        shown = dict((name, (data or {}).get(name)) for name in ('selected', 'criteria', 'players', 'language'))
+        shown = dict((name, (data or {}).get(name)) for name in ('selected', 'criteria', 'players', 'language', 'battle_feedback'))
         key = (json.dumps(shown, sort_keys=True), width, locale())
         if key == self.key:
             return False
@@ -118,9 +142,14 @@ class Content(object):
         card = Card(self.node, 'quest', width, y, 'accent')
         selected = data.get('selected') if data else None
         card.text(clean(selected['title']) if selected else tr(u'No quest selected'), 'accent', translate=False)
+        if selected and selected.get('status'):
+            status = selected['status']
+            status = {'receiving': u'Closed - receiving final results', 'settled': u'Closed - final results', 'cancelled': u'Cancelled'}.get(status, status)
+            card.text(status, 'muted')
         if not selected:
             card.text(u'Click Change quest, or choose one on the website.', 'muted')
         y += card.finish()
+        y += battle_card(self.node, width, y, data or {})
         if data:
             for index, player in enumerate(data.get('players', [])[:5]):
                 card = Card(self.node, 'player%s' % index, width, y)

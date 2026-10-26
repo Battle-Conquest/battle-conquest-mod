@@ -96,7 +96,11 @@ class BattleReports(object):
         self._queue = queue if queue is not None else Queue()
         self._destinations = destinations
         self._account = account
+        self._listeners = []
         self._diagnostic = diagnostic if diagnostic is not None else Diagnostic()
+
+    def on_capture(self, callback):
+        self._listeners.append(callback)
 
     def install(self):
         service = self._service()
@@ -313,6 +317,11 @@ class BattleReports(object):
         report['account'] = account
         if not self._queue.add(report):
             return False
+        for callback in list(self._listeners):
+            try:
+                callback(report)
+            except Exception:
+                _logger.exception('capture listener failed')
         _logger.info('captured a %s battle, %d queued', report['mode'], len(self._queue.all()))
         absent = missing_metrics(own_vehicles(results.get('personal')))
         if absent:

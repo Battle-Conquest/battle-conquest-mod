@@ -40,7 +40,7 @@ def check_i18n():
         garage.key = garage.identity()
         data = {'schema': 1, 'language': 'fr', 'account_id': account.account,
                 'config': {'version': 1, 'selection': 'individual:1', 'mode': 'manual', 'manual_ids': [2]},
-                'choices': [], 'selected': {'title': 'Reload'},
+                'choices': [], 'selected': {'title': 'Reload', 'status': 'receiving'},
                 'criteria': [{'criterion_type': 'damage_dealt', 'target_value': 1000, 'label': u'Dégâts infligés'}],
                 'players': [{'username': 'Save', 'participant': True,
                              'official': {'available': True, 'battles': 3, 'totals': {'damage_dealt': 350}}}]}
@@ -55,7 +55,8 @@ def check_i18n():
         check('French captions, source labels and server criterion names render in the native window',
               panel.button_labels[0].text == u'Quête suivante' and panel.fold_label.text == u'Replier'
               and u'OFFICIEL' in texts(panel.content.node) and u'3 batailles' in texts(panel.content.node)
-              and u'Dégâts infligés: 350 / 1 000' in texts(panel.content.node))
+              and u'Dégâts infligés: 350 / 1 000' in texts(panel.content.node)
+              and u'Clôturé - réception des derniers résultats' in texts(panel.content.node))
         check('quest titles and usernames are never translated as interface messages',
               'Reload' in texts(panel.content.node) and 'Save' in texts(panel.content.node))
         for width, height in ((1280, 720), (1920, 1080), (2560, 1440)):

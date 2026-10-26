@@ -90,7 +90,7 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry ready-v12: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry feedback-v13: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
         _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
                      self.root.textureName, self.root.materialFX, self.root.colour)
@@ -163,11 +163,11 @@ class Panel(object):
             self.content_key = key
         self.cards_shown = garage.data is not None and not editing
         self.body.visible = not self.cards_shown and not editing
-        scope = ((garage.data or {}).get('config', {}).get('selection'), editing)
+        scope = (((garage.data or {}).get('selected') or {}).get('key', (garage.data or {}).get('config', {}).get('selection')), editing)
         if scope != self.scroll_key:
             self.scroll, self.scroll_key = 0, scope
         if self.cards_shown:
-            self.content.render(garage.data, width - 48)
+            self.content.render(garage.display_data(), width - 48)
         self.content.show(self.cards_shown)
         busy = garage.busy is not None
         editable = garage.data is not None and not garage.conflict and not busy
