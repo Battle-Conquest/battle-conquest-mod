@@ -215,3 +215,45 @@ def check_garage_finished_selection():
     garage.data['selected'] = latest
     garage.toggle_mode()
     check('a still-valid saved quest is never overwritten by a different displayed preview', session.sent.pop()['body']['selection'] == 'session:1')
+
+
+def check_battle_feedback_identity_callbacks():
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    first = results(common={'bonusType': 160})
+    reports.capture(first, constants=Bonus)
+    old_callback = session.callbacks.pop(0)
+    profile = copy.deepcopy(garage.data)
+    player.account = '500999999'
+    place.secret = 'd' * 64
+    garage.tick()
+    session.sent.pop()['answer'](_Response(200, profile))
+    second = results(arenaUniqueID=first['arenaUniqueID'] + 1, common={'bonusType': 160})
+    reports.capture(second, constants=Bonus)
+    check('a new identity arms its own immediate send while an old callback is pending', bool(session.callbacks))
+    old_callback()
+    check('the stale callback sends nothing and retains the current identity battle', not session.sent and feedback.arena() == str(second['arenaUniqueID']))
+    session.flush()
+    check('the new identity still sends on its scheduled frame', len(session.sent) == 1 and session.sent[0]['method'] == 'POST')
+    request = session.sent[0]
+    check('only the current account battle is sent under the new link',
+          request['body']['account']['id'] == int(player.account)
+          and [r['arena_unique_id'] for r in request['body']['battles']] == [str(second['arenaUniqueID'])])
+    check('the previous account report remains durable and is not settled by the UI callback',
+          any(r.get('account') == ACCOUNT for r in queue.all()))
+    old_callback()
+    check('replaying the stale callback cannot duplicate the new account request', len(session.sent) == 1)
+
+
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    reports.capture(first, constants=Bonus)
+    old_callback = session.callbacks.pop(0)
+    original_secret = place.secret
+    place.secret = 'e' * 64
+    feedback.snapshot()
+    place.secret = original_secret
+    feedback.snapshot()
+    reports.capture(second, constants=Bonus)
+    old_callback()
+    check('switching back to the original link does not revive its old callback', not session.sent and bool(session.callbacks))
+    session.flush()
+    check('the new callback alone sends after switching away and back', len(session.sent) == 1 and session.sent[0]['method'] == 'POST')

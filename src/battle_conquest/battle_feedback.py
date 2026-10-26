@@ -12,7 +12,7 @@ class Feedback(object):
         self.key = garage.identity()
         self.report = self.receipt = None
         self.stage = None
-        self.scheduled = False
+        self.scheduled = None
         self.send_pending = False
         self.was_away = False
         reports.on_capture(self.captured)
@@ -24,6 +24,7 @@ class Feedback(object):
         if key != self.key:
             self.key, self.report, self.receipt, self.stage = key, None, None, None
             self.was_away = False
+            self.scheduled, self.send_pending = None, False
         return key is not None
 
     def arena(self):
@@ -46,13 +47,15 @@ class Feedback(object):
         self.send_pending = self.send_pending or send
         if self.scheduled:
             return
-        self.scheduled = True
+        ticket = self.scheduled = object()
         key = self.key
         def run():
-            self.scheduled = False
-            send, self.send_pending = self.send_pending, False
-            if not self.current() or key != self.key:
+            # A previous account/link callback must not consume a newer send,
+            # even when the player has since switched back to the same key.
+            if not self.current() or key != self.key or self.scheduled is not ticket:
                 return
+            self.scheduled = None
+            send, self.send_pending = self.send_pending, False
             self.garage.tick()
             if send:
                 self.sender.drain()
