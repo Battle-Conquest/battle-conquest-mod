@@ -178,3 +178,40 @@ def check_battle_feedback_refresh():
                         'proof': old_proof, 'arenas': ['92'], 'results': {}})
     session.flush()
     check('an old-link delivery triggers no refresh under the new proof', not session.sent and feedback.report is None)
+
+
+def check_garage_finished_selection():
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    latest = {'key': 'individual:2', 'title': 'Latest quest', 'status': 'succeeded'}
+    garage.data['choices'] = [latest]
+    garage.data['selected'] = latest
+    original = copy.deepcopy(garage.data)
+    check('view fallback alone does not change the saved configuration', garage.data['config']['selection'] == 'session:1')
+    garage.toggle_mode()
+    submitted = session.sent.pop()
+    check('a mode change saves the displayed latest quest instead of the obsolete finished ID', submitted['body']['selection'] == 'individual:2')
+    check('fallback normalization preserves the configuration version and selected mode', submitted['body']['version'] == 1 and submitted['body']['mode'] == 'platoon')
+    saved = copy.deepcopy(garage.data)
+    saved['config'].update(submitted['body'], version=2)
+    submitted['answer'](_Response(200, saved))
+    check('the acknowledged fallback save is accepted without a false write conflict', not garage.conflict and garage.data['config']['selection'] == 'individual:2')
+
+    garage.data = copy.deepcopy(original)
+    garage.save(expected_version=0, manual_ids=[2])
+    submitted = session.sent.pop()
+    check('a manual-player draft also saves the latest visible quest without advancing its observed version',
+          submitted['body']['selection'] == 'individual:2' and submitted['body']['version'] == 0 and submitted['body']['manual_ids'] == [2])
+    submitted['answer'](_Response(409))
+    check('fallback normalization never bypasses optimistic write conflicts', garage.conflict)
+
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    garage.data['choices'] = [latest]
+    garage.data['selected'] = latest
+    garage.save(selection='', mode='platoon')
+    check('explicitly clearing the tracked quest is preserved', session.sent.pop()['body']['selection'] == '')
+
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    garage.data['choices'] = [{'key': 'session:1', 'title': 'Active', 'status': 'running'}, latest]
+    garage.data['selected'] = latest
+    garage.toggle_mode()
+    check('a still-valid saved quest is never overwritten by a different displayed preview', session.sent.pop()['body']['selection'] == 'session:1')

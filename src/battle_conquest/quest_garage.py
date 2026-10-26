@@ -241,6 +241,14 @@ class Garage(object):
         if self.data is None or self.conflict or self.busy is not None or not self.garage():
             return
         config_data = dict(self.data['config'])
+        visible = (self.data.get('selected') or {}).get('key')
+        choices = [choice['key'] for choice in self.data['choices']]
+        # The server can display the latest finished quest while retaining
+        # an obsolete saved ID. An explicit settings save adopts that visible
+        # choice; reads alone and explicit selection changes never do.
+        if ('selection' not in changes and config_data['selection']
+                and config_data['selection'] not in choices and visible in choices):
+            config_data['selection'] = visible
         config_data.update(changes)
         if expected_version is not None:
             config_data['version'] = expected_version

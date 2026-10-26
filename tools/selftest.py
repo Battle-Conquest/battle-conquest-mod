@@ -24,7 +24,7 @@ from checks.battle_report_hooks import (check_battle_report_arrival,
 from checks.battle_reports import (check_battle_report_arena_id, check_battle_report_capture,
                                    check_battle_report_queue, check_battle_report_reading,
                                    check_battle_report_tank)
-from checks.battle_feedback import check_battle_feedback, check_battle_feedback_refresh
+from checks.battle_feedback import check_battle_feedback, check_battle_feedback_refresh, check_garage_finished_selection
 from checks.client import install_fake_client
 from checks.common import REPO, check, render_stub
 from checks.quest_garage import check_quest_garage, check_quest_garage_age, check_quest_garage_panel, check_quest_garage_platoon
@@ -124,6 +124,7 @@ def main():
         check_session_patches()
         check_battle_feedback()
         check_battle_feedback_refresh()
+        check_garage_finished_selection()
         check_quest_garage()
         check_quest_garage_age()
         check_quest_garage_panel()
