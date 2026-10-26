@@ -171,7 +171,10 @@ class Garage(object):
 
     def request(self, url, key, payload=None, on_saved=None):
         serial = self.refresh_serial
-        self.refresh_pending = False
+        # A settings POST has no receipt query and cannot replace the fresh
+        # read requested by an acknowledged battle.
+        if payload is None:
+            self.refresh_pending = False
         ticket = object()
         self.busy = ticket
         self.last_poll = self.now()

@@ -143,3 +143,38 @@ def check_battle_feedback():
     session.flush()
     check('cache readiness after the account event gets its next-frame retry rather than a full discovery tick', cache.asked == [91, 91] and taken == [battle])
     check('late-result discovery has a five-second fallback', _TICK_SECONDS == 5.0)
+
+
+def check_battle_feedback_refresh():
+    # A restarted client has a durable queue, but no in-session capture card.
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    queue.add({'arena_unique_id': '92', 'account': ACCOUNT, 'mode': 'other',
+               'finished_at': '2026-10-25T16:00:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}})
+    sender.drain()
+    session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]}))
+    session.flush()
+    check('delivery of a restored queue refreshes official values without an in-session capture card',
+          len(session.sent) == 1 and session.sent[0]['method'] == 'GET' and feedback.report is None)
+
+    # Saving between delivery and its scheduled read must not spend the read.
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    reports.capture(results(common={'bonusType': 160}), constants=Bonus)
+    session.flush()
+    session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]}))
+    garage.save(mode='platoon')
+    saved = copy.deepcopy(garage.data)
+    saved['config'].update(version=2, mode='platoon')
+    session.sent.pop()['answer'](_Response(200, saved))
+    session.flush()
+    check('a concurrent settings save cannot consume the required receipt read',
+          len(session.sent) == 1 and session.sent[0]['method'] == 'GET' and 'receipt_arena=' in session.sent[0]['url'])
+
+    # A different proof may finish after relinking. Its delivery is not a
+    # reason to fetch the new link's data or restore the previous battle.
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    old_proof = place.secret
+    place.secret = 'c' * 64
+    feedback.delivered({'stage': 'answered', 'url': place.url, 'account': ACCOUNT,
+                        'proof': old_proof, 'arenas': ['92'], 'results': {}})
+    session.flush()
+    check('an old-link delivery triggers no refresh under the new proof', not session.sent and feedback.report is None)

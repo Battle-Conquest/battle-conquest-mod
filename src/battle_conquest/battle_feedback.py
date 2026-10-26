@@ -59,12 +59,18 @@ class Feedback(object):
         self.session.callback(0.0, run)
 
     def delivered(self, event):
-        if (not self.current() or not self.report or event['account'] != self.key[0]
-                or event['url'] != self.key[1] or event['proof'] != self.key[2] or self.arena() not in event['arenas']):
+        if (not self.current() or event['account'] != self.key[0]
+                or event['url'] != self.key[1] or event['proof'] != self.key[2]):
+            return
+        # Restored or older batches still change the official totals, even
+        # when this session has no matching provisional last-battle card.
+        if event['stage'] == 'answered':
+            self.garage.refresh_after_delivery()
+            self.wake()
+        if not self.report or self.arena() not in event['arenas']:
             return
         if event['stage'] == 'answered':
             self.stage = 'rejected' if event['results'].get(self.arena()) == 'rejected' else 'confirming'
-            self.garage.refresh_after_delivery()
         else:
             self.stage = event['stage']
         self.wake()
