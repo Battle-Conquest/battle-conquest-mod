@@ -44,6 +44,7 @@ from battle_conquest.quest_details import capabilities
 from battle_conquest import service_hooks
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
+from battle_conquest.report_delivery import Delivery
 from battle_conquest.report_wire import FIELDS, account_number, answer, rejections, wire
 
 _logger = logging.getLogger('battle_conquest.report_sender')
@@ -172,6 +173,7 @@ class Sender(object):
         self.last_sent = None
         self.last_result = None
         self._listeners = []
+        self.delivery = Delivery()
 
     def on_change(self, callback):
         """Be told when a batch has been answered, or the queue has moved."""
@@ -309,6 +311,7 @@ class Sender(object):
             # this one stops the rest of its backlog just the same.
             self._send(work[1:])
 
+        self.delivery.emit('sending', target, batch)
         _logger.info('sending %d battle(s) to %s', len(batch), target.label)
         try:
             self._post(target, batch, answered)
@@ -352,6 +355,7 @@ class Sender(object):
                 snapshots[report['arena_unique_id']] = report.get('quest_details')
         self._queue.mark(target.url, [report['arena_unique_id'] for report in batch],
                          account=batch[0].get('account'), snapshots=snapshots)
+        self.delivery.emit('answered', target, batch, payload)
         self.last_sent = time.time()
         self.last_result = {'code': 200, 'battles': len(batch),
                             'accepted': (payload or {}).get('accepted'),
@@ -380,6 +384,7 @@ class Sender(object):
         renewed or an endpoint deployed makes them sendable again; what changes
         is how soon this destination is asked anything.
         """
+        self.delivery.emit('waiting', target, batch)
         waiting = len(self._queue.pending(target.url, target.modes))
         self.last_sent = time.time()
         self.last_result = {'code': code, 'battles': len(batch)}
@@ -397,12 +402,7 @@ class Sender(object):
 
 
 def install(session, account, destinations=None, version='', queue=None):
-    """Install the sender over the SAME queue the capture writes to.
-
-    One object, not one each: two Queues over one file each hold their own copy
-    of it, and whichever saved last would quietly drop what the other had
-    learned -- a battle captured between two drains, or a delivery already made.
-    """
+    """Install the sender over the capture's shared queue."""
     sender = Sender(session, account, queue=queue,
                     destinations=destinations, version=version)
     sender.install()

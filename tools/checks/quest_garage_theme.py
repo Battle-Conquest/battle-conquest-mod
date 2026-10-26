@@ -79,9 +79,25 @@ def check_quest_garage_theme():
         content.render(data, 596)
         check('a changed snapshot replaces rather than accumulates its native tree', len(parent.children) == 1 and content.node is not before)
         check('untrusted labels keep formatting disabled', all(not component.colourFormatting for component in descendants(content.node) if not component.window))
+        data['selected']['status'] = 'receiving'
+        data['criteria'][0]['criterion_type'] = 'damage_dealt'
+        data['battle_feedback'] = {'stage': 'sending', 'source': 'local', 'mode': 'other', 'totals': {'damage_dealt': 28806}}
+        content.render(data, 596)
+        provisional = u'\n'.join(component.text for component in descendants(content.node) if not component.window)
+        check('one provisional card displays local damage and closed state without a success verdict',
+              '28 806' in provisional and 'LAST BATTLE - provisional' in provisional
+              and 'Sending to Battle-Conquest' in provisional and 'Closed - receiving final results' in provisional
+              and len(content.node.children) == 4)
+        data['battle_feedback'] = {'stage': 'received', 'source': 'site', 'mode': 'other', 'totals': {'damage_dealt': 28000}}
+        content.render(data, 596)
+        confirmed = u'\n'.join(component.text for component in descendants(content.node) if not component.window)
+        check('site data replaces the provisional card without accumulating battle history',
+              '28 000' in confirmed and '28 806' not in confirmed and 'LAST BATTLE - Battle-Conquest' in confirmed
+              and len(content.node.children) == 4)
+        check('new status messages wrap inside their native cards', not any(component.clipped() for component in descendants(content.node)))
         content.clear()
         check('clearing an account snapshot removes its player cards', not parent.children and content.node is None)
-        garage = type('Garage', (object,), {
+        garage = type('Garage', (object,), {'display_data': lambda self: self.data,
             'data': data, 'error': None, 'offline': False, 'conflict': False, 'busy': None,
             'now': lambda self: 100.0, 'next_quest': lambda self: None, 'toggle_mode': lambda self: None})()
         data['config'] = {'version': 1, 'selection': '', 'mode': 'manual', 'manual_ids': []}

@@ -290,3 +290,25 @@ To regenerate the font, install `tools/font-requirements.txt` in a development
 environment, then run `python3 tools/build_garage_font.py --source /path/to/DejaVuSans.ttf`.
 Use the source SHA-256 pinned in that tool. The shipped XML/DDS and licence are
 checked by the Python 2.7 tests and release checker; Pillow is only a build tool.
+
+### Immediate post-battle feedback (#958)
+
+The garage shows one last-battle card as soon as WoT supplies its result, with
+provisional local measurements and an explicit delivery state. Capture schedules
+sending on the next frame; it never performs HTTP work inside a native result
+hook. The five-second queue timer remains a fallback, and network-error backoff
+is unchanged. Result discovery also has a five-second fallback; cache cooldown
+and centre-disconnection refusals still wait twenty seconds between attempts.
+
+After each batch answer, the garage requests `receipt_arena` from the authenticated
+server API. The stored receipt replaces local figures, including when they differ.
+Official quest totals always come from Battle-Conquest; receipt of a battle does
+not prove quest eligibility, completion or rewards. A read already in flight at
+delivery cannot consume the required fresh read. Only one battle is displayed,
+old result screens cannot replace a newer one, and account/link changes clear it.
+
+The server keeps active choices plus one latest finished quest/challenge in the
+tracker. Closed challenges explicitly say that final results are still arriving,
+or that results are final after settlement. The full history stays on the site.
+Deploy the matching server update before installing this build. No new migration
+or configuration is needed. Expected log marker: `garage geometry feedback-v13`.

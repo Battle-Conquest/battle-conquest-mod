@@ -11,7 +11,7 @@ is nothing more than stop() followed by a fresh start().
 """
 import logging
 
-from battle_conquest import (account, battle_reports, destinations, i18n, mods_list, notices, report_sender, quest_repairs, quest_garage_view,
+from battle_conquest import (account, battle_reports, battle_feedback, destinations, i18n, mods_list, notices, report_sender, quest_repairs, quest_garage_view,
                              results_request, settings_window, site_link)
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
@@ -46,10 +46,11 @@ def start(generation=0):
         # After the capture, whose door it delivers through: this asks the
         # server for the battles the player never opened, which is the only way
         # they are captured at all.
-        results_request.install(_session, reports.arrived, reports.anything_wanted)
+        requests = results_request.install(_session, reports.arrived, reports.anything_wanted)
         sender = report_sender.install(_session, player, places, VERSION, queue)
         quest_repairs.install(_session, player, places, reports.arrived)
-        quest_garage_view.install(_session, player, places, sender)
+        garage = quest_garage_view.install(_session, player, places, sender)
+        battle_feedback.Feedback(_session, garage, reports, sender, requests)
         page = settings_window.install(_session, site, places, sender)
         mods_list.install(_session)
         # After the page, which it falls back on: the garage's notice is how a
