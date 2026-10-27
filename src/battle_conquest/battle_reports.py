@@ -83,6 +83,7 @@ from battle_conquest import service_hooks
 from battle_conquest.battle_report import missing_metrics, own_vehicles, report_of, why_not
 from battle_conquest.report_queue import Queue
 from battle_conquest.results_dict import describe, raw_results
+from battle_conquest.results_diagnostic import Diagnostic
 
 _logger = logging.getLogger('battle_conquest.battle_reports')
 
@@ -90,11 +91,16 @@ _logger = logging.getLogger('battle_conquest.battle_reports')
 class BattleReports(object):
     """Captures a battle's results the moment the client has them."""
 
-    def __init__(self, session, queue=None, destinations=None, account=None):
+    def __init__(self, session, queue=None, destinations=None, account=None, diagnostic=None):
         self._session = session
         self._queue = queue if queue is not None else Queue()
         self._destinations = destinations
         self._account = account
+        self._listeners = []
+        self._diagnostic = diagnostic if diagnostic is not None else Diagnostic()
+
+    def on_capture(self, callback):
+        self._listeners.append(callback)
 
     def install(self):
         service = self._service()
@@ -233,7 +239,12 @@ class BattleReports(object):
         # that ambiguity has already cost an evening.
         _logger.info('battle results arrived by %s', source)
         try:
-            self.capture(raw_results(posted, on_miss=describe))
+            results = raw_results(posted, on_miss=describe)
+            try:
+                self._diagnostic.capture(results, source, self.account())
+            except Exception:
+                _logger.warning('local diagnostic failed; normal capture continues')
+            self.capture(results)
         except Exception:
             _logger.exception('could not capture a battle')
 
@@ -248,13 +259,15 @@ class BattleReports(object):
         return bool(self._destinations.wanting(mode))
 
     def anything_wanted(self):
-        """Whether any battle at all would be kept, whatever its mode.
+        """Whether a destination or the opt-in diagnostic wants any results.
 
         Asked before the server is: fetching a battle that nothing is waiting
         for would be a request on the player's behalf for numbers thrown away
-        the moment they arrive. Deliberately not per mode -- see `wanted` --
-        because this answer cannot disagree with what the capture then does.
+        the moment they arrive. The local diagnostic can explicitly request
+        other modes too, without widening what is queued for the site.
         """
+        if self._diagnostic.enabled():
+            return True
         if self._destinations is None:
             return False
         return bool(self._destinations.modes())
@@ -304,6 +317,11 @@ class BattleReports(object):
         report['account'] = account
         if not self._queue.add(report):
             return False
+        for callback in list(self._listeners):
+            try:
+                callback(report)
+            except Exception:
+                _logger.exception('capture listener failed')
         _logger.info('captured a %s battle, %d queued', report['mode'], len(self._queue.all()))
         absent = missing_metrics(own_vehicles(results.get('personal')))
         if absent:
@@ -315,8 +333,8 @@ class BattleReports(object):
         return True
 
 
-def install(session, destinations=None, account=None, queue=None):
+def install(session, destinations=None, account=None, queue=None, diagnostic=None):
     reports = BattleReports(session, queue=queue,
-                            destinations=destinations, account=account)
+                            destinations=destinations, account=account, diagnostic=diagnostic)
     reports.install()
     return reports

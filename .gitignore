@@ -15,3 +15,6 @@ src/battle_conquest/local_settings.py
 
 .venv/
 .DS_Store
+
+# Local workspace configuration; never part of the mod package.
+/.env.local

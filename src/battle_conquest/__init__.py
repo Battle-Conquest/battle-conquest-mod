@@ -11,10 +11,11 @@ is nothing more than stop() followed by a fresh start().
 """
 import logging
 
-from battle_conquest import (account, battle_reports, destinations, mods_list, notices, report_sender,
+from battle_conquest import (account, battle_reports, battle_feedback, destinations, i18n, mods_list, notices, report_sender, quest_repairs, quest_garage_view,
                              results_request, settings_window, site_link)
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
+from battle_conquest.results_diagnostic import Diagnostic
 from battle_conquest.runtime.session import Session
 
 VERSION = '1.0.0'
@@ -34,17 +35,22 @@ def start(generation=0):
     try:
         player = account.install(_session)
         places = destinations.install(_session, MODES)
+        i18n.install(_session, player, places)
         site = site_link.install(_session, places, player, version=VERSION)
         # One queue for both halves: the capture writes to it and the sender
         # reads from it, and two objects over one file would each hold their
         # own copy of it.
         queue = Queue()
-        reports = battle_reports.install(_session, places, player, queue)
+        reports = battle_reports.install(_session, places, player, queue,
+                                         diagnostic=Diagnostic(version=VERSION))
         # After the capture, whose door it delivers through: this asks the
         # server for the battles the player never opened, which is the only way
         # they are captured at all.
-        results_request.install(_session, reports.arrived, reports.anything_wanted)
+        requests = results_request.install(_session, reports.arrived, reports.anything_wanted)
         sender = report_sender.install(_session, player, places, VERSION, queue)
+        quest_repairs.install(_session, player, places, reports.arrived)
+        garage = quest_garage_view.install(_session, player, places, sender)
+        battle_feedback.Feedback(_session, garage, reports, sender, requests)
         page = settings_window.install(_session, site, places, sender)
         mods_list.install(_session)
         # After the page, which it falls back on: the garage's notice is how a

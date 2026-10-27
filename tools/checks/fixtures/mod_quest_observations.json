@@ -1,0 +1,136 @@
+[
+  {
+    "common": {
+      "arenaCreateTime": 1792685636,
+      "bonusType": 1,
+      "duration": 546,
+      "winnerTeam": 1
+    },
+    "expected": {
+      "credits_gross": 37232,
+      "credits_net": 27525,
+      "explosion_hits": 1,
+      "hits": 5,
+      "piercings": 3,
+      "shots": 5,
+      "xp_base": 340,
+      "xp_total": 374
+    },
+    "personal": {
+      "45057": {
+        "achievementCredits": 0,
+        "appliedPremiumCreditsFactor100": 100,
+        "appliedPremiumXPFactor100": 100,
+        "autoEquipBoostersCost": [
+          0,
+          0,
+          0
+        ],
+        "autoEquipCost": [
+          0,
+          0,
+          0
+        ],
+        "autoLoadCost": [
+          5880,
+          0
+        ],
+        "autoRepairCost": 7550,
+        "boosterCredits": 0,
+        "credits": 40955,
+        "dailyXPFactor10": 10,
+        "damageDealt": 1910,
+        "deathReason": 0,
+        "directHits": 5,
+        "eventCredits": 0,
+        "explosionHits": 1,
+        "factualCredits": 40955,
+        "factualXP": 374,
+        "isPremium": false,
+        "kills": 0,
+        "orderCredits": 0,
+        "originalCredits": 37232,
+        "originalXP": 340,
+        "petSystemCredits": 3723,
+        "piercings": 3,
+        "premSquadCredits": 0,
+        "premiumVehicleXP": 34,
+        "referral20Credits": 0,
+        "shots": 5,
+        "spotted": 0,
+        "team": 2,
+        "typeCompDescr": 45057,
+        "wotPlusCredits": 0,
+        "wotPlusProBoostCredits": 0,
+        "xp": 374
+      }
+    }
+  },
+  {
+    "common": {
+      "arenaCreateTime": 1792687072,
+      "bonusType": 1,
+      "duration": 428,
+      "winnerTeam": 1
+    },
+    "expected": {
+      "credits_gross": 36260,
+      "credits_net": 38866,
+      "explosion_hits": 1,
+      "hits": 4,
+      "piercings": 3,
+      "shots": 7,
+      "xp_base": 666,
+      "xp_total": 1399
+    },
+    "personal": {
+      "45057": {
+        "achievementCredits": 0,
+        "appliedPremiumCreditsFactor100": 100,
+        "appliedPremiumXPFactor100": 100,
+        "autoEquipBoostersCost": [
+          0,
+          0,
+          0
+        ],
+        "autoEquipCost": [
+          0,
+          0,
+          0
+        ],
+        "autoLoadCost": [
+          1020,
+          0
+        ],
+        "autoRepairCost": 0,
+        "boosterCredits": 0,
+        "credits": 39886,
+        "dailyXPFactor10": 20,
+        "damageDealt": 1637,
+        "deathReason": -1,
+        "directHits": 4,
+        "eventCredits": 0,
+        "explosionHits": 1,
+        "factualCredits": 39886,
+        "factualXP": 1399,
+        "isPremium": false,
+        "kills": 1,
+        "orderCredits": 0,
+        "originalCredits": 36260,
+        "originalXP": 666,
+        "petSystemCredits": 3626,
+        "piercings": 3,
+        "premSquadCredits": 0,
+        "premiumVehicleXP": 67,
+        "referral20Credits": 0,
+        "shots": 7,
+        "spotted": 0,
+        "team": 1,
+        "typeCompDescr": 45057,
+        "wotPlusCredits": 0,
+        "wotPlusProBoostCredits": 0,
+        "xp": 1399
+      }
+    }
+  }
+]

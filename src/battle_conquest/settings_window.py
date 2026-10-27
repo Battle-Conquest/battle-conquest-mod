@@ -19,6 +19,8 @@ Two behaviours of the API (1.7) shape this:
     close, and a callback that outlives its session does nothing.
 """
 import logging
+
+from battle_conquest.i18n import tr, locale
 import time
 
 from battle_conquest import mod_updates
@@ -49,43 +51,43 @@ _UNLINK_TOOLTIP = ('{HEADER}Unlink{/HEADER}{BODY}This game stops sending your ba
 def link_label(linked, running):
     """The link line: what it is, or where the linking is up to."""
     if linked:
-        return u'Account: linked'
+        return tr(u'Account: linked')
     if running:
-        return u'Account: confirm in your browser'
-    return u'Account: not linked'
+        return tr(u'Account: confirm in your browser')
+    return tr(u'Account: not linked')
 
 
 def modes_label(modes, enabled):
     if not enabled:
-        return u'Sending: paused'
+        return tr(u'Sending: paused')
     if not modes:
-        return u'Sending: nothing yet'
-    return u'Sending: %s battles' % u', '.join(modes)
+        return tr(u'Sending: nothing yet')
+    return tr(u'Sending: %s battles') % u', '.join(tr(mode) for mode in modes)
 
 
 def last_sent_label(last_sent, last_result):
     """What the last batch came to, in one line."""
     if last_sent is None or not last_result:
-        return u'Last sent: nothing this session'
+        return tr(u'Last sent: nothing this session')
     when = time.strftime('%H:%M', time.localtime(last_sent))
     code = last_result.get('code')
     if code != 200:
-        return u'Last sent: %s, not taken (HTTP %s), will try again' % (when, code or 'no answer')
+        return tr(u'Last sent: %s, not taken (HTTP %s), will try again') % (when, code or tr('no answer'))
     accepted = last_result.get('accepted')
     if accepted is None:
-        return u'Last sent: %s, %d battle(s)' % (when, last_result.get('battles') or 0)
-    parts = [u'%s accepted' % accepted]
+        return tr(u'Last sent: %s, %d battle(s)') % (when, last_result.get('battles') or 0)
+    parts = [tr(u'%s accepted') % accepted]
     if last_result.get('duplicates'):
-        parts.append(u'%s already known' % last_result['duplicates'])
+        parts.append(tr(u'%s already known') % last_result['duplicates'])
     if last_result.get('rejected'):
-        parts.append(u'%s rejected' % last_result['rejected'])
-    return u'Last sent: %s, %s' % (when, u', '.join(parts))
+        parts.append(tr(u'%s rejected') % last_result['rejected'])
+    return tr(u'Last sent: %s, %s') % (when, u', '.join(parts))
 
 
 def waiting_label(count):
     if count == 1:
-        return u'Waiting to be sent: 1 battle'
-    return u'Waiting to be sent: %d battles' % count
+        return tr(u'Waiting to be sent: 1 battle')
+    return tr(u'Waiting to be sent: %d battles') % count
 
 
 def _heading(templates, text):
@@ -102,10 +104,10 @@ def _button_line(templates, text, var, button, tooltip=None):
 def link_line(templates, linked, running):
     text = link_label(linked, running)
     if linked:
-        return _button_line(templates, text, UNLINK_VAR, 'Unlink', _UNLINK_TOOLTIP)
+        return _button_line(templates, text, UNLINK_VAR, tr('Unlink'), tr(_UNLINK_TOOLTIP))
     if running:
-        return _button_line(templates, text, CANCEL_VAR, 'Cancel')
-    return _button_line(templates, text, LINK_VAR, 'Link', _LINK_TOOLTIP)
+        return _button_line(templates, text, CANCEL_VAR, tr('Cancel'))
+    return _button_line(templates, text, LINK_VAR, tr('Link'), tr(_LINK_TOOLTIP))
 
 
 def template(state, templates=None):
@@ -113,19 +115,19 @@ def template(state, templates=None):
     if templates is None:
         from gui.modsSettingsApi import templates
     account = [
-        _heading(templates, 'Account'),
+        _heading(templates, tr('Account')),
         link_line(templates, state.linked, state.running),
         templates.createLabel(modes_label(state.modes, state.enabled)) if state.linked
         else templates.createEmpty(_SPACER),
         templates.createEmpty(_SPACER),
-        _button_line(templates, u'Your battles on the site', PAGE_VAR, 'Open'),
+        _button_line(templates, tr(u'Your battles on the site'), PAGE_VAR, tr('Open')),
     ]
     sending = [
-        _heading(templates, 'Sending'),
+        _heading(templates, tr('Sending')),
         templates.createLabel(state.last),
         templates.createLabel(waiting_label(state.waiting)),
         templates.createEmpty(_SPACER),
-        _heading(templates, 'Mod updates'),
+        _heading(templates, tr('Mod updates')),
         templates.createLabel(state.update),
     ]
     return {'modDisplayName': NAME, 'enabled': state.enabled,
@@ -143,9 +145,10 @@ class State(object):
         self.last = last or last_sent_label(None, None)
         self.waiting = waiting
         self.update = update
+        self.language = locale()
 
     def key(self):
-        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update)
+        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language)
 
     def __eq__(self, other):
         return isinstance(other, State) and self.key() == other.key()

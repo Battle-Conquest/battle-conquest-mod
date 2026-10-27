@@ -1,5 +1,7 @@
 """Optional server update information, safe to show in the game's HTML labels."""
 import json
+
+from battle_conquest.i18n import tr
 import re
 
 ACTION = 'battle_conquest.update'
@@ -49,20 +51,20 @@ def read(response, installed):
 
 
 def text(update, installed=''):
-    installed = version(installed) or 'unknown'
+    installed = version(installed) or tr('unknown')
     if update is None:
-        return u'Mod version: %s. Update information unavailable.' % installed
-    sources = u', '.join(u'%s %s' % (label, update.get(source + '_version') or u'unknown')
+        return tr(u'Mod version: %s. Update information unavailable.') % installed
+    sources = u', '.join(u'%s %s' % (label, update.get(source + '_version') or tr(u'unknown'))
                          for source, label in (('wgmods', 'WGMods'), ('github', 'GitHub')))
     if update.get('target_version'):
         recommended = 'WGMods' if update['recommended_source'] == 'wgmods' else 'GitHub'
-        return (u'Mod version: %s. Update available: %s. %s. Recommended download: %s.'
+        return (tr(u'Mod version: %s. Update available: %s. %s. Recommended download: %s.')
                 % (installed, update['target_version'], sources, recommended))
-    return u'Mod version: %s. %s. No newer known version.' % (installed, sources)
+    return tr(u'Mod version: %s. %s. No newer known version.') % (installed, sources)
 
 
 def notice(update, clickable):
     detail = text(update, update['installed_version'])
-    action = (u'<a href="event:%s">Update my mod</a>' % ACTION if clickable
-              else u'Open the mod settings and click Open to update your mod on the site.')
+    action = (u'<a href="event:%s">%s</a>' % (ACTION, tr(u'Update my mod')) if clickable
+              else tr(u'Open the mod settings and click Open to update your mod on the site.'))
     return u'Battle-Conquest: %s %s' % (detail, action)
