@@ -127,9 +127,59 @@ def check_battle_feedback():
     session, queue, player, place, garage, reports, sender, feedback = fixture()
     in_garage = [False]
     garage.garage = lambda: in_garage[0]
+    feedback.in_battle = lambda: not in_garage[0]
     feedback.snapshot()
     in_garage[0] = True
     check('return from battle shows retrieval instead of pretending the last result was zero', feedback.snapshot() == {'stage': 'retrieving'})
+
+    clock = [100.0]
+    garage.now = lambda: clock[0]
+    clock[0] += 61.0
+    check('an unannounced result cannot leave the retrieval card visible forever', feedback.snapshot() is None)
+    feedback.requests.busy = lambda: True
+    check('an announced result keeps its own real retrieval state after the placeholder timeout', feedback.snapshot() == {'stage': 'retrieving'})
+    feedback.requests.busy = lambda: False
+    check('exhausting the real requests also clears the retrieval card', feedback.snapshot() is None)
+    reports.capture(battle, constants=Bonus)
+    check('a result arriving after the display timeout is still captured and queued',
+          feedback.snapshot()['totals']['damage_dealt'] == 28806 and len(queue.all()) == 1)
+
+    session, queue, player, place, garage, reports, sender, feedback = fixture()
+    in_garage = [True]
+    garage.garage = lambda: in_garage[0]
+    feedback.in_battle = lambda: False
+    feedback.snapshot()
+    in_garage[0] = False
+    feedback.snapshot()
+    in_garage[0] = True
+    check('switching clusters without a battle never starts result retrieval', feedback.snapshot() is None)
+    reports.capture(battle, constants=Bonus)
+    feedback.accept({'receipt': {'arena_unique_id': feedback.arena(), 'status': 'accepted',
+                                'mode': 'other', 'totals': {'damage_dealt': 28000}}})
+    in_garage[0] = False
+    feedback.snapshot()
+    in_garage[0] = True
+    check('switching clusters preserves the last confirmed server result',
+          feedback.snapshot()['source'] == 'site' and feedback.snapshot()['totals']['damage_dealt'] == 28000)
+    feedback.in_battle = lambda: not in_garage[0]
+    in_garage[0] = False
+    feedback.snapshot()
+    in_garage[0] = True
+    check('a real battle replaces the previous confirmed card with bounded retrieval', feedback.snapshot() == {'stage': 'retrieving'})
+
+    import helpers
+    from battle_conquest.battle_feedback import in_battle
+    original_avatar = getattr(helpers, 'isPlayerAvatar', None)
+    try:
+        helpers.isPlayerAvatar = lambda: False
+        check('a client without an active avatar is not treated as in battle', not in_battle())
+        helpers.isPlayerAvatar = lambda: True
+        check('the native avatar predicate detects a real battle', in_battle())
+        del helpers.isPlayerAvatar
+        check('an unavailable avatar predicate never invents a battle', not in_battle())
+    finally:
+        if original_avatar is not None:
+            helpers.isPlayerAvatar = original_avatar
 
     from battle_conquest.results_request import Requests, _TICK_SECONDS
     from checks.results_request import _Cache
