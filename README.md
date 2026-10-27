@@ -307,8 +307,14 @@ not prove quest eligibility, completion or rewards. A read already in flight at
 delivery cannot consume the required fresh read. Only one battle is displayed,
 old result screens cannot replace a newer one, and account/link changes clear it.
 
+Only an observed battle avatar starts post-battle retrieval: a cluster switch
+or reconnection keeps the last confirmed card. If no result has been announced,
+the retrieval placeholder expires after sixty seconds. Announced requests keep
+their existing retries; the display timeout never cancels capture or delivery,
+so a late result can still replace the placeholder.
+
 The server keeps active choices plus one latest finished quest/challenge in the
 tracker. Closed challenges explicitly say that final results are still arriving,
 or that results are final after settlement. The full history stays on the site.
 Deploy the matching server update before installing this build. No new migration
-or configuration is needed. Expected log marker: `garage geometry feedback-v13`.
+or configuration is needed. Expected log marker: `garage geometry feedback-v14`.

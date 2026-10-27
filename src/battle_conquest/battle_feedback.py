@@ -6,15 +6,29 @@ Capture hooks schedule their work on the next frame, outside native callbacks.
 import copy
 
 
+_RETRIEVAL_SECONDS = 60.0
+
+
+def in_battle():
+    """A server transfer is not a battle, even while no account is the player."""
+    try:
+        from helpers import isPlayerAvatar
+        return bool(isPlayerAvatar())
+    except Exception:
+        return False
+
+
 class Feedback(object):
-    def __init__(self, session, garage, reports, sender, requests):
+    def __init__(self, session, garage, reports, sender, requests, battle=in_battle):
         self.session, self.garage, self.sender, self.requests = session, garage, sender, requests
+        self.in_battle = battle
         self.key = garage.identity()
         self.report = self.receipt = None
         self.stage = None
         self.scheduled = None
         self.send_pending = False
-        self.was_away = False
+        self.was_in_battle = False
+        self.retrieval_until = 0.0
         reports.on_capture(self.captured)
         sender.delivery.on_change(self.delivered)
         garage.feedback = self
@@ -23,7 +37,8 @@ class Feedback(object):
         key = self.garage.identity()
         if key != self.key:
             self.key, self.report, self.receipt, self.stage = key, None, None, None
-            self.was_away = False
+            self.was_in_battle = False
+            self.retrieval_until = 0.0
             self.scheduled, self.send_pending = None, False
         return key is not None
 
@@ -40,6 +55,7 @@ class Feedback(object):
             if report['arena_unique_id'] == self.report['arena_unique_id']:
                 return
         self.report, self.receipt = copy.deepcopy(report), None
+        self.retrieval_until = 0.0
         self.stage = 'queued'
         self.wake(send=True)
 
@@ -95,17 +111,17 @@ class Feedback(object):
     def snapshot(self):
         if not self.current():
             return None
-        if not self.garage.garage():
-            self.was_away = True
-        elif self.was_away:
-            self.was_away = False
+        if self.in_battle():
+            self.was_in_battle = True
+        elif self.garage.garage() and self.was_in_battle:
+            self.was_in_battle = False
             if self.receipt is not None:
                 self.report = self.receipt = None
                 self.stage = None
             if self.report is None:
-                self.stage = 'retrieving'
+                self.retrieval_until = self.garage.now() + _RETRIEVAL_SECONDS
         if self.report is None:
-            return {'stage': 'retrieving'} if self.stage == 'retrieving' or self.requests.busy() else None
+            return {'stage': 'retrieving'} if self.garage.now() < self.retrieval_until or self.requests.busy() else None
         totals = dict(self.report.get('metrics') or {})
         totals.update((self.report.get('quest_details') or {}).get('metrics') or {})
         totals['wins'] = int(self.report.get('outcome') == 'win')

@@ -90,7 +90,7 @@ class Panel(object):
         if self.session is not None:
             from battle_conquest.quest_garage_input import Input
             Input(self.session, self).install()
-        _logger.info('garage geometry feedback-v13: viewport=%s position=%s size=%s projected=%s',
+        _logger.info('garage geometry feedback-v14: viewport=%s position=%s size=%s projected=%s',
                      screen_size(), self.position, (self.root.width, self.root.height), self.root.localToScreen((0, 0)))
         _logger.info('garage theme: baked-dds background=%s material=%s colour=%s',
                      self.root.textureName, self.root.materialFX, self.root.colour)
