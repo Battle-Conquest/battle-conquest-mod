@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.2.0
+
+Official release for World of Tanks EU **2.4.1.0**, following completed in-game acceptance.
+
+### Added
+
+- Optional local battle-results diagnostics to help validate quest measurements. Diagnostics are disabled by default and do not send diagnostic files to the site.
+- Saved-link verification and installed mod version reporting at startup.
+- Stable release update checks at startup and every 30 minutes, even while sending is paused. A garage warning opens the mod page in your browser, once per newer target per session. The optional settings page shows the installed version, WGMods and GitHub versions, and the recommended source.
+- WGMods remains the recommended update whenever its approved version is newer than the installed mod; releases available only on GitHub also trigger an alert. Older servers remain compatible.
+- Additional quest measurements, explicit missing evidence and recovery for active sessions. Unsupported economic values are never invented.
+- A synchronized garage quest panel with FR/EN labels, username search, shared player selections, keyboard controls, drag/collapse and scrolling. The panel waits for the loaded garage and preserves unsaved edits across temporary overlays.
+- Immediate provisional last-battle feedback, replaced by the figures stored by Battle-Conquest after delivery. Official progress and rewards remain controlled by the server. Active choices and the latest finished quest or challenge remain available in the tracker.
+
+### Fixed
+
+- Cluster switches and reconnections no longer appear as a battle return. A real battle return without an announced result expires after sixty seconds; late results still enter the durable delivery queue.
+- Preserve delivery and receipt refreshes across restored queues, concurrent settings saves and account/link changes. Native GUI callbacks remain disabled to avoid the client KeyEvent crash; input uses session-owned game hooks.
+
+### Installation
+
+1. Deploy the matching quest server, including [server PR #997](https://github.com/Battle-Conquest/Battle-Conquest/pull/997), and apply pending versioned migrations with `php scripts/migrate.php`. Keep `quest_sessions_tick` running. This mod release adds no server migration; quest access remains controlled by the server configuration.
+2. Fully close the game, remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Keep only one Battle-Conquest package installed.
+3. Extract `battle-conquest-mod_1.2.0.zip` into your World of Tanks directory, or place `eu.battle-conquest_1.2.0.wotmod` in `mods/2.4.1.0/`.
+4. Start the game, confirm the account link and check that a completed battle reaches Battle-Conquest.
+
+Diagnostics remain optional and disabled by default; see [DIAGNOSTIC.md](DIAGNOSTIC.md). Do not share `link.json` or authentication secrets. GitHub publication does not imply WGMods approval.
+
 ## 1.1.0
 
 ### Added
