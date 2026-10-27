@@ -41,13 +41,9 @@ import time
 
 from battle_conquest import service_hooks
 from battle_conquest.report_sender import at_garage
+from battle_conquest.results_messages import BATTLE_RESULTS, _client, arrival_types, type_name
 
 _logger = logging.getLogger('battle_conquest.results_request')
-
-# `SYS_MESSAGE_TYPE.battleResults` on a 2.4 client, and the random battle's own
-# type rather than the only one -- see `arrival_types`. Kept here so a client
-# that moved or renamed that module keeps following something.
-BATTLE_RESULTS = 2
 
 # AccountCommands' refusals, for a client that does not hand them over. Only
 # the three that mean "later" rather than "never" matter here.
@@ -58,7 +54,7 @@ _DISCONNECTED = -7
 # The cache serves one request at a time and answers the second with a
 # cooldown, so these are asked for in single file. A tick takes the next one
 # and retries whatever was refused for a reason that passes.
-_TICK_SECONDS = 20.0
+_TICK_SECONDS = 5.0
 # An answer that never comes would otherwise hold the queue shut for the whole
 # session. Long enough that a slow server is not mistaken for a lost callback.
 _STALE_SECONDS = 60.0
@@ -70,64 +66,6 @@ _MAX_ATTEMPTS = 5
 # all evening builds this up; the number is generous because each entry is an
 # integer, and the oldest goes first when it overflows.
 LIMIT = 50
-
-
-def _client(name):
-    """Import a top-level client module, never a sibling of this one.
-
-    Python 2 resolves a bare `import battle_results` inside this package to a
-    sibling module first, when one exists -- this package had one, a different
-    thing entirely. The import then fails, the failure is caught, and the mod
-    quietly follows the wrong set of message types -- which is precisely how
-    this was found, by a check rather than by another evening in the garage.
-    """
-    import importlib
-    return importlib.import_module(name)
-
-
-def arrival_types():
-    """Every message type that carries a finished battle, as this client numbers them.
-
-    Not one number, which is the mistake that made the first live test hear
-    nothing. `SYS_MESSAGE_TYPE.battleResults` is **the random battle's** type,
-    2, and each game mode registers its own on top -- `registerBattleResultSysMsgType`
-    injects it past the end of the base enumeration, which ends at 155. A real
-    2.4 client announced a finished battle on **161** while this module was
-    listening for 2 alone, and said nothing because nothing matched.
-
-    The client keeps the whole set in `ARENA_BONUS_TYPE_TO_SM_TYPE_BATTLE_RESULT`,
-    one entry per mode, so that is what is read -- and read at every message
-    rather than once, because the modes register while the client starts and
-    this mod is installed somewhere in the middle of that.
-    """
-    found = set()
-    try:
-        mapping = _client('battle_results').ARENA_BONUS_TYPE_TO_SM_TYPE_BATTLE_RESULT
-        found.update(mapping.values())
-    except Exception:
-        _logger.debug('this client does not map its modes to message types', exc_info=True)
-    try:
-        found.add(_client('chat_shared').SYS_MESSAGE_TYPE.battleResults.index())
-    except Exception:
-        _logger.debug('this client does not name its message types', exc_info=True)
-    if not found:
-        found.add(BATTLE_RESULTS)
-    return found
-
-
-def type_name(kind):
-    """What this client calls a message type, or None if it cannot say.
-
-    The enumeration can be read by index, so a number in the log costs nothing
-    to turn into a name. Worth the three lines: the first live run raised
-    exactly this question about four numbers, and a name answers it where a
-    number sends someone to read the client's sources.
-    """
-    try:
-        item = _client('chat_shared').SYS_MESSAGE_TYPE[kind]
-        return item.name() if item is not None else None
-    except Exception:
-        return None
 
 
 def service_channel():
@@ -241,6 +179,7 @@ class Requests(object):
         self._attempts = {}
         self._asking = None
         self._asked_at = 0.0
+        self._retry_after = 0.0
         self._seen_types = set()
         self._said = set()
 
@@ -284,6 +223,8 @@ class Requests(object):
 
     def _became_player(self, *args):
         self.drain()
+        # The cache may become ready after our handler on the same event.
+        self._session.callback(1.0, self.drain)
 
     def _announced(self, client_id=None, message=None, *args):
         """A server message arrived. Keep it if it is a battle worth asking about."""
@@ -344,10 +285,14 @@ class Requests(object):
         """The battles still to be asked about, oldest first."""
         return list(self._pending)
 
+    def busy(self):
+        """Whether a page is still being served, including its in-flight ask."""
+        return self._asking is not None or bool(self._pending)
+
     def drain(self):
         """Ask about the next battle, if this is a moment that can."""
         self._clear_stale()
-        if self._asking is not None or not self._pending:
+        if self._asking is not None or not self._pending or self._now() < self._retry_after:
             return
         # Outside the garage the cache refuses every request, and a refusal
         # spends one of the attempts a battle gets. The sender waits for the
@@ -417,6 +362,14 @@ class Requests(object):
             _logger.info('the client refused to answer about battle %s with code %s',
                          arena_id, code)
             again = retryable(code)
+            try:
+                non_player = _client('AccountCommands').RES_NON_PLAYER
+            except Exception:
+                non_player = _NON_PLAYER
+            # Faster discovery must not spend all five attempts during the
+            # cache's ordinary cooldown or a centre disconnection.
+            if again and code != non_player:
+                self._retry_after = self._now() + 20.0
             self._give_up_or_retry(arena_id, retry=again)
             # Only when this battle is settled. A refusal worth retrying says
             # the moment is wrong, not the battle, so asking again on the same

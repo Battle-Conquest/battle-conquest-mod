@@ -24,8 +24,21 @@ from checks.battle_report_hooks import (check_battle_report_arrival,
 from checks.battle_reports import (check_battle_report_arena_id, check_battle_report_capture,
                                    check_battle_report_queue, check_battle_report_reading,
                                    check_battle_report_tank)
+from checks.battle_feedback import check_battle_feedback, check_battle_feedback_refresh, check_garage_finished_selection, check_battle_feedback_identity_callbacks
 from checks.client import install_fake_client
 from checks.common import REPO, check, render_stub
+from checks.quest_garage import check_quest_garage, check_quest_garage_age, check_quest_garage_panel, check_quest_garage_platoon
+from checks.quest_garage_input import check_quest_garage_input
+from checks.garage_ready import check_garage_ready, check_sender_after_capture
+from checks.report_sender_responses import check_report_sender_responses
+from checks.quest_garage_scroll import check_quest_garage_scroll
+from checks.quest_garage_theme import check_quest_garage_theme
+from checks.i18n import check_i18n
+from checks.native_font import check_native_font
+from checks.quest_garage_players import check_quest_garage_players
+from checks.quest_details import check_quest_details
+from checks.quest_review import check_quest_review
+from checks.quest_repairs import check_quest_repairs
 from checks.destinations import (check_destination_capture, check_destination_modes,
                                  check_destination_pause_and_forget, check_destination_reading,
                                  check_destination_secrets, check_destination_silence,
@@ -109,6 +122,26 @@ def main():
         check('watcher armed', bool(bigworld.pending))
 
         check_session_patches()
+        check_battle_feedback()
+        check_battle_feedback_refresh()
+        check_garage_finished_selection()
+        check_battle_feedback_identity_callbacks()
+        check_quest_garage()
+        check_quest_garage_age()
+        check_quest_garage_panel()
+        check_quest_garage_input()
+        check_garage_ready()
+        check_sender_after_capture()
+        check_report_sender_responses()
+        check_quest_garage_scroll()
+        check_quest_garage_theme()
+        check_i18n()
+        check_native_font()
+        check_quest_garage_players()
+        check_quest_garage_platoon()
+        check_quest_details()
+        check_quest_review()
+        check_quest_repairs()
         check_battle_report_reading()
         check_battle_report_tank()
         check_battle_report_arena_id()

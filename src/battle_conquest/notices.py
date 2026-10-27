@@ -21,6 +21,8 @@ looked and the garage is where they come back to.
 """
 import logging
 
+from battle_conquest.i18n import tr, variants
+
 from battle_conquest import mod_updates
 from battle_conquest.report_sender import at_garage
 
@@ -38,26 +40,26 @@ NOT_LINKED = u'this game is not linked to your account yet, so your battles are 
 
 
 def link_anchor(text=u'Link my account'):
-    return u'<a href="event:%s">%s</a>' % (ACTION, text)
+    return u'<a href="event:%s">%s</a>' % (ACTION, tr(text))
 
 
 def not_linked_text(clickable, page):
     """The notice for a game not linked, by what the player can do about it."""
     if clickable:
-        return u'%s%s %s' % (PREFIX, NOT_LINKED, link_anchor())
+        return u'%s%s %s' % (PREFIX, tr(NOT_LINKED), link_anchor())
     if page:
-        return u'%s%s Open the mods list, choose Battle-Conquest and click Link.' % (PREFIX, NOT_LINKED)
-    return (u'%s%s Install modsSettingsApi and modsListApi (see the mod\'s README), then link it '
-            u'from the mods list.' % (PREFIX, NOT_LINKED))
+        return tr(u'%s%s Open the mods list, choose Battle-Conquest and click Link.') % (PREFIX, tr(NOT_LINKED))
+    return (tr(u'%s%s Install modsSettingsApi and modsListApi (see the mod\'s README), then link it '
+            u'from the mods list.') % (PREFIX, tr(NOT_LINKED)))
 
 
 def ended_text(destination, clickable):
     """How linking ended, for the notice that says so."""
     if destination is not None:
-        return (u'%slinked. Your %s battles are sent from the garage shortly after they end.'
-                % (PREFIX, u', '.join(destination.modes) or u'chosen'))
-    again = u' %s' % link_anchor(u'Try again') if clickable else u''
-    return u'%slinking did not complete: it was not confirmed in the browser in time.%s' % (PREFIX, again)
+        return (tr(u'%slinked. Your %s battles are sent from the garage shortly after they end.')
+                % (PREFIX, u', '.join(tr(mode) for mode in destination.modes) or tr(u'chosen')))
+    again = u' %s' % link_anchor(tr(u'Try again')) if clickable else u''
+    return tr(u'%slinking did not complete: it was not confirmed in the browser in time.%s') % (PREFIX, again)
 
 
 def push(text, warning=False):
@@ -90,7 +92,7 @@ def dismiss_reminders():
             message = item.getListVO().get('message', {})
             if not isinstance(message, dict):
                 continue
-            if any(isinstance(value, basestring) and PREFIX + NOT_LINKED in value
+            if any(isinstance(value, basestring) and any(PREFIX + text in value for text in variants(NOT_LINKED))
                    for value in message.values()):
                 model.removeNotification(item.getType(), item.getID())
     except Exception:
@@ -181,10 +183,10 @@ class Notices(object):
     def clicked(self):
         if self._destinations.linked:
             dismiss_reminders()
-            self._push(u'%salready linked. Your battles are sent when sending is enabled.' % PREFIX)
+            self._push(tr(u'%salready linked. Your battles are sent when sending is enabled.') % PREFIX)
             return
         if not self._site.start() and not self._site.running:
-            self._push(u'%sopen the garage with your account first, then try again.' % PREFIX, warning=True)
+            self._push(tr(u'%sopen the garage with your account first, then try again.') % PREFIX, warning=True)
 
     def _ended(self, destination):
         # Success comes from the state transition, including a link made from

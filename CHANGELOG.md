@@ -2,7 +2,7 @@
 
 ## 1.2.0
 
-Experimental prerelease for World of Tanks EU **2.4.1.0**, including the local diagnostics from [PR #15](https://github.com/Battle-Conquest/battle-conquest-mod/pull/15) and the mod update warnings from merged [PR #17](https://github.com/Battle-Conquest/battle-conquest-mod/pull/17). In-game validation is pending.
+Official release for World of Tanks EU **2.4.1.0**, following completed in-game acceptance.
 
 ### Added
 
@@ -10,16 +10,23 @@ Experimental prerelease for World of Tanks EU **2.4.1.0**, including the local d
 - Saved-link verification and installed mod version reporting at startup.
 - Stable release update checks at startup and every 30 minutes, even while sending is paused. A garage warning opens the mod page in your browser, once per newer target per session. The optional settings page shows the installed version, WGMods and GitHub versions, and the recommended source.
 - WGMods remains the recommended update whenever its approved version is newer than the installed mod; releases available only on GitHub also trigger an alert. Older servers remain compatible.
+- Additional quest measurements, explicit missing evidence and recovery for active sessions. Unsupported economic values are never invented.
+- A synchronized garage quest panel with FR/EN labels, username search, shared player selections, keyboard controls, drag/collapse and scrolling. The panel waits for the loaded garage and preserves unsaved edits across temporary overlays.
+- Immediate provisional last-battle feedback, replaced by the figures stored by Battle-Conquest after delivery. Official progress and rewards remain controlled by the server. Active choices and the latest finished quest or challenge remain available in the tracker.
 
-### Install and test
+### Fixed
 
-1. Close the game. Move your existing Battle-Conquest `.wotmod` out of the mods folder, and disable any development bootstrap. Keep only one Battle-Conquest package installed.
-2. Extract `battle-conquest-mod_1.2.0.zip` into your World of Tanks directory. It installs `mods/2.4.1.0/eu.battle-conquest_1.2.0.wotmod`.
-3. Create `mods/configs/battle_conquest/diagnostics.json` as ASCII or UTF-8 without BOM, containing `{"enabled":true}`.
-4. Play battles and follow the [diagnostic test procedure](https://github.com/Battle-Conquest/battle-conquest-mod/blob/825285e1840095f64f6dfbac860f12d93c5a9f4c/DIAGNOSTIC.md). Results are saved locally in `mods/configs/battle_conquest/results-diagnostic.jsonl` and `results-diagnostic.jsonl.1`; also check `game.log`. Copy useful observations after each scenario, before rotation replaces them.
-5. When finished, set `{"enabled":false}`, close the game, remove this test package and restore your usual package.
+- Cluster switches and reconnections no longer appear as a battle return. A real battle return without an announced result expires after sixty seconds; late results still enter the durable delivery queue.
+- Preserve delivery and receipt refreshes across restored queues, concurrent settings saves and account/link changes. Native GUI callbacks remain disabled to avoid the client KeyEvent crash; input uses session-owned game hooks.
 
-Existing battle reports retain their current format. Offline checks use synthetic data and do not validate economic field meanings; those must be verified in game. Do not share `link.json` or authentication secrets with diagnostic observations.
+### Installation
+
+1. Deploy the matching quest server, including [server PR #997](https://github.com/Battle-Conquest/Battle-Conquest/pull/997), and apply pending versioned migrations with `php scripts/migrate.php`. Keep `quest_sessions_tick` running. This mod release adds no server migration; quest access remains controlled by the server configuration.
+2. Fully close the game, remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Keep only one Battle-Conquest package installed.
+3. Extract `battle-conquest-mod_1.2.0.zip` into your World of Tanks directory, or place `eu.battle-conquest_1.2.0.wotmod` in `mods/2.4.1.0/`.
+4. Start the game, confirm the account link and check that a completed battle reaches Battle-Conquest.
+
+Diagnostics remain optional and disabled by default; see [DIAGNOSTIC.md](DIAGNOSTIC.md). Do not share `link.json` or authentication secrets. GitHub publication does not imply WGMods approval.
 
 ## 1.1.0
 

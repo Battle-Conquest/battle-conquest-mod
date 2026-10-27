@@ -374,7 +374,8 @@ def check_results_request_refusals():
     check('neither is a nonsense code', retryable(None) is False)
 
     cache = _Cache({41: (-5, None), 42: (-1, None)})
-    requests, _ = _requests(cache)
+    clock = _Clock()
+    requests, _ = _requests(cache, clock=clock)
 
     requests.remember(41)
     requests.drain()
@@ -382,6 +383,10 @@ def check_results_request_refusals():
 
     requests.remember(42)
     cache._answers[41] = (1, results())
+    clock.now += 5
+    requests.drain()
+    check('the fast discovery tick preserves the cache cooldown without spending attempts', cache.asked == [41])
+    clock.now += 15
     requests.drain()
     check('it is asked about again', cache.asked == [41, 41, 42])
     check('a battle refused for good is dropped', requests.waiting() == [])
@@ -394,11 +399,13 @@ def check_results_request_gives_up():
     request every tick for as long as the client runs.
     """
     cache = _Cache({51: (-5, None)})
-    requests, _ = _requests(cache)
+    clock = _Clock()
+    requests, _ = _requests(cache, clock=clock)
 
     requests.remember(51)
     for _ in range(8):
         requests.drain()
+        clock.now += 20
 
     check('it is asked about a bounded number of times', len(cache.asked) == 5)
     check('and then let go of', requests.waiting() == [])

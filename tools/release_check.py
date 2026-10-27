@@ -57,6 +57,16 @@ def main():
                                   os.path.join(res, 'scripts', 'client', 'gui', 'mods', 'mod_battle_conquest.pyc'))
         entry.init()
         import battle_conquest
+        from battle_conquest.quest_garage_widgets import PALETTE, TEXTURES
+        check('every native garage surface ships, including its transparent content texture',
+              all('res/' + TEXTURES + role + '.dds' in names for role in PALETTE))
+        from battle_conquest.quest_garage_widgets import FONT
+        from checks.native_font import metrics
+        font, glyphs, height = metrics(FONT, res)
+        check('the isolated Unicode font, atlas and licence ship together',
+              'res/' + font.findtext('generated/map') in names
+              and 'res/system/fonts/battle_conquest/LICENSE-DejaVu.txt' in names
+              and ord(u'\u00e9') in glyphs and ord(u'\u0153') in glyphs)
         check('the package is the compiled one from the package',
               os.path.dirname(battle_conquest.__file__) == os.path.join(res, 'scripts', 'client', 'battle_conquest'))
         check('the entry point started the mod', entry._loaded is battle_conquest and battle_conquest._session is not None)
