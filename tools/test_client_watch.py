@@ -1,6 +1,7 @@
 """Offline tests for WoT detection and the published installation archive."""
 import io
 import json
+from http.client import BadStatusLine, IncompleteRead
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -104,7 +105,8 @@ class ClientWatchTests(unittest.TestCase):
 
     def test_one_failed_source_still_compares_and_exposes_unavailability(self):
         for source in (watch.MIRROR, watch.HUB):
-            for failure in (TimeoutError("timeout"), b"broken response"):
+            for failure in (TimeoutError("timeout"), IncompleteRead(b"partial", 100),
+                            BadStatusLine("broken status"), b"broken response"):
                 self.fixtures()
                 self.responses[source] = failure
                 result = self.compare()

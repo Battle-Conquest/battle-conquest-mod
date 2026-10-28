@@ -3,6 +3,7 @@
 Python 3, standard library only. --dry-run performs reads without issue writes.
 """
 import argparse
+from http.client import HTTPException
 import io
 import json
 import os
@@ -79,7 +80,7 @@ def read_sources(fetcher):
     for name, url, parser in (("upstream", MIRROR, parse_mirror), ("hub", HUB, parse_hub)):
         try:
             versions[name] = parser(fetcher(url))
-        except (OSError, ValueError, KeyError, TypeError, ElementTree.ParseError) as error:
+        except (OSError, HTTPException, ValueError, KeyError, TypeError, ElementTree.ParseError) as error:
             print("%s unavailable: %s" % (name, error), file=sys.stderr)
             versions[name] = None
     available = [value for value in versions.values() if value]
