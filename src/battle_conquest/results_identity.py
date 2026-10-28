@@ -1,5 +1,6 @@
 """Opaque, observation-local references; no result is certified as an owner."""
 import re
+from itertools import chain
 
 from battle_conquest import config
 from battle_conquest.account import current_account_id
@@ -53,7 +54,12 @@ def observation(results, origin, current):
         if isinstance(value, dict):
             entries = []
             # Never stringify client objects or arbitrary mapping keys.
-            for position, (key, item) in enumerate(value.iteritems()):
+            # Personal records have hundreds of measures. Their arbitrary dict
+            # order must not hide identity candidates beyond the item limit.
+            candidates = sorted(key for key in _FIELDS if key in value) if not collection else []
+            ordered = chain(((key, value[key]) for key in candidates),
+                            ((key, item) for key, item in value.iteritems() if key not in candidates))
+            for position, (key, item) in enumerate(ordered):
                 if position >= 128:
                     return {'entries': entries, 'omitted': 'item limit'}
                 if not collection and isinstance(key, basestring) and _PRIVATE.search(key):

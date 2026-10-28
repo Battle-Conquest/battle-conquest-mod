@@ -1,5 +1,6 @@
 """Synthetic identity observations; no real WoT field correspondence claimed."""
 import copy
+from collections import OrderedDict
 import json
 import os
 import shutil
@@ -71,6 +72,11 @@ def check_identity_limits():
     text = json.dumps(out)
     check('identity shape collection, depth and unsupported values are bounded',
           'item limit' in text and 'depth limit' in text and 'unsupported' in text)
+    crowded = OrderedDict(('metric%d' % i, i) for i in range(128))
+    crowded['accountDBID'] = 500111111
+    projected = observation({'personal': {1: crowded}}, None, None)
+    check('identity candidates survive the field limit regardless of dictionary order',
+          'accountDBID' in json.dumps(projected) and 'item limit' in json.dumps(projected))
     huge = observation({'players': dict((i, list(range(128))) for i in range(128))}, None, None)
     check('identity projection has a global visited-value budget', 'value limit' in json.dumps(huge))
 
@@ -91,11 +97,16 @@ def check_identity_storage():
             options(value)
             check('identity requires explicit boolean opt-in', diagnostic.capture(raw, 'hook', '500111111'))
         options(True)
+        class Wrapped(object):
+            personal = type('Personal', (object,), {'_PersonalInfo__personal': raw})()
+        check('a wrapped stale repair result is observed like a normal arrival',
+              diagnostic.capture(Wrapped(), 'stale repair', '500111111',
+                                 {'id': '500111111', 'region': config.REGION}))
         check('identity observation survives an unknown account', diagnostic.capture(raw, 'cache', None,
               {'id': '500111111', 'region': config.REGION}))
         with open(store, 'rb') as handle:
             lines = [json.loads(line) for line in handle]
-        check('no identity section without explicit opt-in', all('identity' not in line for line in lines[:-1]))
+        check('no identity section without explicit opt-in', all('identity' not in line for line in lines[:-2]))
         check('unknown legacy tracker account remains null', lines[-1]['account'] is None
               and lines[-1]['identity']['contexts']['request']['id'] == '500111111')
         options(True)

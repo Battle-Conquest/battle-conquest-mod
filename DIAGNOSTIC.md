@@ -210,7 +210,10 @@ principal `enabled` reste nécessaire. La désactivation conserve les fichiers.
   sans comparer les numéros `refN` entre observations.
 - Chaque entrée personnelle reste distincte, y compris `avatar` et multichars.
   Les marqueurs `omitted` et `truncated` signalent les limites (128 éléments,
-  six niveaux et budget global de 4 096 valeurs). Une identité absente,
+  six niveaux et budget global de 4 096 valeurs). Les champs candidats
+  d’identité sont examinés avant les autres champs d’un résultat, pour éviter
+  qu’une longue liste de mesures les masque à la limite des 128 éléments.
+  Une identité absente,
   contradictoire ou plusieurs candidats restent des observations, sans sélection.
 - Les réponses tardives des réparations #954/#956 peuvent être observées après
   changement de compte, mais restent exclues de la capture normale comme avant.

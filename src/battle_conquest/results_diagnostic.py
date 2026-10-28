@@ -13,6 +13,7 @@ import time
 
 from battle_conquest import config, modes
 from battle_conquest.battle_report import METRICS, arena_id_of
+from battle_conquest.results_dict import raw_results
 
 _logger = logging.getLogger('battle_conquest.results_diagnostic')
 
@@ -154,6 +155,8 @@ class Diagnostic(object):
             return False
         try:
             identity_enabled = self._options().get('identity_enabled') is True
+            # Stale repair answers bypass BattleReports._on_posted's unwrap.
+            results = raw_results(results)
             record = observation(results, source, account, self._version,
                                  allow_unknown_account=identity_enabled)
             if record is None:
