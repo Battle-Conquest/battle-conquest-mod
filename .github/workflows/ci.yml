@@ -24,6 +24,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check client watch tools (Python 3, offline)
+        run: python3 -B -m unittest discover -s tools -p 'test_client_*.py'
+
       # Keep the client's legacy interpreter independent of the runner's Python.
       # The suite uses temporary files and fake client modules, without network.
       - name: Run mod self-tests

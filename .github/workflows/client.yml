@@ -1,0 +1,31 @@
+name: WoT client watch
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: client-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    # A fork must not create operational alerts on its own copy.
+    if: github.repository == 'Battle-Conquest/battle-conquest-mod'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Compare WoT sources with the published installation ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 -B tools/client_watch.py

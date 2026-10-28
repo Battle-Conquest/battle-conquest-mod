@@ -22,6 +22,10 @@ with one on the server (the `/api/mod/battles` contract, storage, quest proof).
 What the mod needs is described in the issue's "Côté mod" section. Those issues
 are written in French, like the rest of that repository.
 
+Operational client-watch alerts are the exception: the workflow opens them in
+this repository using its built-in GitHub token. See
+[RELEASING.md](RELEASING.md#surveillance-des-mises-à-jour-wot).
+
 ## Setup
 
 Follow the Development section of [`README.md`](./README.md): run
@@ -68,6 +72,9 @@ on every pull request and push to `main`. It can also be started manually.
 The source is mounted read-only in the test container, with networking disabled.
 
 - The suite must pass: every change comes with a check in `tools/checks/`.
+- Client-watch automation runs with Python 3 on the Actions runner, outside
+  the game. Its offline tests live in `tools/test_client_*.py` and run with
+  `python3 -B -m unittest discover -s tools -p 'test_client_*.py'` in `Mod CI`.
 - Once a change has reloaded in the client, read `game.log`.
 - When packaging is touched (`tools/build_release.py`, `res/`, the entry
   points), build the package and check it:
