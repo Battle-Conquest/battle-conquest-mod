@@ -226,6 +226,7 @@ Recette à effectuer avec les envois en pause :
 | Bataille sous A, réponse sous A | Chemins candidats reliant les résultats personnels au compte A ; vérifier où se trouve son pseudo |
 | Demande sous A, connexion de B avant réponse | Contexte de demande A, réception B ou inconnue ; aucune certification automatique |
 | Demande expirée, puis réponse tardive | Le contexte initial reste A même si une autre demande a commencé |
+| Arrêt ou rechargement du mod avant la réponse | Une réponse de l’ancienne session est ignorée, sans capture, écriture diagnostic ni nouvelle demande au cache |
 | A → B → A, puis redémarrage | Contextes distinguables ; observations conservées ; aucune déduction depuis l’ancien `link.json` |
 | Résultats ouverts, automatiques et réouverts | Comparer les chemins et références, sans additionner les observations |
 | Aléatoire, classé, Assaut, Bastion, Ligne de front et autres modes disponibles | Identifier pour chaque mode le chemin WG, le champ pseudo et le lien avec `personal` ; noter les modes indisponibles |

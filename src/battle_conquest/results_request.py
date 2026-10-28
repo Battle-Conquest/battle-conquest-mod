@@ -292,6 +292,8 @@ class Requests(object):
 
     def drain(self):
         """Ask about the next battle, if this is a moment that can."""
+        if not getattr(self._session, 'alive', True):
+            return
         self._clear_stale()
         if self._asking is not None or not self._pending or self._now() < self._retry_after:
             return
@@ -350,6 +352,10 @@ class Requests(object):
     def _answer(self, arena_id, origin=None):
 
         def answered(code=None, results=None):
+            # The game's cache callback cannot be cancelled when this load stops.
+            # An old answer must not write to the new load's queue/diagnostic.
+            if not getattr(self._session, 'alive', True):
+                return
             # Not `arena_id is self._asking`: a stale ask was let go of, and
             # its answer arriving late is still an answer worth keeping.
             if self._asking == arena_id:

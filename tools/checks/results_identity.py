@@ -185,3 +185,31 @@ def check_identity_repair_context():
     check('stale repair is observed with original identity but never captured for the new account',
           not normal and len(stale) == 1
           and stale[0][2] == {'id': '500111111', 'region': 'eu'})
+
+
+def check_identity_shutdown():
+    from battle_conquest.results_request import Requests
+    from battle_conquest.runtime.session import Session
+    # The real registry is closed, rather than assuming a fake's alive flag.
+    for contextual in (False, True):
+        for code, payload in ((1, results()), (-5, None)):
+            session = Session(964)
+            cache = _Cache()
+            taken = []
+            request = Requests(session, lambda *args: taken.append(args),
+                               garage=lambda: True, cache=lambda: cache,
+                               context=(lambda: {'id': '500111111', 'region': 'eu'})
+                               if contextual else None)
+            request.remember(1)
+            request.remember(2)
+            request.drain()
+            callback = cache._pending[1]
+            waiting = request.waiting()
+            attempts = dict(request._attempts)
+            session.close()
+            callback(code, payload)
+            check('shutdown ignores old cache success/refusal before delivery or retry',
+                  not taken and cache.asked == [1] and request.waiting() == waiting
+                  and request._attempts == attempts)
+            request.drain()
+            check('a closed request service never asks the cache again', cache.asked == [1])

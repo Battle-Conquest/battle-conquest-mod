@@ -61,7 +61,7 @@ from checks.results_diagnostic import (check_diagnostic_projection, check_diagno
                                        check_diagnostic_storage, check_diagnostic_capture_integration)
 from checks.results_identity import (check_identity_projection, check_identity_limits,
                                     check_identity_storage, check_identity_request_context,
-                                    check_identity_capture_context, check_identity_repair_context)
+                                    check_identity_capture_context, check_identity_repair_context, check_identity_shutdown)
 from checks.results_request import (check_results_request_delivers,
                                     check_results_request_anything_wanted,
                                     check_results_request_only_when_taking,
@@ -160,6 +160,7 @@ def main():
         check_identity_request_context()
         check_identity_capture_context()
         check_identity_repair_context()
+        check_identity_shutdown()
         check_diagnostic_projection()
         check_diagnostic_bounded_values()
         check_diagnostic_storage()
