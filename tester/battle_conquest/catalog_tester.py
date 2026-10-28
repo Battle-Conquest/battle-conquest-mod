@@ -37,6 +37,19 @@ class Collector(object):
         self._game_version = None
         session.on_close(self.close)
         account.on_change(self._account_changed)
+        # Polling at retry time misses pause/resume or unlink/relink in between.
+        # Invalidate immediately when the existing link actually changes.
+        for name in ('set_enabled', 'forget', 'remember'):
+            if callable(getattr(places, name, None)):
+                session.patch(places, name, self._wrap_link_change)
+
+    def _wrap_link_change(self, original):
+        def changed(*args, **kwargs):
+            result = original(*args, **kwargs)
+            if self.busy and self.identity() != self._identity:
+                self.cancel()
+            return result
+        return changed
 
     def identity(self):
         target = self.places.current

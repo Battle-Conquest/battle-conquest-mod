@@ -58,8 +58,10 @@ def install(session, collector, page):
             session.callback(5.0, announce)
             return
         if holder is not None:
-            notices.push('Battle-Conquest TESTER: catalogue collection is manual. '
-                         '<a href="event:%s">Collect and send catalogue</a>' % ACTION)
+            shown = notices.push('Battle-Conquest TESTER: catalogue collection is manual. '
+                                 '<a href="event:%s">Collect and send catalogue</a>' % ACTION)
         else:
-            notices.push('Battle-Conquest TESTER: open mod settings to collect the catalogue manually.')
+            shown = notices.push('Battle-Conquest TESTER: open mod settings to collect the catalogue manually.')
+        if not shown:
+            session.callback(5.0, announce)
     session.callback(5.0, announce)

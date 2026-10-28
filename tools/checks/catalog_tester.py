@@ -11,12 +11,19 @@ from checks.site_link import _Response
 class Session(object):
     def __init__(self):
         self.alive, self.pending, self.sent, self.closers = True, [], [], []
+        self.patches = []
 
     def callback(self, delay, callback):
         self.pending.append((delay, callback))
 
     def on_close(self, callback):
         self.closers.append(callback)
+
+    def patch(self, holder, name, build):
+        own = name in holder.__dict__
+        stored = holder.__dict__.get(name)
+        self.patches.append((holder, name, own, stored))
+        setattr(holder, name, build(getattr(holder, name)))
 
     def fetch(self, url, callback, **kwargs):
         self.sent.append((url, callback, kwargs))
@@ -25,9 +32,16 @@ class Session(object):
         self.pending.pop(0)[1]()
 
     def close(self):
+        if not self.alive:
+            return
         self.alive = False
         for callback in reversed(self.closers):
             callback()
+        for holder, name, own, stored in reversed(self.patches):
+            if own:
+                setattr(holder, name, stored)
+            else:
+                delattr(holder, name)
 
 
 def check_catalog_tester():
@@ -98,6 +112,8 @@ def check_catalog_tester():
         check('a partial extraction never uploads', not session.sent and not broken_collector.busy)
         check_source(catalog_source)
         check_ui()
+        check_link_invalidation(entries)
+        check_notice_retry()
     finally:
         battle_conquest.__path__.remove(path)
 
@@ -169,3 +185,66 @@ def check_ui():
             sys.modules.pop('gui.modsSettingsApi', None)
         else:
             sys.modules['gui.modsSettingsApi'] = previous
+
+
+def check_link_invalidation(entries):
+    from battle_conquest.catalog_tester import Collector
+    from checks.site_link import _destinations
+    session = Session()
+    places = _destinations()
+    places.remember('Tester', ['random'], 'a' * 64)
+    account = type('Account', (object,), {'account': '123', 'on_change': lambda self, fn: None})()
+    collector = Collector(session, account, places, '1.2.0', garage=lambda: True,
+        current=lambda: '123', source=lambda: iter(entries), client_version=lambda: '2.4', notify=lambda *args: None)
+    try:
+        collector.start()
+        session.next()
+        session.sent[-1][1](_Response(503, {'error': 'server_error'}))
+        places.set_enabled(False)
+        places.set_enabled(True)
+        session.next()
+        check('pause followed by resume cannot revive a scheduled upload', not collector.busy and len(session.sent) == 1)
+
+        collector.start()
+        session.next()
+        answer = session.sent[-1][1]
+        places.forget()
+        places.remember('Tester', ['random'], 'a' * 64)
+        answer(_Response(200, {'schema': 2, 'count': len(entries), 'duplicate': False}))
+        check('unlink and relink cannot restore an obsolete result', not collector.busy and 'cancelled' in collector.status)
+    finally:
+        session.close()
+    check('link mutation hooks are removed on close',
+          all(name not in places.__dict__ for name in ('set_enabled', 'forget', 'remember')))
+
+
+def check_notice_retry():
+    from battle_conquest import notices
+    from battle_conquest.catalog_tester_ui import install
+    from battle_conquest.catalog_tester import ACTION
+    session = Session()
+    attempts, collected = [], []
+    original_push, original_handlers = notices.push, notices._actions_handlers
+    class Handlers(object):
+        def handleAction(self, *args, **kwargs):
+            pass
+    def push(text):
+        attempts.append(text)
+        return len(attempts) >= 2
+    notices.push = push
+    notices._actions_handlers = lambda: Handlers
+    page = type('Page', (object,), {'available': False})()
+    collector = type('Collector', (object,), {'status': 'Waiting for a manual click', 'busy': False,
+        'garage': lambda self: True, 'start': lambda self: collected.append('start')})()
+    try:
+        install(session, collector, page)
+        session.next()
+        check('an unavailable notification centre retries the only collect action', len(session.pending) == 1)
+        session.next()
+        check('a successful collect notification is not repeated', len(attempts) == 2 and not session.pending)
+        check('retrying the notification never collects a catalogue', not collected)
+        Handlers().handleAction(None, 1, 2, ACTION)
+        check('the native collect action starts only after a click', collected == ['start'])
+    finally:
+        session.close()
+        notices.push, notices._actions_handlers = original_push, original_handlers
