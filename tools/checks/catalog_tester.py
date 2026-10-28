@@ -114,6 +114,8 @@ def check_catalog_tester():
         check_ui()
         check_link_invalidation(entries)
         check_notice_retry()
+        check_transport_setup(entries)
+        check_native_progress(entries)
     finally:
         battle_conquest.__path__.remove(path)
 
@@ -165,6 +167,7 @@ def check_ui():
             'start': lambda self: calls.append('start'), 'cancel': lambda self: calls.append('cancel'),
             'garage': lambda self: True})()
         install(session, collector, page)
+        check('a visible settings page needs no extra phase notifications', not collector.notify_progress)
         check('tester refresh preserves exactly one settings callback', len(api.onButtonClicked.handlers) == 1)
         for handler in list(api.onButtonClicked.handlers):
             handler(settings_window.LINKAGE, BUTTON)
@@ -238,6 +241,7 @@ def check_notice_retry():
         'garage': lambda self: True, 'start': lambda self: collected.append('start')})()
     try:
         install(session, collector, page)
+        check('native-only controls also enable phase notifications', collector.notify_progress)
         session.next()
         check('an unavailable notification centre retries the only collect action', len(session.pending) == 1)
         session.next()
@@ -248,3 +252,70 @@ def check_notice_retry():
     finally:
         session.close()
         notices.push, notices._actions_handlers = original_push, original_handlers
+
+
+def check_transport_setup(entries):
+    from battle_conquest.catalog_tester import Collector
+    from checks.site_link import _destinations
+    class TransportSession(Session):
+        def __init__(self):
+            Session.__init__(self)
+            self.attempts = 0
+        def fetch(self, url, callback, **kwargs):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise IOError('temporary transport setup failure')
+            Session.fetch(self, url, callback, **kwargs)
+    session = TransportSession()
+    places = _destinations()
+    places.remember('Tester', ['random'], 'a' * 64)
+    account = type('Account', (object,), {'account': '123', 'on_change': lambda self, fn: None})()
+    collector = Collector(session, account, places, '1.2.0', garage=lambda: True,
+        current=lambda: '123', source=lambda: iter(entries), client_version=lambda: '2.4', notify=lambda *args: None)
+    try:
+        collector.start()
+        session.next()
+        check('a transport setup exception preserves the catalogue and schedules a retry',
+              collector.busy and len(session.pending) == 1 and session.pending[0][0] == 5.0)
+        session.next()
+        check('the next transport attempt sends the same complete catalogue',
+              session.attempts == 2 and json.loads(session.sent[-1][2]['post_data'])['vehicles'] == entries)
+        session.sent[-1][1](_Response(200, {'schema': 2, 'count': len(entries), 'duplicate': False}))
+        check('a recovered transport finishes normally', not collector.busy and 'Admin validation' in collector.status)
+        session.attempts = 0
+        def unavailable(*args, **kwargs):
+            session.attempts += 1
+            raise IOError('still unavailable')
+        session.fetch = unavailable
+        collector.start()
+        while session.pending:
+            session.next()
+        check('repeated transport setup failures use at most three retries', not collector.busy and session.attempts == 4)
+    finally:
+        session.close()
+
+
+def check_native_progress(entries):
+    from battle_conquest.catalog_tester import Collector
+    from checks.site_link import _destinations
+    session, messages = Session(), []
+    places = _destinations()
+    places.remember('Tester', ['random'], 'a' * 64)
+    account = type('Account', (object,), {'account': '123', 'on_change': lambda self, fn: None})()
+    collector = Collector(session, account, places, '1.2.0', garage=lambda: True,
+        current=lambda: '123', source=lambda: iter([dict(entry, tank_id=i + 1) for i, entry in enumerate(entries * 10)]), client_version=lambda: '2.4',
+        notify=messages.append)
+    collector.notify_progress = True
+    try:
+        collector.start()
+        check('native-only collection acknowledges the manual start immediately',
+              len(messages) == 1 and 'Collecting the full' in messages[-1])
+        session.next()
+        check('native progress does not flood notifications for every extraction slice', len(messages) == 1)
+        while session.pending:
+            session.next()
+        check('native-only upload announces sending', len(messages) == 2 and 'Sending' in messages[-1])
+        session.sent[-1][1](_Response(503, {'error': 'server_error'}))
+        check('native-only temporary errors expose the retry delay', len(messages) == 3 and 'retrying in 5' in messages[-1])
+    finally:
+        session.close()

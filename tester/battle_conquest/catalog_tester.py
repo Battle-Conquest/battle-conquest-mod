@@ -28,6 +28,7 @@ class Collector(object):
         self.version, self.changed = version, changed
         self.garage, self.current = garage, current
         self.source, self.client_version, self.notify = source, client_version, notify
+        self.notify_progress = False
         self.status = 'Private tester: catalogue collection is manual. Nothing collected this session.'
         self.busy = False
         self._identity = None
@@ -60,10 +61,10 @@ class Collector(object):
             return None
         return (account, target.url, target.secret)
 
-    def _say(self, message, finished=False):
+    def _say(self, message, finished=False, progress=False):
         self.status = message
         self.changed()
-        if finished:
+        if finished or (progress and self.notify_progress):
             self.notify('Battle-Conquest TESTER: ' + message)
 
     def _account_changed(self):
@@ -95,7 +96,7 @@ class Collector(object):
             self._fail()
             return
         self._entries = []
-        self._say('Collecting the full client catalogue...')
+        self._say('Collecting the full client catalogue...', progress=True)
         self._later(0.0, self._read)
 
     def _later(self, delay, callback):
@@ -154,7 +155,7 @@ class Collector(object):
             return
         identity, sequence = self._identity, self._sequence
         url = identity[1][:-len(BATTLES_PATH)] + '/api/mod/vehicle-catalog'
-        self._say('Sending %s vehicles for admin review...' % len(self._entries))
+        self._say('Sending %s vehicles for admin review...' % len(self._entries), progress=True)
         def answered(response):
             if not self.busy or sequence != self._sequence:
                 return
@@ -183,7 +184,7 @@ class Collector(object):
                     except (AttributeError, TypeError, ValueError):
                         delay = 3600.0
                 self._attempt += 1
-                self._say('Upload unavailable (HTTP %s); retrying in %s seconds.' % (code, int(delay)))
+                self._say('Upload unavailable (HTTP %s); retrying in %s seconds.' % (code, int(delay)), progress=True)
                 self._later(delay, self._send)
                 return
             reason = payload.get('error', 'invalid_response') if isinstance(payload, dict) else 'invalid_response'
@@ -196,7 +197,10 @@ class Collector(object):
             self.session.fetch(url, answered, headers={'X-Mod-Secret': identity[2], 'Content-Type': 'application/json'},
                                method='POST', post_data=self._body, timeout=30.0)
         except Exception:
-            self._fail()
+            # A fetch setup failure is transport-related, not a broken extraction.
+            # Feed it through the same bounded retry path as an unreachable server.
+            _logger.warning('could not initiate private catalogue delivery', exc_info=True)
+            answered(None)
 
     def _fail(self):
         _logger.warning('private catalogue collection failed; no partial catalogue is sent', exc_info=True)

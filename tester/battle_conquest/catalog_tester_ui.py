@@ -4,6 +4,8 @@ from battle_conquest.catalog_tester import ACTION, BUTTON
 
 
 def install(session, collector, page):
+    # Without the optional settings window, native notices are the only status UI.
+    collector.notify_progress = not page.available
     # Detach the bound callbacks while their identities still match the API's list.
     if page.available:
         page._unregister()

@@ -35,6 +35,8 @@ The status reports progress, completion or errors. A second click while busy
 cancels; double start calls cannot stack collectors. Account changes, unlinking,
 pause and session shutdown invalidate pending responses. Temporary failures retry
 up to three times in the same session; after restart you must click again.
+Without the optional settings window, garage notifications announce collection,
+sending and retry delays, without posting a message for every extraction slice.
 A partial extraction never uploads. A successful upload still needs admin review.
 Identical uploads are deduplicated by the server.
 
