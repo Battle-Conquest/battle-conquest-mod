@@ -102,3 +102,35 @@ Le ZIP devient téléchargeable depuis la
 Pour soumettre aussi le `.wotmod` à WGMods, suivre les
 [consignes WGMods](CONTRIBUTING.md#versions-and-releases) ; la publication GitHub
 ne vaut pas approbation par Wargaming.
+
+## Surveillance des mises à jour WoT
+
+Le workflow **WoT client watch** vérifie chaque jour à **7 h UTC** les versions
+publiées par WGMods et le miroir EU de `paths.xml`. Il retient la plus récente,
+signale tout désaccord ou source indisponible et compare cette version au dossier
+`mods/<version>/` du ZIP de la dernière release stable GitHub. Les brouillons et
+préversions sont exclus. Le numéro de version du mod et la cible inscrite dans
+les sources ne remplacent pas le contrôle du paquet réellement distribué.
+
+Si le paquet est en retard, une issue opérationnelle est créée **dans ce dépôt**,
+avec une checklist de release. Cette exception au suivi habituel dans le dépôt
+du site permet d'utiliser uniquement `github.token`, sans secret supplémentaire.
+Une seule issue est conservée par version WoT : le bot actualise uniquement sa
+section marquée, préserve les notes et cases utilisateur et ne publie aucun
+commentaire quotidien. Une issue fermée est rouverte si le paquet reste en retard.
+Après publication, fermer l'issue manuellement. Le bot ne génère ni ne publie de
+release ; les étapes de recette ci-dessus restent nécessaires.
+
+Une source suffit à comparer ; si les deux échouent, le contrôle échoue sans
+conclure que le paquet est à jour. Une release ou un ZIP absent, incorrect ou
+ambigu fait également échouer le contrôle. Le résumé de l'exécution expose le
+diagnostic. Le workflow peut être lancé manuellement depuis Actions ; il est
+désactivé sur les forks et utilise un runner Linux standard, sans artefact ni
+cache persistant.
+
+Vérification locale, en lecture seule (Python 3 et `gh` authentifié) :
+
+```bash
+python3 -B tools/client_watch.py --dry-run
+python3 -B -m unittest discover -s tools -p 'test_client_*.py'
+```
