@@ -48,7 +48,8 @@ def sync_issue(repo, live, report, title, suffix="", api=gh_json):
     candidates = [issue for page in pages for issue in page
                   if "pull_request" not in issue
                   and issue.get("user", {}).get("login") == "github-actions[bot]"
-                  and start in (issue.get("body") or "")]
+                  and (start in (issue.get("body") or "")
+                       or end in (issue.get("body") or ""))]
     if not candidates:
         return api(["--method", "POST", "repos/%s/issues" % repo, "--input", "-"],
                    {"title": title, "body": block + suffix})

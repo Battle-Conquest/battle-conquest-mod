@@ -107,12 +107,18 @@ class ClientIssueTests(unittest.TestCase):
         self.assertIn("POST", api.writes[-1][0])
 
     def test_damaged_managed_section_fails_without_writing(self):
-        api = FakeAPI()
-        self.sync(api)
-        api.issues[0]["body"] = api.issues[0]["body"].replace(":end -->", ":broken -->")
-        with self.assertRaises(ValueError):
-            self.sync(api, "New report")
-        self.assertEqual(len(api.writes), 1)
+        for marker in ("start", "end"):
+            with self.subTest(marker=marker):
+                api = FakeAPI()
+                self.sync(api)
+                api.issues[0]["body"] = api.issues[0]["body"].replace(
+                    ":%s -->" % marker, ":broken -->")
+                previous = api.issues[0]["body"]
+                with self.assertRaises(ValueError):
+                    self.sync(api, "New report")
+                self.assertEqual(len(api.issues), 1)
+                self.assertEqual(len(api.writes), 1)
+                self.assertEqual(api.issues[0]["body"], previous)
 
     def test_invalid_identity_is_rejected_before_api_calls(self):
         api = FakeAPI()
