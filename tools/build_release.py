@@ -44,7 +44,7 @@ MOD_ID = 'eu.battle-conquest'
 ARCHIVE = 'battle-conquest-mod'
 
 # The client the package is built for: its mods/ folder in the zip.
-GAME_VERSION = '2.4.1.0'
+GAME_VERSION = '2.4.1.1'
 NAME = 'Battle-Conquest'
 DESCRIPTION = 'Sends your battles to Battle-Conquest, for the tournaments and quests that score them.'
 

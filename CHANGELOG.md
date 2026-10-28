@@ -2,7 +2,7 @@
 
 ## 1.2.0
 
-Official release for World of Tanks EU **2.4.1.0**, following completed in-game acceptance.
+Official release repackaged for World of Tanks EU **2.4.1.1**. In-game acceptance was completed on 2.4.1.0; this update changes the installation folder only.
 
 ### Added
 
@@ -23,7 +23,7 @@ Official release for World of Tanks EU **2.4.1.0**, following completed in-game 
 
 1. Deploy the matching quest server, including [server PR #997](https://github.com/Battle-Conquest/Battle-Conquest/pull/997), and apply pending versioned migrations with `php scripts/migrate.php`. Keep `quest_sessions_tick` running. This mod release adds no server migration; quest access remains controlled by the server configuration.
 2. Fully close the game, remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Keep only one Battle-Conquest package installed.
-3. Extract `battle-conquest-mod_1.2.0.zip` into your World of Tanks directory, or place `eu.battle-conquest_1.2.0.wotmod` in `mods/2.4.1.0/`.
+3. Extract `battle-conquest-mod_1.2.0.zip` into your World of Tanks directory, or place `eu.battle-conquest_1.2.0.wotmod` in `mods/2.4.1.1/`.
 4. Start the game, confirm the account link and check that a completed battle reaches Battle-Conquest.
 
 Diagnostics remain optional and disabled by default; see [DIAGNOSTIC.md](DIAGNOSTIC.md). Do not share `link.json` or authentication secrets. GitHub publication does not imply WGMods approval.
