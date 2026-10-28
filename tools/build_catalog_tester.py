@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 
 import build_release as release
+from install_dev import find_python27
 
 TESTER = release.REPO / 'tester' / 'battle_conquest'
 
@@ -37,7 +38,8 @@ def main():
     args = parser.parse_args()
     if not release.VERSION.match(args.version) or not release.re.fullmatch(r'\d+(?:\.\d+){3}', args.game_version):
         raise SystemExit('expected --version x.y.z and --game-version a.b.c.d')
-    python = release.python27(args.python27)
+    # Verify the bytecode version before opening an existing release artifact.
+    python = find_python27(args.python27)
     release.DIST.mkdir(exist_ok=True)
     target = release.DIST / ('eu.battle-conquest-catalog-tester_%s.wotmod' % args.version)
     with tempfile.TemporaryDirectory() as scratch:
