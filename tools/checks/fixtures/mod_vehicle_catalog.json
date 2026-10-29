@@ -1,0 +1,62 @@
+{
+  "schema": 2,
+  "account": {
+    "id": 123,
+    "region": "eu"
+  },
+  "client": {
+    "version": "1.2.0",
+    "game_version": "v.2.4.1.0 #1"
+  },
+  "fingerprint": "0ab76ceeb646cb0956fe55d6cd50454434679a3f1a313a059af2495e10577fc2",
+  "vehicles": [
+    {
+      "tank_id": 1,
+      "name": "test:Vehicle_1",
+      "tags": [
+        "heavyTank"
+      ]
+    },
+    {
+      "tank_id": 2,
+      "name": "test:Vehicle_2",
+      "tags": [
+        "mediumTank",
+        "premium"
+      ]
+    },
+    {
+      "tank_id": 3,
+      "name": "test:Vehicle_3",
+      "tags": [
+        "mediumTank",
+        "special"
+      ]
+    },
+    {
+      "tank_id": 4,
+      "name": "test:Vehicle_4",
+      "tags": [
+        "collectorVehicle",
+        "lightTank"
+      ]
+    },
+    {
+      "tank_id": 5,
+      "name": "test:Vehicle_5",
+      "tags": [
+        "epic_battles",
+        "heavyTank"
+      ]
+    },
+    {
+      "tank_id": 6,
+      "name": "test:Vehicle_6",
+      "tags": [
+        "collectorVehicle",
+        "lightTank",
+        "premium"
+      ]
+    }
+  ]
+}

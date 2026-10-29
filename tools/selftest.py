@@ -26,6 +26,7 @@ from checks.battle_reports import (check_battle_report_arena_id, check_battle_re
                                    check_battle_report_tank)
 from checks.battle_feedback import check_battle_feedback, check_battle_feedback_refresh, check_garage_finished_selection, check_battle_feedback_identity_callbacks
 from checks.client import install_fake_client
+from checks.catalog_tester import check_catalog_tester
 from checks.common import REPO, check, render_stub
 from checks.quest_garage import check_quest_garage, check_quest_garage_age, check_quest_garage_panel, check_quest_garage_platoon
 from checks.quest_garage_input import check_quest_garage_input
@@ -121,6 +122,7 @@ def main():
         check('hook delegates to the original', delegates())
         check('watcher armed', bool(bigworld.pending))
 
+        check_catalog_tester()
         check_session_patches()
         check_battle_feedback()
         check_battle_feedback_refresh()
