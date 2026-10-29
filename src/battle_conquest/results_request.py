@@ -162,8 +162,9 @@ class Requests(object):
     """Battles the server announced, asked about one at a time."""
 
     def __init__(self, session, deliver, taking=None, garage=at_garage, cache=results_cache,
-                 limit=LIMIT, now=time.time):
+                 limit=LIMIT, now=time.time, context=None):
         self._session = session
+        self._context = context
         self._deliver = deliver
         # Whether anything at all is taking battle reports right now. Asked
         # once per battle rather than per mode: the mode an announcement
@@ -291,6 +292,8 @@ class Requests(object):
 
     def drain(self):
         """Ask about the next battle, if this is a moment that can."""
+        if not getattr(self._session, 'alive', True):
+            return
         self._clear_stale()
         if self._asking is not None or not self._pending or self._now() < self._retry_after:
             return
@@ -313,8 +316,15 @@ class Requests(object):
         self._attempts[arena_id] = self._attempts.get(arena_id, 0) + 1
         self._asking = arena_id
         self._asked_at = self._now()
+        origin = None
+        if self._context is not None:
+            try:
+                origin = dict(self._context())
+            except Exception:
+                # Diagnostic context must never cost the actual result request.
+                _logger.warning('could not snapshot request context; origin stays unknown')
         try:
-            cache.get(arena_id, self._answer(arena_id))
+            cache.get(arena_id, self._answer(arena_id, origin))
         except Exception:
             _logger.exception('could not ask for the results of battle %s', arena_id)
             self._asking = None
@@ -339,9 +349,13 @@ class Requests(object):
         # battles behind it have waited long enough to go first.
         self._give_up_or_retry(arena_id, front=False)
 
-    def _answer(self, arena_id):
+    def _answer(self, arena_id, origin=None):
 
         def answered(code=None, results=None):
+            # The game's cache callback cannot be cancelled when this load stops.
+            # An old answer must not write to the new load's queue/diagnostic.
+            if not getattr(self._session, 'alive', True):
+                return
             # Not `arena_id is self._asking`: a stale ask was let go of, and
             # its answer arriving late is still an answer worth keeping.
             if self._asking == arena_id:
@@ -354,7 +368,11 @@ class Requests(object):
                     # already in hand.
                     self._pending.remove(arena_id)
                 try:
-                    self._deliver(results, 'the client answering about battle %s' % arena_id)
+                    source = 'the client answering about battle %s' % arena_id
+                    if self._context is None:
+                        self._deliver(results, source)
+                    else:
+                        self._deliver(results, source, origin)
                 except Exception:
                     _logger.exception('could not capture the answer about battle %s', arena_id)
                 self.drain()
@@ -392,7 +410,7 @@ class Requests(object):
         self._pending.insert(0 if front else len(self._pending), arena_id)
 
 
-def install(session, deliver, taking=None, garage=at_garage, cache=results_cache):
-    requests = Requests(session, deliver, taking=taking, garage=garage, cache=cache)
+def install(session, deliver, taking=None, garage=at_garage, cache=results_cache, context=None):
+    requests = Requests(session, deliver, taking=taking, garage=garage, cache=cache, context=context)
     requests.install()
     return requests

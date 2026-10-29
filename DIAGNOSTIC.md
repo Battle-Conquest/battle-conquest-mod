@@ -156,3 +156,87 @@ extraites des observations réelles expurgées après validation en jeu, avant
 le lot 1. La recette complète et les résultats restent suivis dans
 [#953](https://github.com/Battle-Conquest/Battle-Conquest/issues/953) ;
 [#772](https://github.com/Battle-Conquest/Battle-Conquest/issues/772) reste ouverte.
+
+
+## Identité des résultats — première étape #964
+
+Cette étape prépare la correction multicomptes ; elle ne corrige pas encore les
+liaisons ou la file. **Mettre les envois en pause pour cette recette** : le
+chemin historique peut encore attribuer une réponse au compte connecté à sa
+réception. Aucun tag ni release publique n’est nécessaire.
+
+Construire le paquet de test pour WoT 2.4.1.1 :
+
+```bash
+python3 tools/build_release.py --version 0.0.964 --python27 /chemin/vers/python2.7
+python2.7 tools/release_check.py dist/eu.battle-conquest_0.0.964.wotmod
+```
+
+Installer le ZIP généré selon la procédure ci-dessus, avec un seul paquet du
+mod. Activer explicitement les deux options dans `diagnostics.json` :
+
+```json
+{"enabled": true, "identity_enabled": true}
+```
+
+Le nouveau bloc `identity` reste local dans les mêmes fichiers JSONL, avec les
+mêmes limites et rotation. Un échec ne bloque ni le jeu ni la capture normale.
+`identity_enabled` absent, `false`, `1` ou `"true"` ne l’active pas ; le commutateur
+principal `enabled` reste nécessaire. La désactivation conserve les fichiers.
+
+- `status: unverified` rappelle qu’aucun propriétaire n’est certifié.
+- `contexts.request` est le compte/région lu au départ de la demande au cache,
+  conservé dans sa callback, même après expiration. `contexts.receipt` est le
+  compte lisible dans le client à réception ; il peut être inconnu. Aucun des
+  deux ne constitue à lui seul le propriétaire du résultat. Une arrivée par un
+  hook sans demande du mod garde un contexte de demande `null`.
+- Le champ historique `account` de l’observation reste le dernier compte connu
+  du suivi du mod ; ne pas le confondre avec ces contextes ou avec une preuve
+  de propriété. Avec cette option, une observation peut aussi avoir `account: null`.
+- `sections` contient les formes de `personal`, `players` et `avatars` présents.
+  Les clés de collection et toutes les valeurs scalaires deviennent des
+  références `refN`. Un entier et sa chaîne décimale ont la même référence.
+  Deux chemins portant la même référence désignent une correspondance candidate.
+  Les références sont recréées à chaque observation, sans corrélation historique.
+- Seuls les noms techniques candidats explicitement autorisés sont lisibles
+  (`accountDBID`, `databaseID`, `avatarID`, `name`, etc.). Ces noms ne prouvent pas
+  leur sens réel. Les clés inconnues restent opaques ; les champs de secrets
+  sont exclus. Les objets client ne sont jamais sérialisés ou convertis en texte.
+  Aucune liste d’identifiants ou de pseudos de participants n’est conservée.
+- Le contexte de chaque compte utilisateur conserve son identifiant en clair,
+  sa région et la référence correspondante pour comparer les chemins. Les
+  pseudos des résultats restent opaques : après un changement de pseudo,
+  vérifier à nouveau la correspondance entre l’identifiant WG et le contexte,
+  sans comparer les numéros `refN` entre observations.
+- Chaque entrée personnelle reste distincte, y compris `avatar` et multichars.
+  Les marqueurs `omitted` et `truncated` signalent les limites (128 éléments,
+  six niveaux et budget global de 4 096 valeurs). Les champs candidats
+  d’identité sont examinés avant les autres champs d’un résultat, pour éviter
+  qu’une longue liste de mesures les masque à la limite des 128 éléments.
+  Une identité absente,
+  contradictoire ou plusieurs candidats restent des observations, sans sélection.
+- Les réponses tardives des réparations #954/#956 peuvent être observées après
+  changement de compte, mais restent exclues de la capture normale comme avant.
+
+Recette à effectuer avec les envois en pause :
+
+| Parcours | Observation attendue |
+|---|---|
+| Diagnostic désactivé, puis identité activée | Aucun bloc `identity` sans double activation ; captures locales avec activation |
+| Bataille sous A, réponse sous A | Chemins candidats reliant les résultats personnels au compte A ; vérifier où se trouve son pseudo |
+| Demande sous A, connexion de B avant réponse | Contexte de demande A, réception B ou inconnue ; aucune certification automatique |
+| Demande expirée, puis réponse tardive | Le contexte initial reste A même si une autre demande a commencé |
+| Arrêt ou rechargement du mod avant la réponse | Une réponse de l’ancienne session est ignorée, sans capture, écriture diagnostic ni nouvelle demande au cache |
+| A → B → A, puis redémarrage | Contextes distinguables ; observations conservées ; aucune déduction depuis l’ancien `link.json` |
+| Résultats ouverts, automatiques et réouverts | Comparer les chemins et références, sans additionner les observations |
+| Aléatoire, classé, Assaut, Bastion, Ligne de front et autres modes disponibles | Identifier pour chaque mode le chemin WG, le champ pseudo et le lien avec `personal` ; noter les modes indisponibles |
+| Résultat multichars | Tous les résultats personnels renvoient au même propriétaire vérifié, sans choisir un participant arbitraire |
+| Identité absente, contradictoire, pseudo changé | Absence/contradiction explicite ; attribution par identifiant/région, jamais par pseudo |
+| Erreur disque, limites, réseau coupé | Erreurs contenues et observations bornées ; aucune donnée diagnostic envoyée |
+
+Copier les observations utiles avant rotation, expurger les identifiants du
+contexte utilisateur et de l’arène avant partage, et ne jamais joindre
+`link.json`. Consigner les correspondances réellement constatées et les modes
+validés dans #964 sans cocher ses cases. Les fixtures synthétiques ne valident
+aucun champ WoT. **Point d’arrêt : validation en jeu avant extraction du
+propriétaire, liaisons par compte, migration et isolation de la file.**

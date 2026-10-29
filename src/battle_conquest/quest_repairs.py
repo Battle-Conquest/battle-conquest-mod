@@ -18,8 +18,10 @@ _logger = logging.getLogger('battle_conquest.quest_repairs')
 class Repairs(object):
 
     def __init__(self, session, account, places, deliver, garage=at_garage,
-                 cache=results_cache, now=time.time):
+                 cache=results_cache, now=time.time, context=None, observe_stale=None):
         self._session = session
+        self._context = context
+        self._observe_stale = observe_stale
         self._account = account
         self._places = places
         self._deliver = deliver
@@ -63,11 +65,17 @@ class Repairs(object):
             def active():
                 return self.identity() == key
 
-            def deliver(results, source):
+            def deliver(results, source, origin=None):
                 if active():
-                    self._deliver(results, source)
+                    if self._context is None:
+                        self._deliver(results, source)
+                    else:
+                        self._deliver(results, source, origin)
+                elif self._observe_stale is not None:
+                    self._observe_stale(results, source, origin)
 
-            self._requests = Requests(self._session, deliver, garage=active, cache=self._cache)
+            self._requests = Requests(self._session, deliver, garage=active, cache=self._cache,
+                                      context=self._context)
         # Advancing pages while a slow cache is full would make Requests drop
         # untried arenas which _seen would then refuse for the rest of this load.
         if self._requests.busy():
@@ -112,7 +120,7 @@ class Repairs(object):
                             headers={'X-Mod-Secret': key[2]}, timeout=config.API_TIMEOUT)
 
 
-def install(session, account, places, deliver):
-    repairs = Repairs(session, account, places, deliver)
+def install(session, account, places, deliver, context=None, observe_stale=None):
+    repairs = Repairs(session, account, places, deliver, context=context, observe_stale=observe_stale)
     repairs.install()
     return repairs

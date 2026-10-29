@@ -222,7 +222,7 @@ class BattleReports(object):
         # how the right one gets found.
         self._on_posted(args[-1] if args else None, service_hooks.ARRIVAL)
 
-    def arrived(self, results, source='unknown'):
+    def arrived(self, results, source='unknown', request_context=None):
         """Take results the mod asked for, as though the client had posted them.
 
         `results_request.py` reaches this: it asks the server for a battle the
@@ -231,22 +231,29 @@ class BattleReports(object):
         can reach the queue and the mode and account checks cannot be skipped
         by whichever way it came.
         """
-        self._on_posted(results, source)
+        self._on_posted(results, source, request_context)
 
-    def _on_posted(self, posted=None, source='unknown'):
+    def _on_posted(self, posted=None, source='unknown', request_context=None):
         # Said out loud, once per battle: without it, a capture that never ran
         # and a battle that was never played read the same in game.log, and
         # that ambiguity has already cost an evening.
         _logger.info('battle results arrived by %s', source)
         try:
             results = raw_results(posted, on_miss=describe)
-            try:
-                self._diagnostic.capture(results, source, self.account())
-            except Exception:
-                _logger.warning('local diagnostic failed; normal capture continues')
+            self.observe(results, source, request_context)
             self.capture(results)
         except Exception:
             _logger.exception('could not capture a battle')
+
+    def observe(self, results, source, request_context=None):
+        """Observe even a stale repair answer without queueing it for another login."""
+        try:
+            if request_context is None:
+                self._diagnostic.capture(results, source, self.account())
+            else:
+                self._diagnostic.capture(results, source, self.account(), request_context)
+        except Exception:
+            _logger.warning('local diagnostic failed; normal capture continues')
 
     def wanted(self, mode):
         """Whether anything is waiting for a battle of this mode.

@@ -16,6 +16,7 @@ from battle_conquest import (account, battle_reports, battle_feedback, destinati
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
 from battle_conquest.results_diagnostic import Diagnostic
+from battle_conquest.results_identity import request_context
 from battle_conquest.runtime.session import Session
 
 VERSION = '1.0.0'
@@ -46,9 +47,11 @@ def start(generation=0):
         # After the capture, whose door it delivers through: this asks the
         # server for the battles the player never opened, which is the only way
         # they are captured at all.
-        requests = results_request.install(_session, reports.arrived, reports.anything_wanted)
+        requests = results_request.install(_session, reports.arrived, reports.anything_wanted,
+                                            context=request_context)
         sender = report_sender.install(_session, player, places, VERSION, queue)
-        quest_repairs.install(_session, player, places, reports.arrived)
+        quest_repairs.install(_session, player, places, reports.arrived,
+                              context=request_context, observe_stale=reports.observe)
         garage = quest_garage_view.install(_session, player, places, sender)
         battle_feedback.Feedback(_session, garage, reports, sender, requests)
         page = settings_window.install(_session, site, places, sender)

@@ -13,6 +13,7 @@ import time
 
 from battle_conquest import config, modes
 from battle_conquest.battle_report import METRICS, arena_id_of
+from battle_conquest.results_dict import raw_results
 
 _logger = logging.getLogger('battle_conquest.results_diagnostic')
 
@@ -84,7 +85,7 @@ def _personal(value, budget):
     }
 
 
-def observation(results, source, account, version, now=time.time):
+def observation(results, source, account, version, now=time.time, allow_unknown_account=False):
     """Project only common timing/mode and the player's personal measurements."""
     if not isinstance(results, dict):
         return None
@@ -93,7 +94,7 @@ def observation(results, source, account, version, now=time.time):
     if not isinstance(common, dict) or not isinstance(personal, dict):
         return None
     arena = arena_id_of(results) or arena_id_of(common)
-    if arena is None or not account or not str(account).isdigit():
+    if arena is None or (not allow_unknown_account and (not account or not str(account).isdigit())):
         return None
     budget = [4096]
     vehicles = []
@@ -112,7 +113,7 @@ def observation(results, source, account, version, now=time.time):
         'mod_version': version,
         'observed_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(now())),
         'source': source,
-        'account': str(account),
+        'account': str(account) if account else None,
         'region': config.REGION,
         'arena_unique_id': arena,
         'mode_as_current_mod': modes.mode_of(common.get('bonusType')),
@@ -132,28 +133,39 @@ class Diagnostic(object):
         self._limit = limit
         self._last_state = None
 
-    def enabled(self):
-        # Re-read so the player can disable it without a restart or menu API.
+    def _options(self):
         try:
             with open(self._settings, 'rb') as handle:
                 raw = handle.read(1025)
             value = json.loads(raw) if len(raw) <= 1024 else None
-            enabled = isinstance(value, dict) and value.get('enabled') is True
+            return value if isinstance(value, dict) else {}
         except (IOError, OSError, ValueError):
-            enabled = False
+            return {}
+
+    def enabled(self):
+        # Re-read so the player can disable it without a restart or menu API.
+        enabled = self._options().get('enabled') is True
         if enabled != self._last_state:
             _logger.info('local results diagnostic %s', 'enabled' if enabled else 'disabled')
             self._last_state = enabled
         return enabled
 
-    def capture(self, results, source, account):
+    def capture(self, results, source, account, request_context=None):
         if not self.enabled():
             return False
         try:
-            record = observation(results, source, account, self._version)
+            identity_enabled = self._options().get('identity_enabled') is True
+            # Stale repair answers bypass BattleReports._on_posted's unwrap.
+            results = raw_results(results)
+            record = observation(results, source, account, self._version,
+                                 allow_unknown_account=identity_enabled)
             if record is None:
                 _logger.warning('diagnostic skipped: no readable personal results or account')
                 return False
+            if identity_enabled:
+                from battle_conquest.results_identity import observation as identity_observation
+                from battle_conquest.results_identity import request_context as current_context
+                record['identity'] = identity_observation(results, request_context, current_context())
             line = json.dumps(record, sort_keys=True, allow_nan=False) + '\n'
             if len(line) > min(MAX_RECORD_BYTES, self._limit):
                 _logger.warning('diagnostic skipped: observation exceeds size limit')
