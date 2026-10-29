@@ -309,6 +309,11 @@ class SiteLink(object):
                 return
             label, modes = me
             if legacy is not None:
+                if self._destinations.legacy_unlinked(owner):
+                    self._destinations.legacy = None
+                    self._destinations.save()
+                    self._changed()
+                    return
                 existing = self._destinations.for_owner(owner)
                 if existing is None:
                     self._destinations.remember(label, modes, secret,

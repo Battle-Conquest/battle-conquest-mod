@@ -166,6 +166,7 @@ class Destinations(object):
         self._suspensions = []
         self._foreign = []
         self._foreign_legacy = []
+        self._legacy_unlinked = []
         self.legacy = None
         self._writable = True
         self._read()
@@ -200,6 +201,10 @@ class Destinations(object):
                 self._foreign_legacy.append(payload)
             else:
                 self.legacy = read(payload, self._known, self.url)
+            return
+        self._legacy_unlinked = payload.get('legacy_unlinked', [])
+        if not isinstance(self._legacy_unlinked, list):
+            self._writable = False
             return
         entries = payload.get('links')
         if not isinstance(entries, list):
@@ -319,11 +324,22 @@ class Destinations(object):
                     except Exception:
                         _logger.exception('a link suspension listener failed')
 
+    def _legacy_marker(self, owner):
+        return {'url': self.url, 'owner': {'region': owner[0], 'id': int(owner[1])}}
+
+    def legacy_unlinked(self, owner):
+        return self._legacy_marker(owner) in self._legacy_unlinked
+
     def forget(self, owner=None):
         self._check_writable()
         identity = tuple(owner) if owner is not None else self.identity()
         if identity not in self._links:
             return False
+        if self.legacy is not None and not self.legacy_unlinked(identity):
+            # An in-flight /me can still reveal that the old key belongs to
+            # this owner. Persist the explicit unlink so it cannot restore it,
+            # including after restart, without discarding another owner's key.
+            self._legacy_unlinked.append(self._legacy_marker(identity))
         del self._links[identity]
         self.save()
         return True
@@ -343,7 +359,8 @@ class Destinations(object):
             entries.append(entry)
         save_json(self._store, {'schema': 2, 'links': entries,
                                'legacy': self.legacy.as_dict() if self.legacy else None,
-                               'legacy_links': self._foreign_legacy})
+                               'legacy_links': self._foreign_legacy,
+                               'legacy_unlinked': self._legacy_unlinked})
 
 
 def install(session, known_modes, store=None, account=None):
