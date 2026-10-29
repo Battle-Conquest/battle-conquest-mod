@@ -303,10 +303,16 @@ class Requests(object):
         if self._context is not None:
             eligible = next((key for key in self._pending
                              if key[:2] == (origin.get('region'), origin.get('id'))), None)
+            if eligible is None and origin.get('id') is not None:
+                # Service messages may arrive while the avatar exposes no WG ID.
+                # Select a cache login only when asking; the result still has
+                # to prove its own owner against this request's actual origin.
+                eligible = next((key for key in self._pending
+                                 if key[1] is None and key[0] in (None, origin.get('region'))), None)
             if eligible is None:
                 return
             self._pending.remove(eligible)
-            arena_id = eligible
+            arena_id = (origin.get('region'), origin.get('id'), self._arena(eligible))
         else:
             arena_id = self._pending.pop(0)
         _logger.info('asking the server about battle %s', arena_id)

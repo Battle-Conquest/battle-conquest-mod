@@ -139,7 +139,7 @@ def template(state, templates=None):
 class State(object):
     """What the page shows, compared as a whole to know when to redraw it."""
 
-    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u'', isolated=0):
+    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u'', isolated=0, scope=None):
         self.linked = linked
         self.running = running
         self.modes = tuple(modes)
@@ -149,9 +149,10 @@ class State(object):
         self.isolated = isolated
         self.update = update
         self.language = locale()
+        self.scope = scope
 
     def key(self):
-        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language, self.isolated)
+        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language, self.isolated, self.scope)
 
     def __eq__(self, other):
         return isinstance(other, State) and self.key() == other.key()
@@ -175,6 +176,9 @@ class SettingsWindow(object):
         self._preview_enabled = None
         self._publishing = False
         self._live_api = None
+        self._live_handler = None
+        self._window_handler = self._button_handler = None
+        self._scope_token = object()
 
     @property
     def available(self):
@@ -202,12 +206,25 @@ class SettingsWindow(object):
         self._session.repeat(_CHECK_SECONDS, self._check_state)
         _logger.info('registered in modsSettingsApi as %s', LINKAGE)
 
+    def _scope(self):
+        current = self._destinations.current
+        return (self._destinations.identity(), current.url if current else None,
+                current.secret if current else None)
+
+    def _scoped(self, callback):
+        scope, token = self._state.scope, self._scope_token
+        def active(*args, **kwargs):
+            if (self._alive and token is self._scope_token
+                    and self._scope() == scope):
+                return callback(*args, **kwargs)
+        return active
+
     def state(self):
         current = self._destinations.current
         linked = self._destinations.linked
         sender = self._sender
         blocked = current is not None and current.blocked
-        return State(linked=linked,
+        return State(linked=linked, scope=self._scope(),
                      running=self._site.running,
                      modes=current.modes if current is not None else (),
                      # Ticked while unlinked: the box is about sending, and an
@@ -228,6 +245,9 @@ class SettingsWindow(object):
         state = self.state()
         if state == self._state:
             return
+        if self._state is not None and state.scope != self._state.scope:
+            self._preview_enabled = None
+            self._scope_token = object()
         self._state = state
         # A new template replaces the page; its callbacks are added again, so
         # the ones already on the API's events come off first.
@@ -242,6 +262,9 @@ class SettingsWindow(object):
     def _redraw(self):
         self._redraw_pending = False
         if not self._alive:
+            return
+        if self._state.scope != self._scope():
+            self._check_state()
             return
         reload_template = getattr(self._instance(), 'reloadModTemplate', None)
         if callable(reload_template):
@@ -261,11 +284,20 @@ class SettingsWindow(object):
                 and hasattr(closed, '__iadd__')):
             return
         self._live_api = api
-        api.registerLiveSettingsChange(LINKAGE, self._on_live_window)
+        self._register_live_settings()
         self._session.subscribe(closed, self._on_window_closed)
 
+    def _register_live_settings(self):
+        if self._live_api is None:
+            return
+        if self._live_handler is not None:
+            self._live_api.unregisterLiveSettingsChange(LINKAGE, self._live_handler)
+        self._live_handler = self._scoped(self._on_live_window)
+        self._live_api.registerLiveSettingsChange(LINKAGE, self._live_handler)
+
     def _on_live_window(self, linkage, raw):
-        if self._alive and linkage == LINKAGE and isinstance(raw, dict):
+        if (self._alive and self._state.scope == self._scope()
+                and linkage == LINKAGE and isinstance(raw, dict)):
             enabled = raw.get('enabled')
             if isinstance(enabled, bool):
                 self._preview_enabled = enabled
@@ -274,7 +306,11 @@ class SettingsWindow(object):
         self._preview_enabled = None
 
     def _register(self):
-        self._api.setModTemplate(LINKAGE, template(self._state, self._templates), self._on_window, self._on_button)
+        self._window_handler = self._scoped(self._on_window)
+        self._button_handler = self._scoped(self._on_button)
+        self._api.setModTemplate(LINKAGE, template(self._state, self._templates),
+                                 self._window_handler, self._button_handler)
+        self._register_live_settings()
         # The API keeps its own copy of every value and sends it back as the
         # player's choice, so it is set to the truth first.
         self._publishing = True
@@ -284,7 +320,8 @@ class SettingsWindow(object):
             self._publishing = False
 
     def _on_window(self, linkage, raw):
-        if self._publishing or not self._alive or linkage != LINKAGE or not isinstance(raw, dict):
+        if (self._publishing or not self._alive or linkage != LINKAGE or not isinstance(raw, dict)
+                or self._state.scope != self._scope()):
             return
         enabled = raw.get('enabled')
         if isinstance(enabled, bool):
@@ -294,7 +331,7 @@ class SettingsWindow(object):
             self._check_state()
 
     def _on_button(self, linkage, var_name, value=None):
-        if not self._alive or linkage != LINKAGE:
+        if not self._alive or linkage != LINKAGE or self._state.scope != self._scope():
             return
         if var_name == LINK_VAR:
             self._site.start()
@@ -311,15 +348,17 @@ class SettingsWindow(object):
         self._alive = False
         if self._live_api is not None:
             try:
-                self._live_api.unregisterLiveSettingsChange(LINKAGE, self._on_live_window)
+                self._live_api.unregisterLiveSettingsChange(LINKAGE, self._live_handler)
             except Exception:
                 _logger.debug('could not unregister live settings', exc_info=True)
         self._unregister()
 
     def _unregister(self):
         instance = self._instance()
-        for name, handler in (('onSettingsChanged', self._on_window), ('onButtonClicked', self._on_button)):
+        for name, handler in (('onSettingsChanged', self._window_handler), ('onButtonClicked', self._button_handler)):
             event = getattr(instance, name, None)
+            if handler is None:
+                continue
             try:
                 event -= handler
             except Exception:

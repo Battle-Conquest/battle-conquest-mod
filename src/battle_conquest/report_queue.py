@@ -163,7 +163,7 @@ class Queue(object):
             return
         for report in self._reports:
             arena = report.get('arena_unique_id')
-            if arena not in taken or report_owner(report) != identity:
+            if report_owner(report) != identity or arena not in taken:
                 continue
             # This acknowledgement may wait behind other batches. Preserve
             # only a known acceptance as permission to send new fields later.
@@ -206,7 +206,7 @@ class Queue(object):
         taken = set(arena_ids)
         identity = (region or config.REGION, str(account))
         self._reports = [r for r in self._reports
-                         if r.get('arena_unique_id') not in taken or report_owner(r) != identity]
+                         if report_owner(r) != identity or r.get('arena_unique_id') not in taken]
         self.save()
 
     def save(self):

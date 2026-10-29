@@ -277,6 +277,8 @@ class SiteLink(object):
     def verify(self):
         """Verify an owned key, or migrate the legacy key using the site's owner."""
         legacy = self._destinations.legacy
+        if legacy is not None and not legacy.secret:
+            legacy = None
         destination = legacy or self._destinations.current
         if destination is None or not destination.secret or self._attempt is not None:
             return
