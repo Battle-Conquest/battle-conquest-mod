@@ -215,14 +215,15 @@ def check_diagnostic_capture_integration():
         reports._wrap_post(type(service).postResult)(service, results())
         expected = report_of(results(), constants=Bonus)
         expected['account'] = ACCOUNT
+        expected['owner'] = {'id': int(ACCOUNT), 'region': 'eu'}
         check('all arrival paths observe results and historical reports remain identical',
               len(_read(store)) == 4 and queue.all() == [expected])
         check('diagnostic fields never enter persisted reports or the wire metrics',
               'diagnostic' not in json.dumps(queue.all()) and 'credits' not in json.dumps(queue.all()))
         player.account = None
         reports.arrived(results(arenaUniqueID=9))
-        check('missing account captures neither diagnostic nor report',
-              len(_read(store)) == 4 and queue.all() == [expected])
+        check('unknown login skips legacy diagnostic but preserves a result-owned report',
+              len(_read(store)) == 4 and len(queue.all()) == 2 and queue.all()[-1]['account'] == ACCOUNT)
 
         class Broken(object):
             def capture(self, *args):
@@ -232,7 +233,7 @@ def check_diagnostic_capture_integration():
         reports._diagnostic = Broken()
         reports.arrived(results(arenaUniqueID=10))
         check('even an unexpected diagnostic exception cannot block the normal capture',
-              len(queue.all()) == 2 and queue.all()[-1]['arena_unique_id'] == '10')
+              len(queue.all()) == 3 and queue.all()[-1]['arena_unique_id'] == '10')
     finally:
         session.close()
         shutil.rmtree(root)

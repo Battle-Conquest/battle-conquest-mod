@@ -5,6 +5,7 @@ import os
 import tempfile
 
 from checks.battle_fixtures import Bonus
+from checks.battle_fixtures import owned
 from checks.common import REPO, check
 
 
@@ -86,8 +87,8 @@ def check_quest_details():
           json.loads(header()) == capabilities() and 'premium' not in capabilities()['verified_scenarios'])
     queue = Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json'))
     first = {'arena_unique_id': '1', 'account': '1', 'metrics': {'xp': 10}, 'quest_details': {'metrics': {'shots': 0}}}
-    queue.add(first)
-    queue.add(dict(first, metrics={'xp': 999}, quest_details={'metrics': {'shots': 9, 'hits': 4}}))
+    queue.add(owned(first))
+    queue.add(owned(dict(first, metrics={'xp': 999}, quest_details={'metrics': {'shots': 9, 'hits': 4}})))
     stored = Queue(store=queue._store).all()[0]
     check('richer arrivals persist only missing details, historical counters intact',
           stored['metrics']['xp'] == 10 and stored['quest_details']['metrics'] == {'shots': 0, 'hits': 4})
@@ -123,7 +124,7 @@ def check_quest_details():
     queue = _queue(count=1)
     session, sender = _sender(queue)
     sender.drain()
-    queue.add(dict(queue.all()[0], quest_details={'metrics': {'hits': 4}}))
+    queue.add(owned(dict(queue.all()[0], quest_details={'metrics': {'hits': 4}})))
     _answer(session, 200, {'accepted': 1, 'duplicates': 0, 'rejected': 0,
                           'results': [{'index': 0, 'status': 'accepted'}]})
     check('details arriving during a request stay queued after acceptance', len(queue.all()) == 1)
@@ -134,12 +135,12 @@ def check_quest_details():
     queue = _queue(count=1)
     session, sender = _sender(queue)
     sender.drain()
-    queue.add(dict(queue.all()[0], quest_details={'metrics': {'hits': 4}}))
+    queue.add(owned(dict(queue.all()[0], quest_details={'metrics': {'hits': 4}})))
     _answer(session, 200, {'results': [{'index': 0, 'status': 'rejected'}]})
     check('late details never retry a rejected report', queue.all() == [])
     queue = _queue(count=1)
     from checks.report_sender import OTHER_ACCOUNT, HERE
-    queue.add(dict(queue.all()[0], account=OTHER_ACCOUNT))
+    queue.add(owned(dict(queue.all()[0], account=OTHER_ACCOUNT)))
     session, sender = _sender(queue)
     sender.drain()
     _answer(session, 200, _took(1))

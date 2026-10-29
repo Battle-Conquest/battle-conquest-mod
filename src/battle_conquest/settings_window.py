@@ -126,6 +126,8 @@ def template(state, templates=None):
         _heading(templates, tr('Sending')),
         templates.createLabel(state.last),
         templates.createLabel(waiting_label(state.waiting)),
+        templates.createLabel(tr('Reports isolated: %d. See game.log.') % state.isolated)
+        if state.isolated else templates.createEmpty(0),
         templates.createEmpty(_SPACER),
         _heading(templates, tr('Mod updates')),
         templates.createLabel(state.update),
@@ -137,18 +139,19 @@ def template(state, templates=None):
 class State(object):
     """What the page shows, compared as a whole to know when to redraw it."""
 
-    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u''):
+    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u'', isolated=0):
         self.linked = linked
         self.running = running
         self.modes = tuple(modes)
         self.enabled = enabled
         self.last = last or last_sent_label(None, None)
         self.waiting = waiting
+        self.isolated = isolated
         self.update = update
         self.language = locale()
 
     def key(self):
-        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language)
+        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language, self.isolated)
 
     def __eq__(self, other):
         return isinstance(other, State) and self.key() == other.key()
@@ -203,6 +206,7 @@ class SettingsWindow(object):
         current = self._destinations.current
         linked = self._destinations.linked
         sender = self._sender
+        blocked = current is not None and current.blocked
         return State(linked=linked,
                      running=self._site.running,
                      modes=current.modes if current is not None else (),
@@ -210,8 +214,10 @@ class SettingsWindow(object):
                      # unticked box on a page saying "not linked" reads as the
                      # reason nothing is sent.
                      enabled=self._destinations.enabled if linked else True,
-                     last=last_sent_label(getattr(sender, 'last_sent', None),
-                                          getattr(sender, 'last_result', None)),
+                     last=(tr('Link suspended: link this account again. Reports retained.') if blocked
+                           else last_sent_label(getattr(sender, 'last_sent', None),
+                                                getattr(sender, 'last_result', None))),
+                     isolated=sender._queue.isolated() if sender is not None and hasattr(sender, '_queue') else 0,
                      waiting=sender.waiting() if sender is not None else 0,
                      update=mod_updates.text(getattr(self._site, 'mod_update', None),
                                              getattr(self._site, 'version', '')))

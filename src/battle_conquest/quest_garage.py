@@ -107,7 +107,7 @@ class Garage(object):
     def identity(self):
         current = self.places.current
         account = getattr(self.account, 'account', None)
-        if (account_number(account) is None or current is None or not current.enabled
+        if (account_number(account) is None or current is None or current.blocked or not current.enabled
                 or not current.secret or current.url != battles_url()):
             return None
         return (account, current.url, current.secret)

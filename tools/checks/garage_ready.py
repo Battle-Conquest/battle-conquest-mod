@@ -5,6 +5,7 @@ import sys
 import tempfile
 import types
 
+from checks.battle_fixtures import owned
 from checks.common import check
 from checks.report_sender import _Session, _places, _destination, _queue, _answer, _took
 from checks.report_sender import _Event, _Account
@@ -170,8 +171,8 @@ def check_sender_after_capture():
         check('returning before the result arrives sends no empty HTTP batch', not session.sent)
         interval, tick = session.periodic[0]
         check('the local queue is checked within five seconds after a late capture', interval <= 5)
-        queue.add({'arena_unique_id': '123', 'account': ACCOUNT, 'mode': 'ranked',
-                   'finished_at': '2026-10-25T16:00:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}})
+        queue.add(owned({'arena_unique_id': '123', 'account': ACCOUNT, 'mode': 'ranked',
+                   'finished_at': '2026-10-25T16:00:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}}))
         tick()
         check('a result arriving after the garage event leaves on that next short tick', len(session.sent) == 1)
         tick()
@@ -189,8 +190,8 @@ def check_sender_after_capture():
         fetch = session.fetch
         def broken_fetch(*args, **kwargs):
             raise RuntimeError('transport failed before installing a callback')
-        queue.add({'arena_unique_id': '124', 'account': ACCOUNT, 'mode': 'ranked',
-                   'finished_at': '2026-10-25T16:01:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}})
+        queue.add(owned({'arena_unique_id': '124', 'account': ACCOUNT, 'mode': 'ranked',
+                   'finished_at': '2026-10-25T16:01:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}}))
         session.fetch = broken_fetch
         raised = False
         try:

@@ -80,6 +80,7 @@ later is free, not on the frame the results arrive on.
 import logging
 
 from battle_conquest import service_hooks
+from battle_conquest.battle_owner import owner_of, owner_name
 from battle_conquest.battle_report import missing_metrics, own_vehicles, report_of, why_not
 from battle_conquest.report_queue import Queue
 from battle_conquest.results_dict import describe, raw_results
@@ -241,7 +242,7 @@ class BattleReports(object):
         try:
             results = raw_results(posted, on_miss=describe)
             self.observe(results, source, request_context)
-            self.capture(results)
+            self.capture(results, request_context=request_context)
         except Exception:
             _logger.exception('could not capture a battle')
 
@@ -280,20 +281,10 @@ class BattleReports(object):
         return bool(self._destinations.modes())
 
     def account(self):
-        """The Wargaming account these battles belong to, as a string, or None.
-
-        Read from `account.py`, which follows the account the client is logged
-        in with and holds on to it through a battle, where the avatar carries no
-        database id.
-
-        Stamped on the report at capture rather than read again when it is
-        sent, because the two moments are not the same one: a queue survives
-        the client being closed, and a battle credited to whoever happens to be
-        logged in the next evening is a battle credited to the wrong player.
-        """
+        """Last login for diagnostic context only, never a result's owner."""
         return getattr(self._account, 'account', None)
 
-    def capture(self, results, constants=None):
+    def capture(self, results, constants=None, request_context=None):
         """Queue a battle's results, and say whether anything was queued."""
         if results is None:
             return False
@@ -307,21 +298,29 @@ class BattleReports(object):
                             why_not(results),
                             ', '.join(sorted(str(key) for key in results)) or 'none')
             return False
-        # Asked after the report is built, because the answer depends on the
-        # mode, and cheap enough: a battle nobody is waiting for is not kept.
-        # Keeping it "just in case" would be a copy of the player's play history
-        # sitting on their disk for no one.
-        if not self.wanted(report['mode']):
+        if request_context is not None:
+            report['request_owner'] = dict(request_context) if isinstance(request_context, dict) else {}
+        owner, reason = owner_of(results, request_context)
+        if owner is None:
+            report['quarantine'] = reason
+            self._queue.add(report)
+            _logger.warning('battle %s isolated: %s', report['arena_unique_id'], reason)
             return False
-        account = self.account()
-        if account is None:
-            # Not queued: a report naming nobody cannot be attributed by any
-            # destination, so it would sit on disk until the queue dropped it.
-            # In practice unreachable -- the account is kept through a battle --
-            # which is exactly why it must not be guessed at.
-            _logger.warning('a battle arrived with no account logged in, not captured')
+        report['owner'] = owner
+        report['account'] = str(owner['id'])
+        name = owner_name(results, owner)
+        if name is not None:
+            report['owner_name'] = name
+        if self._destinations is None:
             return False
-        report['account'] = account
+        lookup = getattr(self._destinations, 'for_owner', None)
+        if lookup is not None:
+            destination = lookup((owner['region'], str(owner['id'])))
+            wanted = destination is not None and destination.wants(report['mode'])
+        else:
+            wanted = self.wanted(report['mode'])
+        if not wanted:
+            return False
         if not self._queue.add(report):
             return False
         for callback in list(self._listeners):

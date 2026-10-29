@@ -1,40 +1,9 @@
-"""The results of a battle, asked for rather than waited on.
+"""Ask the client cache for results, using owner-scoped pending requests.
 
-Why this exists
----------------
-A 2.4 client does not hold a battle's numbers until something asks the server
-for them. `battle_reports.py` sits on every arrival this client offers and
-still captures nothing until the player opens the results screen; five ways in
-were tried and timed, and that module says so. This is the ask it was missing.
-
-Two things make it possible, and both were read out of the client's own sources
-rather than guessed at:
-
-  - the server announces a finished battle in the service channel, the message
-    the notification centre shows, and that announcement carries the
-    `arenaUniqueID`. It arrives whether anyone looks or not, which is what the
-    capture never had: an arena id before the player asks for anything.
-  - `BigWorld.player().battleResultsCache.get(arenaUniqueID, callback)` asks
-    the server for that battle, and answers the results in the shape the
-    capture already reads, keys and all. It is the same call the client makes
-    while building the results screen, so nothing is asked for here that a
-    player cannot ask for by opening it.
-
-What this deliberately does not do
-----------------------------------
-It does not read the `.dat` files the cache writes beside its answers. The
-cache empties that folder when it is built, so such a file is a copy of
-something already delivered rather than a place a battle can be recovered
-from. Mods that read the folder are reading the client's scratch paper.
-
-The one thing to watch in game
-------------------------------
-A successful answer makes the client acknowledge the battle to the server. The
-client does that whenever it shows results, so the acknowledgement itself is
-the normal course of events -- but it has never been sent *before* the player
-looked. If it turns out to cost them their own results notification, the way
-out is to stop going through the cache and ask the server directly, which is
-the one thing this module would have to be rewritten for.
+The service channel announces arenaUniqueID before any result screen opens.
+The same battleResultsCache.get call the client uses retrieves those results;
+cache .dat files are scratch copies, not a recovery source. Cache retrieval
+also acknowledges the notification, so retain the live result-screen checks.
 """
 import logging
 import time
@@ -271,20 +240,39 @@ class Requests(object):
         self._said.add(key)
         _logger.info(message, *args)
 
+    def _context_now(self):
+        if self._context is None:
+            return None
+        try:
+            return dict(self._context())
+        except Exception:
+            _logger.warning('could not snapshot request context; origin stays unknown')
+            return {}
+
+    @staticmethod
+    def _arena(key):
+        return key[2] if isinstance(key, tuple) else key
+
     def remember(self, arena_id):
         """Queue a battle to ask about, and say whether it was new."""
+        if self._context is not None:
+            origin = self._context_now()
+            arena_id = (origin.get('region'), origin.get('id'), arena_id)
         if arena_id == self._asking or arena_id in self._pending:
             return False
         self._pending.append(arena_id)
-        while len(self._pending) > self._limit:
-            dropped = self._pending.pop(0)
+        scope = arena_id[:2] if isinstance(arena_id, tuple) else None
+        same_owner = [key for key in self._pending
+                      if (key[:2] if isinstance(key, tuple) else None) == scope]
+        for dropped in same_owner[:-self._limit]:
+            self._pending.remove(dropped)
             self._attempts.pop(dropped, None)
-            _logger.warning('too many battles waiting to be asked about; gave up on %s', dropped)
+            _logger.warning('too many battles waiting for this owner; gave up on %s', dropped)
         return True
 
     def waiting(self):
         """The battles still to be asked about, oldest first."""
-        return list(self._pending)
+        return [self._arena(key) for key in self._pending]
 
     def busy(self):
         """Whether a page is still being served, including its in-flight ask."""
@@ -311,20 +299,22 @@ class Requests(object):
                            'battles are waiting, but this client has no battle results cache '
                            'to ask; they are captured only if their results screen is opened')
             return
-        arena_id = self._pending.pop(0)
+        origin = self._context_now()
+        if self._context is not None:
+            eligible = next((key for key in self._pending
+                             if key[:2] == (origin.get('region'), origin.get('id'))), None)
+            if eligible is None:
+                return
+            self._pending.remove(eligible)
+            arena_id = eligible
+        else:
+            arena_id = self._pending.pop(0)
         _logger.info('asking the server about battle %s', arena_id)
         self._attempts[arena_id] = self._attempts.get(arena_id, 0) + 1
         self._asking = arena_id
         self._asked_at = self._now()
-        origin = None
-        if self._context is not None:
-            try:
-                origin = dict(self._context())
-            except Exception:
-                # Diagnostic context must never cost the actual result request.
-                _logger.warning('could not snapshot request context; origin stays unknown')
         try:
-            cache.get(arena_id, self._answer(arena_id, origin))
+            cache.get(self._arena(arena_id), self._answer(arena_id, origin))
         except Exception:
             _logger.exception('could not ask for the results of battle %s', arena_id)
             self._asking = None
@@ -368,7 +358,7 @@ class Requests(object):
                     # already in hand.
                     self._pending.remove(arena_id)
                 try:
-                    source = 'the client answering about battle %s' % arena_id
+                    source = 'the client answering about battle %s' % self._arena(arena_id)
                     if self._context is None:
                         self._deliver(results, source)
                     else:

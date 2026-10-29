@@ -1,37 +1,10 @@
-"""Draining the queue: every battle to the site once, and nothing sent twice.
+"""Deliver persisted owner-scoped reports with the matching account's proof.
 
-Capture and sending are deliberately far apart. A battle is captured on the
-frame its results arrive on, where the only safe thing to do is write to disk.
-Everything that can fail -- a server down, a secret revoked, a client closed
-halfway through an evening -- belongs here instead, where failing costs nothing
-but a later try.
-
-What proves the account
------------------------
-The site is told which Wargaming account a battle belongs to, and that claim
-is backed by a secret only this installation and the site share, sent in
-`X-Mod-Secret`.
-
-An unlinked client sends nothing. A battle report is worth something only to a
-site that already knows whose battle it is, and an unlinked client has nothing
-to attribute one to.
-
-Final means final
------------------
-A destination answers per report: accepted, duplicate or rejected. All three are
-final, so all three end the same way -- the destination is marked as having
-taken the report, and the report is dropped once every destination owed it has
-taken it. Only an answer that asking again could change is retried. Without
-that distinction a rejected battle would be offered again on each tick
-for as long as the player kept the mod installed.
-
-One account at a time
----------------------
-Only the battles of the account logged in are sent. A machine two people play
-on holds both their battles, and each set leaves while its own player is
-playing. Sending one account's battles under the other's proof is how a report
-ends up attributed to the wrong player, which is the one fault that makes every
-number computed downstream wrong rather than merely late.
+Results and login switches can race. Each batch must keep one verified owner,
+and its acknowledgement must settle only that owner even after a switch.
+Accepted, duplicate and business rejections settle a report. account_mismatch
+and revoked proofs suspend the link and retain its reports for repair;
+transport failures use backoff. A new proof can resume without restarting.
 """
 import copy
 import json
@@ -40,6 +13,7 @@ import os
 import time
 
 from battle_conquest import config
+from battle_conquest.battle_owner import report_owner
 from battle_conquest.quest_details import capabilities
 from battle_conquest import service_hooks
 from battle_conquest.modes import MODES
@@ -81,13 +55,7 @@ _ADVICE = {
 }
 
 def retry_later(code):
-    """Whether asking this destination again could change its answer.
-
-    401 counts: a player can renew a revoked secret without restarting the
-    client, so a link repaired mid-session heals itself rather than waiting for
-    one. Anything else in the 400s is a fault that no amount of asking will
-    clear, and asking anyway would spend the player's quota on it.
-    """
+    """Transport failures retry; a revoked proof needs repair before retrying."""
     if not code:
         # No answer at all: unreachable, or the request never left.
         return True
@@ -102,17 +70,7 @@ _NOT_ABOUT_THE_PAYLOAD = (404, 405, 410)
 
 
 def keep_refused(batch, code, store=REFUSED_STORE):
-    """Leave a batch a destination could not read on disk, beside the queue.
-
-    The shape of a report is a contract between this mod, a client nobody here controls and a server in
-    another repository, and a batch that was refused is the only thing that
-    says which of the three was wrong.
-
-    Which is why only a refusal of the *payload* is kept. A destination whose
-    endpoint is missing never read the batch, so the batch holds no evidence
-    about it; the queue already remembers the battles, and the log already says
-    the endpoint is not there.
-    """
+    """Keep payload refusals for diagnosis, excluding missing endpoints."""
     if not (400 <= (code or 0) < 500):
         return
     if code in _NOT_ABOUT_THE_PAYLOAD:
@@ -139,13 +97,14 @@ def at_garage():
 class Target(object):
     """One destination as the sender sees it: where it is, and what proves us."""
 
-    def __init__(self, url, label, modes, headers=None):
+    def __init__(self, url, label, modes, headers=None, owner=None):
         self.url = url
         self.label = label
         self.modes = tuple(modes)
         # None when nothing can prove the account to it yet, which is not a
         # failure: it is a player who has not linked this destination.
         self.headers = headers
+        self.owner = owner
 
     def __repr__(self):
         return '<Target %s %s>' % (self.label, ','.join(self.modes) or 'nothing')
@@ -170,10 +129,20 @@ class Sender(object):
         self._waiting = {}
         # What the settings page says about the last batch: when it was
         # answered, and how. None until something has been sent this session.
-        self.last_sent = None
-        self.last_result = None
+        self._history = {}
         self._listeners = []
         self.delivery = Delivery()
+
+    @property
+    def last_sent(self):
+        return self._history.get((config.REGION, getattr(self._account, 'account', None)), (None, None))[0]
+
+    @property
+    def last_result(self):
+        return self._history.get((config.REGION, getattr(self._account, 'account', None)), (None, None))[1]
+
+    def _record(self, report, result):
+        self._history[report_owner(report)] = (time.time(), result)
 
     def on_change(self, callback):
         """Be told when a batch has been answered, or the queue has moved."""
@@ -191,7 +160,7 @@ class Sender(object):
         account = getattr(self._account, 'account', None)
         if account is None:
             return 0
-        return len([report for report in self._queue.all() if report.get('account') == account])
+        return len([report for report in self._queue.all() if report_owner(report) == (config.REGION, account)])
 
     def install(self):
         # Three ways to start, and the first that fires wins. The event is the
@@ -225,10 +194,11 @@ class Sender(object):
         """
         targets = []
         for destination in (self._destinations.all() if self._destinations else []):
-            if not (destination.enabled and destination.secret and destination.modes):
+            if (not (destination.enabled and destination.secret and destination.modes) or destination.blocked
+                    or destination.owner != (config.REGION, getattr(self._account, 'account', None))):
                 continue
             targets.append(Target(destination.url, destination.label, destination.modes,
-                                  {'X-Mod-Secret': destination.secret}))
+                                  {'X-Mod-Secret': destination.secret}, owner=destination.owner))
         return targets
 
     def owed(self, targets=None):
@@ -253,43 +223,48 @@ class Sender(object):
             return
         targets = self.targets()
         owed = self.owed(targets)
-        # Before the work is picked, so a report nobody wants any more is never
-        # carried into a batch.
-        self._queue.settle(lambda mode: owed.get(mode, ()))
+        # Settle only acknowledged work; pauses and missing links keep backlog.
+        self._queue.settle(lambda mode: owed.get(mode, ()), account=account)
         work = []
         now = time.time()
         for target in targets:
-            if target.headers is None or target.url in self._stopped:
+            if target.headers is None or self._target_key(target) in self._stopped:
                 continue
-            if now < self._waiting.get(target.url, 0):
+            if now < self._waiting.get(self._target_key(target), 0):
                 continue
             reports = [report for report in self._queue.pending(target.url, target.modes)
-                       if report.get('account') == account]
+                       if report_owner(report) == (config.REGION, account)]
             if reports:
                 work.append((target, reports))
         if not work:
             return
         self._busy = True
+        self._work_account, self._work_owed = account, owed
         self._send(work)
 
     def _send(self, work):
         """One batch, then the next. One destination at a time, in order."""
         if not work:
             self._busy = False
-            self._queue.settle(lambda mode: self.owed().get(mode, ()))
+            self._queue.settle(lambda mode: self._work_owed.get(mode, ()),
+                               account=self._work_account)
             self._changed()
             return
         target, reports = work[0]
         active = next((current for current in self.targets()
-                       if current.url == target.url and current.headers == target.headers), None)
+                       if current.url == target.url and current.headers == target.headers
+                       and current.owner == target.owner), None)
         account = getattr(self._account, 'account', None)
         # A backlog can span several responses. A fresh link/account or a new
         # battle must stop the old work just as it stops the initial drain.
-        if not self._garage() or active is None or not reports or reports[0].get('account') != account:
+        if (not self._garage() or active is None or self._target_key(target) in self._stopped
+                or not reports or reports[0].get('account') != account):
             self._send(work[1:])
             return
         reports = [report for report in reports
-                   if report.get('account') == account and report.get('mode') in active.modes]
+                   if report_owner(report) == (config.REGION, account)
+                   and active.owner == report_owner(report)
+                   and report.get('mode') in active.modes]
         if not reports:
             self._send(work[1:])
             return
@@ -331,13 +306,18 @@ class Sender(object):
 
     def payload(self, reports):
         """A batch as a destination is given it, the account it belongs to and all."""
+        if not reports:
+            raise ValueError('an empty batch has no owner')
+        owner = report_owner(reports[0])
+        if owner is None or any(report_owner(report) != owner for report in reports):
+            raise ValueError('every battle in a batch must have the same verified owner')
         return json.dumps({
             'schema': SCHEMA,
             'client': {'mod': MOD_NAME, 'version': self._version, 'capabilities': capabilities()},
             'account': {'id': account_number(reports[0].get('account')),
                         # A property of the client, not of a battle: one
                         # installation plays on one realm.
-                        'region': config.REGION},
+                        'region': reports[0]['owner']['region']},
             'battles': [wire(report) for report in reports],
         })
 
@@ -345,7 +325,15 @@ class Sender(object):
         """A batch the destination has answered. Every verdict in it is final."""
         payload = answer(response)
         snapshots = {}
+        recoverable = set()
         results = (payload or {}).get('results')
+        for result in (results if isinstance(results, list) else []):
+            if isinstance(result, dict) and result.get('reason') == 'account_mismatch':
+                index = result.get('index')
+                if isinstance(index, (int, long)) and not isinstance(index, bool) and 0 <= index < len(batch):
+                    recoverable.add(batch[index]['arena_unique_id'])
+        if recoverable:
+            self._block(target, 'account_mismatch')
         for result in (results if isinstance(results, list) else []):
             if not isinstance(result, dict) or result.get('status') not in ('accepted', 'duplicate'):
                 continue
@@ -353,14 +341,13 @@ class Sender(object):
             if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(batch):
                 report = batch[index]
                 snapshots[report['arena_unique_id']] = report.get('quest_details')
-        self._queue.mark(target.url, [report['arena_unique_id'] for report in batch],
-                         account=batch[0].get('account'), snapshots=snapshots)
-        self.delivery.emit('answered', target, batch, payload)
-        self.last_sent = time.time()
-        self.last_result = {'code': 200, 'battles': len(batch),
+        self._queue.mark(target.url, [r['arena_unique_id'] for r in batch if r['arena_unique_id'] not in recoverable],
+                         account=batch[0].get('account'), region=batch[0]['owner']['region'], snapshots=snapshots)
+        self.delivery.emit('waiting' if recoverable else 'answered', target, batch, payload)
+        self._record(batch[0], {'code': 200, 'battles': len(batch),
                             'accepted': (payload or {}).get('accepted'),
                             'duplicates': (payload or {}).get('duplicates'),
-                            'rejected': (payload or {}).get('rejected')}
+                            'rejected': (payload or {}).get('rejected')})
         if payload is None:
             # 200 means the batch was processed, whatever the body turned out
             # to be, so the reports are done either way. Still worth a line: a
@@ -377,6 +364,21 @@ class Sender(object):
                      target.label, len(batch), payload.get('accepted', '?'),
                      payload.get('duplicates', '?'), payload.get('rejected', '?'))
 
+    @staticmethod
+    def _target_key(target):
+        return (target.url, target.owner, (target.headers or {}).get('X-Mod-Secret'))
+
+    def _block(self, target, reason):
+        self._stopped[self._target_key(target)] = reason
+        block = getattr(self._destinations, 'block', None)
+        if block is not None and target.owner is not None:
+            try:
+                block(target.owner, target.headers['X-Mod-Secret'], reason)
+            except (IOError, OSError):
+                _logger.error('could not persist link suspension; delivery remains suspended in this load')
+        _logger.warning('link suspended (%s); reports kept, link this account again', reason)
+        self._changed()
+
     def _refused(self, target, batch, code):
         """What a destination's refusal means for the batch it refused.
 
@@ -385,15 +387,18 @@ class Sender(object):
         is how soon this destination is asked anything.
         """
         self.delivery.emit('waiting', target, batch)
-        waiting = len(self._queue.pending(target.url, target.modes))
-        self.last_sent = time.time()
-        self.last_result = {'code': code, 'battles': len(batch)}
+        waiting = len([r for r in self._queue.pending(target.url, target.modes)
+                       if report_owner(r) == report_owner(batch[0])])
+        self._record(batch[0], {'code': code, 'battles': len(batch)})
+        if code == 401:
+            self._block(target, 'revoked')
+            return
         if retry_later(code):
-            self._waiting[target.url] = time.time() + _BACKOFF
+            self._waiting[self._target_key(target)] = time.time() + _BACKOFF
             _logger.info('%s is not taking battles right now (HTTP %s); %d wait',
                          target.label, code, waiting)
             return
-        self._stopped[target.url] = code
+        self._stopped[self._target_key(target)] = code
         _logger.warning('%s refused a batch (HTTP %s): %s. Nothing more is sent to it '
                         'until the client is restarted, and %d battle(s) wait.',
                         target.label, code, _ADVICE.get(code, 'it gave no usable reason'),

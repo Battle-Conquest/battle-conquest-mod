@@ -158,18 +158,29 @@ le lot 1. La recette complète et les résultats restent suivis dans
 [#772](https://github.com/Battle-Conquest/Battle-Conquest/issues/772) reste ouverte.
 
 
-## Identité des résultats — première étape #964
+## Identité des résultats — diagnostic optionnel #964
 
-Cette étape prépare la correction multicomptes ; elle ne corrige pas encore les
-liaisons ou la file. **Mettre les envois en pause pour cette recette** : le
-chemin historique peut encore attribuer une réponse au compte connecté à sa
-réception. Aucun tag ni release publique n’est nécessaire.
+La protection multicomptes fonctionne désormais sans diagnostic : elle extrait
+`accountDBID` des résultats personnels, conserve les liaisons par compte et
+isole les rapports dont l’origine est incertaine. `identity_enabled` active
+uniquement les observations locales décrites ici. Les deux options peuvent
+rester à `false` pendant le jeu normal.
+
+L’observation réelle du 29 octobre 2026 (client EU 2.4.1.1, `bonusType: 102`)
+montre le même propriétaire dans `personal.avatar.accountDBID`, le résultat
+personnel du véhicule et les clés `players`/`avatars`, par cache et `postResult`.
+L’utilisateur accepte cette recette pour poursuivre ; le mode classique et
+le changement de comptes ne sont pas certifiés en jeu. Les autres modes et
+les cas multichars sont couverts par des simulations qui refusent toute
+contradiction. Voir [la procédure de migration](OWNER-ISOLATION.md).
+Mettre les envois en pause pour une nouvelle collecte de diagnostic si les
+batailles de recette ne doivent pas être envoyées au site.
 
 Construire le paquet de test pour WoT 2.4.1.1 :
 
 ```bash
-python3 tools/build_release.py --version 0.0.964 --python27 /chemin/vers/python2.7
-python2.7 tools/release_check.py dist/eu.battle-conquest_0.0.964.wotmod
+python3 tools/build_release.py --version 0.0.965 --python27 /chemin/vers/python2.7
+python2.7 tools/release_check.py dist/eu.battle-conquest_0.0.965.wotmod
 ```
 
 Installer le ZIP généré selon la procédure ci-dessus, avec un seul paquet du
@@ -184,7 +195,8 @@ mêmes limites et rotation. Un échec ne bloque ni le jeu ni la capture normale.
 `identity_enabled` absent, `false`, `1` ou `"true"` ne l’active pas ; le commutateur
 principal `enabled` reste nécessaire. La désactivation conserve les fichiers.
 
-- `status: unverified` rappelle qu’aucun propriétaire n’est certifié.
+- `status: unverified` décrit la projection de diagnostic, qui reste sans
+  sélection automatique ; il ne décrit pas l’état du rapport normal.
 - `contexts.request` est le compte/région lu au départ de la demande au cache,
   conservé dans sa callback, même après expiration. `contexts.receipt` est le
   compte lisible dans le client à réception ; il peut être inconnu. Aucun des
@@ -216,7 +228,8 @@ principal `enabled` reste nécessaire. La désactivation conserve les fichiers.
   Une identité absente,
   contradictoire ou plusieurs candidats restent des observations, sans sélection.
 - Les réponses tardives des réparations #954/#956 peuvent être observées après
-  changement de compte, mais restent exclues de la capture normale comme avant.
+  changement de compte. La capture normale vérifie leur propriétaire et le
+  contexte de demande initial ; elle ne les réattribue jamais au compte courant.
 
 Recette à effectuer avec les envois en pause :
 
@@ -224,7 +237,7 @@ Recette à effectuer avec les envois en pause :
 |---|---|
 | Diagnostic désactivé, puis identité activée | Aucun bloc `identity` sans double activation ; captures locales avec activation |
 | Bataille sous A, réponse sous A | Chemins candidats reliant les résultats personnels au compte A ; vérifier où se trouve son pseudo |
-| Demande sous A, connexion de B avant réponse | Contexte de demande A, réception B ou inconnue ; aucune certification automatique |
+| Demande sous A, connexion de B avant réponse | Contexte de demande A, réception B ou inconnue ; attribution normale au propriétaire des résultats si les preuves concordent |
 | Demande expirée, puis réponse tardive | Le contexte initial reste A même si une autre demande a commencé |
 | Arrêt ou rechargement du mod avant la réponse | Une réponse de l’ancienne session est ignorée, sans capture, écriture diagnostic ni nouvelle demande au cache |
 | A → B → A, puis redémarrage | Contextes distinguables ; observations conservées ; aucune déduction depuis l’ancien `link.json` |
@@ -237,6 +250,5 @@ Recette à effectuer avec les envois en pause :
 Copier les observations utiles avant rotation, expurger les identifiants du
 contexte utilisateur et de l’arène avant partage, et ne jamais joindre
 `link.json`. Consigner les correspondances réellement constatées et les modes
-validés dans #964 sans cocher ses cases. Les fixtures synthétiques ne valident
-aucun champ WoT. **Point d’arrêt : validation en jeu avant extraction du
-propriétaire, liaisons par compte, migration et isolation de la file.**
+validés dans #964 sans cocher ses cases. Les simulations complètent l’observation réelle sans transformer les modes
+indisponibles ou le changement de comptes en validations en jeu.

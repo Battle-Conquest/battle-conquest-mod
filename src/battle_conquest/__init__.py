@@ -35,7 +35,7 @@ def start(generation=0):
     _logger.info('start: version=%s generation=%s', VERSION, generation)
     try:
         player = account.install(_session)
-        places = destinations.install(_session, MODES)
+        places = destinations.install(_session, MODES, account=player)
         i18n.install(_session, player, places)
         site = site_link.install(_session, places, player, version=VERSION)
         # One queue for both halves: the capture writes to it and the sender
@@ -51,7 +51,7 @@ def start(generation=0):
                                             context=request_context)
         sender = report_sender.install(_session, player, places, VERSION, queue)
         quest_repairs.install(_session, player, places, reports.arrived,
-                              context=request_context, observe_stale=reports.observe)
+                              context=request_context, observe_stale=reports.arrived)
         garage = quest_garage_view.install(_session, player, places, sender)
         battle_feedback.Feedback(_session, garage, reports, sender, requests)
         page = settings_window.install(_session, site, places, sender)

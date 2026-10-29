@@ -97,7 +97,7 @@ def _places():
     from battle_conquest.destinations import Destinations
 
     return Destinations(('random', 'onslaught'), store=os.path.join(tempfile.mkdtemp(), 'link.json'),
-                        url='https://example.test/api/mod/battles')
+                        url='https://example.test/api/mod/battles', account=lambda: '500123456')
 
 
 def _with_handlers(present):

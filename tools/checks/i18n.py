@@ -30,7 +30,10 @@ def check_i18n():
     session = Session(958)
     account = type('Account', (object,), {'account': '500883375'})()
     destination = Destination(battles_url(), secret='a' * 64, modes=['random'], enabled=True)
-    places = type('Places', (object,), {'current': destination})()
+    destination.owner = ('eu', account.account)
+    places = type('Places', (object,), {'current': destination, 'legacy': None,
+        'identity': lambda self: ('eu', account.account), 'on_suspend': lambda self, callback: None,
+        'for_owner': lambda self, owner: destination if owner == destination.owner else None})()
     i18n.install(session, account, places)
     panel = Panel(None, store=os.path.join(os.getcwd(), 'language-panel.json'))
     try:
@@ -77,7 +80,7 @@ def check_i18n():
               and (panel.editing, panel.edit_version, garage.data['config']['version']) == before)
         site = SiteLink(transport, places, account, version='1.2.0')
         site.verify()
-        transport.sent.pop(0)['answer'](_Response(200, {'modes': ['random'], 'language': 'fr', 'account_id': account.account}))
+        transport.sent.pop(0)['answer'](_Response(200, {'modes': ['random'], 'language': 'fr', 'account_id': account.account, 'region': 'eu'}))
         check('/api/mod/me also applies the linked account language', i18n.locale() == 'fr')
         page = settings_window.template(settings_window.State(linked=True, modes=['random']), _Templates)
         from battle_conquest.modes import MODES

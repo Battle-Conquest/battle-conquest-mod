@@ -269,7 +269,7 @@ def check_results_request_anything_wanted():
 
     places = Destinations(('random', 'ranked'),
                           store=os.path.join(tempfile.mkdtemp(), 'link.json'),
-                          url='https://example.test/api/mod/battles')
+                          url='https://example.test/api/mod/battles', account=lambda: '500123456')
     check('a site not linked yet does not count', reports(places).anything_wanted() is False)
 
     places.remember('Example', ['ranked'], 'x' * 64)

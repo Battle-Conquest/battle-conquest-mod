@@ -44,6 +44,9 @@ from checks.destinations import (check_destination_capture, check_destination_mo
                                  check_destination_pause_and_forget, check_destination_reading,
                                  check_destination_secrets, check_destination_silence,
                                  check_destination_urls)
+from checks.owner_isolation import (check_owner_extraction, check_owner_lifecycle,
+                                   check_owner_quarantine, check_owner_refusals,
+                                   check_owner_migration, check_owner_requests, check_owner_storage)
 from checks.engine import FakeBigWorld
 from checks.mod_updates import (check_mod_updates_contract, check_mod_updates_garage,
                                 check_mod_updates_teardown)
@@ -125,6 +128,13 @@ def main():
         check('hook delegates to the original', delegates())
         check('watcher armed', bool(bigworld.pending))
 
+        check_owner_extraction()
+        check_owner_lifecycle()
+        check_owner_quarantine()
+        check_owner_refusals()
+        check_owner_migration()
+        check_owner_requests()
+        check_owner_storage()
         check_catalog_tester()
         check_session_patches()
         check_battle_feedback()
