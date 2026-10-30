@@ -17,10 +17,12 @@ class Journal(object):
         self.store = store
         self.writable = True
         self.entries = {}
+        from_temporary = False
         try:
             if not os.path.exists(store) and os.path.exists(store + '.tmp'):
                 with open(store + '.tmp', 'rb') as handle:
                     data = json.load(handle)
+                from_temporary = True
                 _logger.warning('recovering interrupted journal replacement from complete temporary copy')
             else:
                 data = load_json(store)
@@ -45,6 +47,10 @@ class Journal(object):
                 if key in self.entries or sum(1 for k in self.entries if k[:2] == key[:2]) >= 50:
                     raise ValueError('duplicate or saturated owner')
                 self.entries[key] = row
+            if from_temporary:
+                # The next save truncates .tmp. Promote the validated copy so
+                # a second interrupted write still has a complete predecessor.
+                os.rename(store + '.tmp', store)
         except (IOError, OSError) as error:
             if getattr(error, 'errno', None) != 2:
                 self.writable = False

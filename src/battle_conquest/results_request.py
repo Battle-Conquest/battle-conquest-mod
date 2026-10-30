@@ -354,8 +354,14 @@ class Requests(RequestContext):
         return answered
 
     def _give_up_or_retry(self, arena_id, retry=True, front=True, delay=20.0):
+        # A late result may fail capture while its replacement is in flight.
+        # Only that replacement can decide whether this arena needs a retry.
+        if self._asking == arena_id:
+            return
         attempts = self._attempts.get(arena_id, 0)
         if not retry or attempts >= _MAX_ATTEMPTS:
+            if arena_id in self._pending:
+                self._pending.remove(arena_id)
             self._attempts.pop(arena_id, None)
             if self._journal is not None:
                 self._journal.remove(arena_id, 'abandoned after attempts or permanent refusal')

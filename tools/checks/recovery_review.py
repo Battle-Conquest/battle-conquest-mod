@@ -123,3 +123,54 @@ def check_recovery_review_http_generations():
     timers[-1]()
     check('current definitive rejection settles once despite obsolete timeouts',
           not queue.all() and not sender._busy and not sender._waiting)
+
+
+def check_recovery_review_late_cache():
+    requests, clock, cache, identity, path = fixture()
+    requests.remember(91, announced=True)
+    requests.drain()
+    clock.now += 5
+    requests.drain()
+    late = cache._pending[91]
+    clock.now += 61
+    requests.drain()
+    clock.now += 20
+    requests.drain()
+    # An old successful cache answer still cannot be persisted (disk error,
+    # ownership mismatch, etc.). Its replacement request is already active.
+    late(1, {'common': {}})
+    check('unpersisted late result cannot requeue the arena already in flight',
+          requests._asking == ('eu', '123', 91) and requests.waiting() == [])
+    cache.answer_now(91, -1)
+    check('permanent refusal after late answer leaves no orphan pending arena',
+          not requests.waiting() and not requests._journal.entries)
+    requests.remember(92, announced=True)
+    clock.now += 5
+    requests.drain()
+    check('cache scheduler remains usable after late result and replacement refusal', cache.asked == [91, 91, 92])
+
+
+def check_recovery_review_temporary_copy():
+    from battle_conquest.recovery_journal import Journal
+    from battle_conquest import recovery_journal as module
+    path = os.path.join(tempfile.mkdtemp(), 'journal')
+    payload = {'schema': 1, 'arenas': [dict(region='eu', account='123', arena='91',
+                                         observed=1000, due=1060, attempts=2)]}
+    with open(path + '.tmp', 'wb') as handle:
+        json.dump(payload, handle)
+    recovered = Journal(path)
+    original = module.save_json
+    def disk_full(path, payload):
+        # Real save_json opens this scratch path before touching the main copy.
+        with open(path + '.tmp', 'wb') as handle:
+            handle.write('{')
+        raise IOError('disk full while writing the next snapshot')
+    module.save_json = disk_full
+    try:
+        recovered.save()
+    finally:
+        module.save_json = original
+    restored = Journal(path)
+    check('second interrupted write preserves the complete adopted temporary copy',
+          restored.writable and ('eu', '123', 91) in restored.entries
+          and restored.entries[('eu', '123', 91)]['attempts'] == 2)
