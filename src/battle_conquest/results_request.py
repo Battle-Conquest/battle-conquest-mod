@@ -280,7 +280,10 @@ class Requests(RequestContext):
         except Exception:
             _logger.exception('could not ask for the results of battle %s', arena_id)
             self._asking = None
-            self._give_up_or_retry(arena_id, retry=False)
+            # Cache initialization/transport setup can fail transiently even
+            # when the account already looks ready. Keep the bounded budget.
+            self._retry_after = self._now() + 20.0
+            self._give_up_or_retry(arena_id)
 
     def _clear_stale(self):
         """Stop waiting on an answer that is never going to come.

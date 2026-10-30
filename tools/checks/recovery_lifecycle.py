@@ -244,3 +244,49 @@ def check_recovery_explicit_repair_budget():
     requests.drain()
     check('repair arriving during live capture is not satisfied by an older durable report',
           cache.asked == [92] and requests._journal.entries[('eu', '123', 92)]['repair'])
+
+
+def check_recovery_cache_setup_failure():
+    saved = set()
+    requests, clock, cache, identity, path = fixture(captured=lambda key: key in saved)
+    get, calls = cache.get, []
+    def recovering(arena, callback):
+        calls.append(arena)
+        if len(calls) == 1:
+            raise RuntimeError('cache temporarily unavailable while the garage initializes')
+        get(arena, callback)
+    cache.get = recovering
+    requests._deliver = lambda results, *args: saved.add(('eu', '123', results['arena']))
+    requests.remember(91, announced=True)
+    requests.drain()
+    clock.now += 5
+    requests.drain()
+    check('temporary cache setup failure retains the arena rather than abandoning it',
+          requests.waiting() == [91]
+          and not requests._journal.entries[('eu', '123', 91)].get('abandoned'))
+    requests.remember(92, announced=True)
+    requests.drain()
+    check('cache setup failure also delays other arenas through the shared cooldown', calls == [91])
+    clock.now += 21
+    requests.drain()
+    check('retry keeps its actual attempt counter after cache setup fails',
+          requests._journal.entries[('eu', '123', 91)]['attempts'] == 2)
+    cache.answer_now(91, 1, {'arena': 91})
+    cache.answer_now(92, 1, {'arena': 92})
+    check('cache initialization recovers and releases the backlog without restarting',
+          calls == [91, 91, 92] and not requests.busy() and not requests._journal.entries)
+    requests, clock, cache, identity, path = fixture()
+    calls = []
+    def unavailable(arena, callback):
+        calls.append(arena)
+        raise RuntimeError('cache remains unavailable')
+    cache.get = unavailable
+    requests.remember(91, announced=True)
+    requests.drain()
+    clock.now += 5
+    for unused in range(8):
+        requests.drain()
+        clock.now += 21
+    check('permanent setup failure remains bounded to five actual calls',
+          calls == [91] * 5 and not requests.busy()
+          and requests._journal.entries[('eu', '123', 91)]['abandoned'])
