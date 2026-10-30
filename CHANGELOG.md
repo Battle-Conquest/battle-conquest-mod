@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.1
+
+Battle-Conquest for **World of Tanks EU 2.4.1.1**.
+
+### Fixed
+
+- Keep account links, pause settings and battle queues separate for each Wargaming account and region. Reports without verified ownership remain isolated instead of being sent for the next login.
+- Recover battles missed before their results were captured, including after a client interruption. Recovery keeps its retry budget across restarts, with up to 50 entries per account, five attempts per arena and seven days of retention.
+- Keep unconfirmed reports queued when the site returns an unreadable, incomplete or contradictory response. Missing HTTP callbacks no longer stall delivery indefinitely.
+- Share result retrieval with quest-evidence repair and wait before automatic cache requests to reduce collisions with the results screen and other mods.
+- Prevent callbacks and capture hooks from a closed mod session from overwriting current local data after a reload.
+
+### Installation
+
+1. The server must include [account-isolation support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1012). This mod update adds no server migration or configuration requirement.
+2. Fully close the game and back up `mods/configs/battle_conquest/`. Keep this backup private: it contains account-link secrets.
+3. Remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Extract `battle-conquest-mod_1.2.1.zip` into the game directory, or place `eu.battle-conquest_1.2.1.wotmod` in `mods/2.4.1.1/`. Keep only one Battle-Conquest package installed.
+4. Start the game, verify the current account link and relink if requested. Play a supported battle and confirm that it appears once on Battle-Conquest.
+
+Existing links and queues migrate automatically. Unverified older reports are preserved but not uploaded. See [account isolation and rollback](https://github.com/Battle-Conquest/battle-conquest-mod/blob/v1.2.1/OWNER-ISOLATION.md) before downgrading.
+
+### Validation
+
+Python 2.7 selftests and the built-package release check passed. **In-game acceptance remains pending**: test random battles and Onslaught, interruption recovery, account/pause isolation, notifications and the results window, including coexistence with Unicum when installed. The cache delay reduces collisions but does not guarantee their absence. Publish only after testing this compiled package in the real client.
+
 ## 1.2.0
 
 Official release repackaged for World of Tanks EU **2.4.1.1**. In-game acceptance was completed on 2.4.1.0; this update changes the installation folder only.
