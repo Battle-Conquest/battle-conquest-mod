@@ -19,7 +19,7 @@ from battle_conquest import service_hooks
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
 from battle_conquest.report_delivery import Delivery
-from battle_conquest.report_wire import FIELDS, account_number, answer, rejections, wire
+from battle_conquest.report_wire import FIELDS, account_number, answer, rejections, wire, verdicts
 
 _logger = logging.getLogger('battle_conquest.report_sender')
 
@@ -62,10 +62,6 @@ def retry_later(code):
     return code in (401, 408, 429) or code >= 500
 
 
-# Refusals about the address rather than the payload. Nothing read the batch,
-# so keeping it says nothing about which side was wrong -- and a copy of the
-# player's battles left on disk for an endpoint that does not exist is exactly
-# the pointless copy destinations.py refuses to make.
 _NOT_ABOUT_THE_PAYLOAD = (404, 405, 410)
 
 
@@ -122,6 +118,7 @@ class Sender(object):
         self._version = version
         self._garage = garage
         self._refused_store = refused_store
+        self._operation = None
         self._busy = False
         # Destinations to leave alone until the client is next started, and
         # destinations to leave alone for a while, by URL.
@@ -163,11 +160,6 @@ class Sender(object):
         return len([report for report in self._queue.all() if report_owner(report) == (config.REGION, account)])
 
     def install(self):
-        # Three ways to start, and the first that fires wins. The event is the
-        # one that matters: a client that crashed left its battles on disk, and
-        # a drain is skipped outside the garage and before the account is known
-        # -- so the 20s shot is a guess a slow start loses, and losing it used
-        # to mean five minutes with the battles sitting there.
         self._follow_the_garage()
         self._session.callback(_START_DELAY, self.drain)
         self._session.repeat(_INTERVAL, self.drain)
@@ -275,17 +267,30 @@ class Sender(object):
             rest.insert(0, batch.pop())
         remaining = ([(target, rest)] if rest else []) + work[1:]
 
+        ticket = object()
+        self._operation = ticket
+
         def answered(response):
+            if self._operation is not ticket or not getattr(self._session, 'alive', True):
+                return
+            self._operation = None
             code = getattr(response, 'responseCode', None)
             if code == 200:
                 self._took(target, batch, response)
-                self._send(remaining)
+                self._send(remaining if time.time() >= self._waiting.get(self._target_key(target), 0) else work[1:])
                 return
             self._refused(target, batch, code)
             # On to the next destination, not the next batch: whatever stopped
             # this one stops the rest of its backlog just the same.
             self._send(work[1:])
 
+        def expired():
+            if self._operation is ticket:
+                self._operation = None
+                self._refused(target, batch, None)
+                self._send(work[1:])
+
+        self._session.callback(config.API_TIMEOUT + 5.0, expired)
         self.delivery.emit('sending', target, batch)
         _logger.info('sending %d battle(s) to %s', len(batch), target.label)
         try:
@@ -294,8 +299,7 @@ class Sender(object):
             # A transport setup failure installs no callback to release _busy.
             # Keep the reports and apply the ordinary unreachable-site backoff.
             _logger.exception('could not initiate battle delivery to %s', target.label)
-            self._refused(target, batch, None)
-            self._send(work[1:])
+            expired()
 
     def _post(self, target, batch, answered):
         headers = dict(target.headers)
@@ -324,37 +328,32 @@ class Sender(object):
     def _took(self, target, batch, response):
         """A batch the destination has answered. Every verdict in it is final."""
         payload = answer(response)
-        snapshots = {}
-        recoverable = set()
-        results = (payload or {}).get('results')
-        for result in (results if isinstance(results, list) else []):
-            if isinstance(result, dict) and result.get('reason') == 'account_mismatch':
-                index = result.get('index')
-                if isinstance(index, (int, long)) and not isinstance(index, bool) and 0 <= index < len(batch):
-                    recoverable.add(batch[index]['arena_unique_id'])
+        valid = verdicts(payload, batch)
+        snapshots, settled = {}, []
+        recoverable = False
+        for result in valid:
+            report = batch[result['index']]
+            if result['status'] == 'rejected' and result.get('reason') == 'account_mismatch':
+                recoverable = True
+                continue
+            arena = report['arena_unique_id']
+            settled.append(arena)
+            if result['status'] in ('accepted', 'duplicate'):
+                snapshots[arena] = report.get('quest_details')
         if recoverable:
             self._block(target, 'account_mismatch')
-        for result in (results if isinstance(results, list) else []):
-            if not isinstance(result, dict) or result.get('status') not in ('accepted', 'duplicate'):
-                continue
-            index = result.get('index')
-            if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(batch):
-                report = batch[index]
-                snapshots[report['arena_unique_id']] = report.get('quest_details')
-        self._queue.mark(target.url, [r['arena_unique_id'] for r in batch if r['arena_unique_id'] not in recoverable],
-                         account=batch[0].get('account'), region=batch[0]['owner']['region'], snapshots=snapshots)
-        self.delivery.emit('waiting' if recoverable else 'answered', target, batch, payload)
+        self._queue.mark(target.url, settled, account=batch[0]['account'],
+                         region=batch[0]['owner']['region'], snapshots=snapshots)
+        incomplete = len(valid) != len(batch)
+        if incomplete:
+            self._waiting[self._target_key(target)] = time.time() + _BACKOFF
+            _logger.warning('%s returned incomplete or invalid verdicts; unconfirmed reports kept', target.label)
+        self.delivery.emit('waiting' if incomplete or recoverable else 'answered', target, batch, payload)
         self._record(batch[0], {'code': 200, 'battles': len(batch),
-                            'accepted': (payload or {}).get('accepted'),
-                            'duplicates': (payload or {}).get('duplicates'),
-                            'rejected': (payload or {}).get('rejected')})
+                              'accepted': (payload or {}).get('accepted'),
+                              'duplicates': (payload or {}).get('duplicates'),
+                              'rejected': (payload or {}).get('rejected')})
         if payload is None:
-            # 200 means the batch was processed, whatever the body turned out
-            # to be, so the reports are done either way. Still worth a line: a
-            # destination whose answer we cannot read is one whose rejections
-            # nobody will ever notice.
-            _logger.warning('%s took %d battle(s) and answered in a shape we cannot read',
-                            target.label, len(batch))
             return
         refused = rejections(payload)
         if refused:

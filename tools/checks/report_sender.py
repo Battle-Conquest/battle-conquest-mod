@@ -55,6 +55,12 @@ class _Response(object):
 def _answer(session, code, payload=None, body=None):
     """Answer the oldest request still waiting, as the client would."""
     request = session.sent.pop(0)
+    if payload is not None and isinstance(payload.get('results'), list):
+        import copy
+        payload = copy.deepcopy(payload)
+        for result in payload['results']:
+            if isinstance(result, dict) and 'arena_unique_id' not in result:
+                result['arena_unique_id'] = request['body']['battles'][result['index']]['arena_unique_id']
     request['answer'](_Response(code, payload, body))
     return request
 
@@ -62,8 +68,8 @@ def _answer(session, code, payload=None, body=None):
 def _took(count, rejected=0):
     """What a destination answers for a batch it processed."""
     return {'schema': 1, 'accepted': count - rejected, 'duplicates': 0, 'rejected': rejected,
-            'results': [{'index': 0, 'status': 'rejected', 'reason': 'bounds:damage_dealt'}]
-            if rejected else []}
+            'results': [dict(index=i, status='rejected' if i < rejected else 'accepted',
+                             reason='bounds:damage_dealt' if i < rejected else '') for i in range(count)]}
 
 
 def _places(*destinations):
@@ -194,7 +200,7 @@ def check_report_sender_delivery():
     session, sender = _sender(unreadable)
     sender.drain()
     _answer(session, 200, body='<html>a proxy said hello</html>')
-    check('an answer we cannot read still settles the batch', unreadable.all() == [])
+    check('an answer we cannot read retains the batch', len(unreadable.all()) == 1)
 
     # A refusal must not be read as a withdrawal: unlike a site the player
     # paused, one that refused still wants the battles, so they stay queued.
@@ -405,7 +411,7 @@ def check_report_sender_status():
     check('the battles waiting are those of the account logged in', sender.waiting() == 2)
 
     sender.drain()
-    _answer(session, 200, {'schema': 1, 'accepted': 1, 'duplicates': 1, 'rejected': 0, 'results': []})
+    _answer(session, 200, {'schema': 1, 'accepted': 1, 'duplicates': 1, 'rejected': 0, 'results': [{'index': 0, 'status': 'accepted'}, {'index': 1, 'status': 'duplicate'}]})
     check('a batch answered is remembered', sender.last_sent is not None)
     check('with what the site made of it',
           sender.last_result == {'code': 200, 'battles': 2, 'accepted': 1, 'duplicates': 1,

@@ -13,7 +13,8 @@ class Timers(_Session):
         self.callbacks = []
 
     def callback(self, delay, func):
-        self.callbacks.append(func)
+        if delay <= 5.0:
+            self.callbacks.append(func)
 
     def flush(self):
         for unused in range(10):
@@ -83,7 +84,7 @@ def check_battle_feedback():
     check('the captured battle sends on the next frame without a five-second tick', len(session.sent) == 1 and session.sent[0]['method'] == 'POST')
     check('the provisional card follows the active sending state', feedback.snapshot()['stage'] == 'sending')
     post = session.sent.pop()
-    post['answer'](_Response(200, {'accepted': 1, 'duplicates': 0, 'rejected': 0, 'results': [{'index': 0, 'status': 'accepted'}]}))
+    post['answer'](_Response(200, {'accepted': 1, 'duplicates': 0, 'rejected': 0, 'results': [{'index': 0, 'arena_unique_id': str(results()['arenaUniqueID']), 'status': 'accepted'}]}))
     check('HTTP acceptance alone does not replace local values with a guessed score', feedback.snapshot()['stage'] == 'confirming' and feedback.receipt is None)
     stale(_Response(200, copy.deepcopy(garage.data)))
     session.flush()
@@ -116,7 +117,7 @@ def check_battle_feedback():
     check('immediate delivery never bypasses network backoff', not session.sent)
     sender._waiting.clear()
     sender.drain()
-    session.sent.pop()['answer'](_Response(200, {'rejected': 1, 'results': [{'index': 0, 'status': 'rejected'}]}))
+    session.sent.pop()['answer'](_Response(200, {'rejected': 1, 'results': [{'index': 0, 'arena_unique_id': str(results()['arenaUniqueID']), 'status': 'rejected'}]}))
     session.flush()
     check('a final rejection is displayed without granting success or retrying', feedback.snapshot()['stage'] == 'rejected' and not queue.all())
     if session.sent:
@@ -202,7 +203,7 @@ def check_battle_feedback_refresh():
     queue.add(owned({'arena_unique_id': '92', 'account': ACCOUNT, 'mode': 'other',
                'finished_at': '2026-10-25T16:00:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}}))
     sender.drain()
-    session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]}))
+    session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'arena_unique_id': '92', 'status': 'accepted'}]}))
     session.flush()
     check('delivery of a restored queue refreshes official values without an in-session capture card',
           len(session.sent) == 1 and session.sent[0]['method'] == 'GET' and feedback.report is None)
@@ -211,7 +212,7 @@ def check_battle_feedback_refresh():
     session, queue, player, place, garage, reports, sender, feedback = fixture()
     reports.capture(results(common={'bonusType': 160}), constants=Bonus)
     session.flush()
-    session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]}))
+    session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'arena_unique_id': str(results()['arenaUniqueID']), 'status': 'accepted'}]}))
     garage.save(mode='platoon')
     saved = copy.deepcopy(garage.data)
     saved['config'].update(version=2, mode='platoon')

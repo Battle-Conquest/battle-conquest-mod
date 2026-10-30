@@ -1,145 +1,29 @@
-"""Ask the client cache for results, using owner-scoped pending requests.
-
-The service channel announces arenaUniqueID before any result screen opens.
-The same battleResultsCache.get call the client uses retrieves those results;
-cache .dat files are scratch copies, not a recovery source. Cache retrieval
-also acknowledges the notification, so retain the live result-screen checks.
-"""
+"""One owner-scoped scheduler for live announcements and persistent recovery."""
 import logging
 import time
 
 from battle_conquest import service_hooks
 from battle_conquest.report_sender import at_garage
 from battle_conquest.results_messages import BATTLE_RESULTS, _client, arrival_types, type_name
+from battle_conquest.results_cache import (service_channel, results_cache, arena_id_of,
+    RequestContext, announced_mode, retryable, LIMIT, _NON_PLAYER, _MAX_ATTEMPTS, _TICK_SECONDS, _STALE_SECONDS)
 
 _logger = logging.getLogger('battle_conquest.results_request')
 
-# AccountCommands' refusals, for a client that does not hand them over. Only
-# the three that mean "later" rather than "never" matter here.
-_NON_PLAYER = -3
-_COOLDOWN = -5
-_DISCONNECTED = -7
 
-# The cache serves one request at a time and answers the second with a
-# cooldown, so these are asked for in single file. A tick takes the next one
-# and retries whatever was refused for a reason that passes.
-_TICK_SECONDS = 5.0
-# An answer that never comes would otherwise hold the queue shut for the whole
-# session. Long enough that a slow server is not mistaken for a lost callback.
-_STALE_SECONDS = 60.0
-# Asked for at most this many times before a battle is given up on, so a
-# refusal that is somehow permanent cannot turn into a request every tick for
-# as long as the client runs.
-_MAX_ATTEMPTS = 5
-# Battles waiting to be asked about. A player who queues straight into battle
-# all evening builds this up; the number is generous because each entry is an
-# integer, and the oldest goes first when it overflows.
-LIMIT = 50
-
-
-def service_channel():
-    """The messenger events every server message passes through, or None."""
-    try:
-        from messenger.proto.events import g_messengerEvents
-        return g_messengerEvents.serviceChannel
-    except Exception:
-        _logger.debug('could not reach the messenger events', exc_info=True)
-        return None
-
-
-def results_cache():
-    """The account's battle results cache, or None when there is no account."""
-    try:
-        import BigWorld
-        return getattr(BigWorld.player(), 'battleResultsCache', None)
-    except Exception:
-        _logger.debug('could not reach the battle results cache', exc_info=True)
-        return None
-
-
-def arena_id_of(message, wanted=None):
-    """The arena a service channel message is about, when it is a battle's.
-
-    Everything the server says reaches the same event -- rewards, reboots,
-    clan news, the repair bill a second after the battle -- so this is the
-    filter. A message of the right type with no arena in it is not an error
-    worth a line: the server sends battle-adjacent messages that carry no
-    battle.
-    """
-    wanted = arrival_types() if wanted is None else wanted
-    if isinstance(wanted, int):
-        wanted = (wanted,)
-    if getattr(message, 'type', None) not in wanted:
-        return None
-    data = getattr(message, 'data', None)
-    if not isinstance(data, dict):
-        return None
-    arena_id = data.get('arenaUniqueID')
-    if not arena_id:
-        return None
-    try:
-        return int(arena_id)
-    except (TypeError, ValueError):
-        return None
-
-
-def announced_mode(message):
-    """The kind of battle an announcement is about, or None when it cannot say.
-
-    Read so the mod can decline to ask about a battle nothing is waiting for.
-    A player whose only destination scores ranked plays mostly random, and
-    asking the server about every one of those would be a request per battle
-    for numbers this mod throws away the moment they arrive.
-
-    None rather than a guess when the announcement does not carry the type:
-    asking about a battle that turns out to be unwanted costs one request, and
-    not asking about a wanted one costs the battle.
-    """
-    data = getattr(message, 'data', None)
-    if not isinstance(data, dict):
-        return None
-    bonus_type = data.get('bonusType')
-    if bonus_type is None:
-        return None
-    try:
-        from battle_conquest.modes import mode_of
-        return mode_of(bonus_type)
-    except Exception:
-        _logger.debug('could not name the mode of an announced battle', exc_info=True)
-        return None
-
-
-def retryable(code):
-    """Whether a refusal is worth asking again for.
-
-    Three of them mean "later": the account is not in the garage yet, another
-    request is in flight, or the centre is down. Everything else is taken as
-    final, because asking forever for a battle the server will not serve is
-    indistinguishable from asking for nothing.
-    """
-    try:
-        import AccountCommands
-        later = (AccountCommands.RES_NON_PLAYER,
-                 AccountCommands.RES_COOLDOWN,
-                 AccountCommands.RES_CENTER_DISCONNECTED)
-    except Exception:
-        later = (_NON_PLAYER, _COOLDOWN, _DISCONNECTED)
-    return code in later
-
-
-class Requests(object):
+class Requests(RequestContext):
     """Battles the server announced, asked about one at a time."""
 
     def __init__(self, session, deliver, taking=None, garage=at_garage, cache=results_cache,
-                 limit=LIMIT, now=time.time, context=None):
+                 limit=LIMIT, now=time.time, context=None, journal=None, captured=None):
+        self._journal = journal
+        self._captured = captured or (lambda key: False)
+        self._garage_ready = now() + 5.0 if journal is not None else 0
+        self._was_garage = False
+        self._origin = None
         self._session = session
         self._context = context
         self._deliver = deliver
-        # Whether anything at all is taking battle reports right now. Asked
-        # once per battle rather than per mode: the mode an announcement
-        # carries and the mode a report turns out to have are read from
-        # different places, and a gate that can disagree with the capture is a
-        # gate that drops battles the capture would have kept.
         self._taking = taking if taking is not None else (lambda: True)
         self._garage = garage
         self._cache = cache
@@ -147,14 +31,23 @@ class Requests(object):
         self._now = now
         self._pending = []
         self._attempts = {}
+        self._completed = set()
         self._asking = None
+        self._ask_ticket = None
         self._asked_at = 0.0
         self._retry_after = 0.0
         self._seen_types = set()
         self._said = set()
+        self._origin = self._context_now()
+        if journal is not None:
+            self._pending = sorted((key for key, row in journal.entries.items() if not row.get('abandoned')),
+                                   key=lambda key: journal.entries[key]['observed'])
+            self._attempts = dict((key, row['attempts']) for key, row in journal.entries.items())
 
     def install(self):
         """Follow the server's announcements, and say whether anything was."""
+        self._follow_the_garage()
+        self._session.repeat(_TICK_SECONDS, self.drain)
         channel = service_channel()
         if channel is None:
             _logger.warning('no messenger events in this client, so a battle is only captured '
@@ -169,15 +62,6 @@ class Requests(object):
         # patches: one is handed to subscribers by name, the other is a
         # name-mangled attribute that two mods cannot both wrap safely.
         self._session.subscribe(event, self._announced)
-        # The moment the cache stops refusing: it is its own handler on this
-        # event that stops ignoring requests. The reference implementation
-        # this follows drains here rather than on a timer, and a battle the
-        # player is waiting on should not sit for a tick's length first.
-        self._follow_the_garage()
-        # Kept as well as the event, not instead of it. Whether the cache's own
-        # handler for the same event runs before this one is not ours to
-        # decide, and a tick is what makes that ordering stop mattering.
-        self._session.repeat(_TICK_SECONDS, self.drain)
         _logger.info('asking the client for the results of every battle the server announces')
         return True
 
@@ -185,16 +69,33 @@ class Requests(object):
         """Drain when the account becomes the player, if that can be followed."""
         account = service_hooks.account_events()
         event = getattr(account, 'onAccountBecomePlayer', None) if account is not None else None
+        avatar = getattr(account, 'onAvatarBecomePlayer', None)
+        if avatar is not None and hasattr(avatar, '__iadd__'):
+            self._session.subscribe(avatar, self._entered_battle)
         if event is None or not hasattr(event, '__iadd__'):
             _logger.info('this client does not announce the account becoming the player; '
                          'battles are asked about on the %.0fs tick instead', _TICK_SECONDS)
             return
         self._session.subscribe(event, self._became_player)
 
+    def _entered_battle(self, *args):
+        if not getattr(self._session, 'alive', True) or not self._taking():
+            return
+        self._was_garage = False
+        try:
+            import BigWorld
+            arena = getattr(BigWorld.player(), 'arenaUniqueID', None)
+            if arena is not None:
+                self.remember(arena, origin=self._origin or {})
+        except Exception:
+            _logger.exception('could not journal the arena at battle entry')
+
     def _became_player(self, *args):
+        if self._journal is not None:
+            self._garage_ready = self._now() + 5.0
+            self._origin = self._context_now()
         self.drain()
-        # The cache may become ready after our handler on the same event.
-        self._session.callback(1.0, self.drain)
+        self._session.callback(5.0 if self._journal is not None else 1.0, self.drain)
 
     def _announced(self, client_id=None, message=None, *args):
         """A server message arrived. Keep it if it is a battle worth asking about."""
@@ -208,65 +109,76 @@ class Requests(object):
                            'so the server is not asked about it. Turn the setting on, or link a '
                            'site that wants it')
             return
-        if self.remember(arena_id):
+        origin = self._context_now()
+        if self._journal is not None and not (origin or {}).get('id'):
+            origin = self._origin or origin
+        scope = (origin.get('region'), origin.get('id')) if origin is not None else None
+        known = next((key for key in self._pending + ([self._asking] if self._asking else [])
+                      if self._arena(key) == arena_id and (not isinstance(key, tuple) or key[:2] == scope)), None)
+        if isinstance(known, tuple):
+            origin = dict(region=known[0], id=known[1])
+        if self.remember(arena_id, origin=origin, announced=True):
             _logger.info('the server announced a %s battle, %s',
                          announced_mode(message) or 'battle of an unnamed mode', arena_id)
         self.drain()
-
-    def _note_type(self, message):
-        """Say once what kinds of message reach this event, and which carry a battle.
-
-        The one line that tells a silent mod apart from a mod that is never
-        spoken to. Without it, a filter dropping every message and an event
-        that never fires read exactly the same in game.log -- and both have
-        already been suspected for an evening each.
-        """
-        kind = getattr(message, 'type', None)
-        if kind in self._seen_types:
-            return
-        self._seen_types.add(kind)
-        named = type_name(kind)
-        said = '%s, %s' % (kind, named) if named else str(kind)
-        wanted = arrival_types()
-        _logger.info('the service channel said something of type %s%s', said,
-                     ' -- which is one battles arrive on' if kind in wanted else
-                     ' -- not one battles arrive on (those are %s)'
-                     % ', '.join(str(one) for one in sorted(wanted)))
-
-    def _say_once(self, key, message, *args):
-        """Say something that would otherwise be said every tick, or every battle."""
-        if key in self._said:
-            return
-        self._said.add(key)
-        _logger.info(message, *args)
-
-    def _context_now(self):
-        if self._context is None:
-            return None
-        try:
-            return dict(self._context())
-        except Exception:
-            _logger.warning('could not snapshot request context; origin stays unknown')
-            return {}
 
     @staticmethod
     def _arena(key):
         return key[2] if isinstance(key, tuple) else key
 
-    def remember(self, arena_id):
+    def remember(self, arena_id, origin=None, repair=False, announced=False):
         """Queue a battle to ask about, and say whether it was new."""
-        if self._context is not None:
-            origin = self._context_now()
-            arena_id = (origin.get('region'), origin.get('id'), arena_id)
-        if arena_id == self._asking or arena_id in self._pending:
+        if not getattr(self._session, 'alive', True) or not self._taking():
             return False
+        if isinstance(arena_id, bool):
+            return False
+        try:
+            arena_id = long(arena_id)
+            if not 0 < arena_id <= 18446744073709551615:
+                return False
+        except (TypeError, ValueError, OverflowError):
+            return False
+        if self._context is not None:
+            origin = self._context_now() if origin is None else origin
+            arena_id = (origin.get('region'), origin.get('id'), arena_id)
+        if not repair and (arena_id in self._completed or self._captured(arena_id)):
+            return False
+        if arena_id == self._asking or arena_id in self._pending:
+            if self._journal is not None and arena_id in self._journal.entries:
+                row = self._journal.entries[arena_id]
+                promoted = repair and not row.get('repair')
+                if promoted:
+                    row['repair'] = True
+                if announced:
+                    row['announced'] = True
+                due = (max(self._now() + 5.0, self._retry_after)
+                       if announced and arena_id != self._asking
+                       else max(row['due'], self._now() + 5.0))
+                if promoted or announced or due != row['due']:
+                    row['due'] = due
+                    self._journal.save()
+            return False
+        if self._journal is not None:
+            if not self._journal.add(arena_id, self._now(), self._now() + 5.0,
+                                     limit=self._limit, protected=self._asking,
+                                     repair=repair, announced=announced):
+                return False
+            self._attempts[arena_id] = self._journal.entries[arena_id]['attempts']
+            dropped = [key for key in self._pending if key not in self._journal.entries]
+            for key in dropped:
+                self._pending.remove(key)
+                self._attempts.pop(key, None)
         self._pending.append(arena_id)
         scope = arena_id[:2] if isinstance(arena_id, tuple) else None
-        same_owner = [key for key in self._pending
+        candidates = self._pending + ([self._asking] if self._asking is not None else [])
+        same_owner = [key for key in candidates
                       if (key[:2] if isinstance(key, tuple) else None) == scope]
-        for dropped in same_owner[:-self._limit]:
+        overflow = max(0, len(same_owner) - self._limit)
+        for dropped in [key for key in same_owner if key != self._asking][:overflow]:
             self._pending.remove(dropped)
             self._attempts.pop(dropped, None)
+            if self._journal is not None:
+                self._journal.remove(dropped, 'saturated')
             _logger.warning('too many battles waiting for this owner; gave up on %s', dropped)
         return True
 
@@ -276,19 +188,40 @@ class Requests(object):
 
     def busy(self):
         """Whether a page is still being served, including its in-flight ask."""
-        return self._asking is not None or bool(self._pending)
+        origin = self._context_now()
+        pending = self._pending if self._context is None else [key for key in self._pending
+                   if key[:2] == (origin.get('region'), origin.get('id')) and key[1] is not None]
+        return self._asking is not None or bool(pending)
 
     def drain(self):
         """Ask about the next battle, if this is a moment that can."""
         if not getattr(self._session, 'alive', True):
             return
+        garage = None
+        if self._journal is not None:
+            garage = self._garage()
+            if garage:
+                if not self._was_garage:
+                    self._garage_ready = self._now() + 5.0
+                # Observe even an empty or paused scheduler. Some clients have
+                # no account event, and the next avatar no longer exposes ID.
+                self._origin = self._context_now()
+            self._was_garage = garage
         self._clear_stale()
+        if self._journal is not None:
+            self._maintain()
+        if not self._taking():
+            return
         if self._asking is not None or not self._pending or self._now() < self._retry_after:
             return
         # Outside the garage the cache refuses every request, and a refusal
         # spends one of the attempts a battle gets. The sender waits for the
         # same moment, for the same kind of reason.
-        if not self._garage():
+        if garage is None:
+            garage = self._garage()
+        if self._journal is not None and garage and self._now() < self._garage_ready:
+            return
+        if not garage:
             self._say_once('not the player',
                            'battles are waiting, but the account is not the player yet; '
                            'they are asked about on the way back to the garage')
@@ -302,36 +235,58 @@ class Requests(object):
         origin = self._context_now()
         if self._context is not None:
             eligible = next((key for key in self._pending
-                             if key[:2] == (origin.get('region'), origin.get('id'))), None)
-            if eligible is None and origin.get('id') is not None:
-                # Service messages may arrive while the avatar exposes no WG ID.
-                # Select a cache login only when asking; the result still has
-                # to prove its own owner against this request's actual origin.
-                eligible = next((key for key in self._pending
-                                 if key[1] is None and key[0] in (None, origin.get('region'))), None)
+                             if origin.get('id') is not None and key[:2] == (origin.get('region'), origin.get('id'))
+                             and (self._journal is None or self._journal.entries[key]['due'] <= self._now())), None)
             if eligible is None:
                 return
             self._pending.remove(eligible)
             arena_id = (origin.get('region'), origin.get('id'), self._arena(eligible))
         else:
             arena_id = self._pending.pop(0)
+        if self._journal is not None:
+            try:
+                from battle_conquest.battle_reports import BattleReports
+                service = BattleReports._service()
+                posted = getattr(service, 'areResultsPosted', None)
+                row = self._journal.entries[arena_id]
+                if (posted is not None and posted(self._arena(arena_id))
+                        and not row.get('repair') and not row.get('posted_waited')):
+                    # Give live hooks one grace period. The UI flag cannot
+                    # prevent a repair or replace a durable report forever.
+                    self._pending.append(arena_id)
+                    row['posted_waited'] = True
+                    row['due'] = self._now() + 5.0
+                    self._journal.save()
+                    return
+            except Exception:
+                _logger.debug('could not check whether results are posted', exc_info=True)
         _logger.info('asking the server about battle %s', arena_id)
         self._attempts[arena_id] = self._attempts.get(arena_id, 0) + 1
+        if self._journal is not None:
+            row = self._journal.entries[arena_id]
+            row['attempts'] = self._attempts[arena_id]
+            row['due'] = self._now() + _STALE_SECONDS
+            if not self._journal.save():
+                self._pending.insert(0, arena_id)
+                self._attempts[arena_id] -= 1
+                row['attempts'] -= 1
+                return
         self._asking = arena_id
         self._asked_at = self._now()
         try:
-            cache.get(self._arena(arena_id), self._answer(arena_id, origin))
+            ticket = object()
+            self._ask_ticket = ticket
+            cache.get(self._arena(arena_id), self._answer(arena_id, origin, ticket))
         except Exception:
             _logger.exception('could not ask for the results of battle %s', arena_id)
             self._asking = None
-            self._give_up_or_retry(arena_id, retry=False)
+            # Cache initialization/transport setup can fail transiently even
+            # when the account already looks ready. Keep the bounded budget.
+            self._retry_after = self._now() + 20.0
+            self._give_up_or_retry(arena_id)
 
     def _clear_stale(self):
         """Stop waiting on an answer that is never going to come.
-
-        Without this, one callback the client never runs holds every later
-        battle shut for the rest of the session -- the failure that is worst
-        here, because it is silent and grows.
         """
         if self._asking is None:
             return
@@ -345,7 +300,7 @@ class Requests(object):
         # battles behind it have waited long enough to go first.
         self._give_up_or_retry(arena_id, front=False)
 
-    def _answer(self, arena_id, origin=None):
+    def _answer(self, arena_id, origin=None, ticket=None):
 
         def answered(code=None, results=None):
             # The game's cache callback cannot be cancelled when this load stops.
@@ -354,8 +309,11 @@ class Requests(object):
                 return
             # Not `arena_id is self._asking`: a stale ask was let go of, and
             # its answer arriving late is still an answer worth keeping.
-            if self._asking == arena_id:
+            current = self._asking == arena_id and self._ask_ticket is ticket
+            if current:
                 self._asking = None
+            if results is None and not current:
+                return
             if results is not None:
                 self._attempts.pop(arena_id, None)
                 if arena_id in self._pending:
@@ -363,19 +321,40 @@ class Requests(object):
                     # this it is asked about a second time for an answer
                     # already in hand.
                     self._pending.remove(arena_id)
+                outcome = None
                 try:
                     source = 'the client answering about battle %s' % self._arena(arena_id)
                     if self._context is None:
-                        self._deliver(results, source)
+                        outcome = self._deliver(results, source)
                     else:
-                        self._deliver(results, source, origin)
+                        outcome = self._deliver(results, source, origin)
                 except Exception:
                     _logger.exception('could not capture the answer about battle %s', arena_id)
+                if self._journal is not None:
+                    if self._captured(arena_id):
+                        self.complete(arena_id)
+                    elif (arena_id in self._journal.entries
+                          and not self._journal.entries[arena_id].get('abandoned')):
+                        self._attempts[arena_id] = self._journal.entries[arena_id]['attempts']
+                        ignored = (isinstance(outcome, dict)
+                                   and outcome.get('ignored_arena') == str(self._arena(arena_id)))
+                        reason = None
+                        if ignored:
+                            reason = ('diagnostic saved without a destination' if outcome.get('diagnostic_only')
+                                      else 'result mode not requested')
+                        self._give_up_or_retry(arena_id, retry=not ignored, reason=reason)
                 self.drain()
+                return
+            if self._journal is not None and (self._asking is not None or arena_id not in self._journal.entries):
                 return
             _logger.info('the client refused to answer about battle %s with code %s',
                          arena_id, code)
-            again = retryable(code)
+            row = self._journal.entries.get(arena_id, {}) if self._journal is not None else {}
+            unannounced = self._journal is not None and not row.get('announced') and not row.get('repair')
+            # Leaving an ongoing battle can expose the garage before results
+            # exist. An unavailable unannounced arena needs a later retry.
+            again = retryable(code) or unannounced
+            delay = 900.0 if unannounced and not retryable(code) else 20.0
             try:
                 non_player = _client('AccountCommands').RES_NON_PLAYER
             except Exception:
@@ -384,29 +363,66 @@ class Requests(object):
             # cache's ordinary cooldown or a centre disconnection.
             if again and code != non_player:
                 self._retry_after = self._now() + 20.0
-            self._give_up_or_retry(arena_id, retry=again)
-            # Only when this battle is settled. A refusal worth retrying says
-            # the moment is wrong, not the battle, so asking again on the same
-            # frame would spend every attempt it has in one burst and give up
-            # on a battle that a tick later would have been served.
+            self._give_up_or_retry(arena_id, retry=again, delay=delay)
             if not again:
                 self.drain()
 
         return answered
 
-    def _give_up_or_retry(self, arena_id, retry=True, front=True):
+    def _give_up_or_retry(self, arena_id, retry=True, front=True, delay=20.0, reason=None):
+        # A late result may fail capture while its replacement is in flight.
+        # Only that replacement can decide whether this arena needs a retry.
+        if self._asking == arena_id:
+            return
         attempts = self._attempts.get(arena_id, 0)
         if not retry or attempts >= _MAX_ATTEMPTS:
+            if arena_id in self._pending:
+                self._pending.remove(arena_id)
             self._attempts.pop(arena_id, None)
+            if self._journal is not None:
+                self._journal.abandon(arena_id, reason or 'attempts exhausted or permanent refusal')
             _logger.warning('giving up on the results of battle %s after %d attempt(s); it is '
                             'captured only if its results screen is opened', arena_id, attempts)
             return
         # At the front by default: the oldest battle is the one the player is
         # likeliest to have already walked away from.
-        self._pending.insert(0 if front else len(self._pending), arena_id)
+        if self._journal is not None:
+            row = self._journal.entries.get(arena_id)
+            if row is None:
+                return
+            row['due'] = max(self._now() + delay, self._retry_after)
+            self._journal.save()
+        if arena_id not in self._pending:
+            self._pending.insert(0 if front else len(self._pending), arena_id)
 
 
-def install(session, deliver, taking=None, garage=at_garage, cache=results_cache, context=None):
-    requests = Requests(session, deliver, taking=taking, garage=garage, cache=cache, context=context)
+    def complete(self, key):
+        self._completed.add(key)
+        if len(self._completed) > 500:
+            self._completed.pop()
+        if self._journal is not None:
+            self._journal.remove(key, 'report saved')
+        if key in self._pending:
+            self._pending.remove(key)
+        self._attempts.pop(key, None)
+
+    def _maintain(self):
+        from battle_conquest.recovery_journal import RETENTION
+        for key, row in list(self._journal.entries.items()):
+            if not row.get('repair') and self._captured(key):
+                self.complete(key)
+            elif self._now() - row['observed'] >= RETENTION:
+                self._journal.remove(key, 'expired')
+                if key in self._pending:
+                    self._pending.remove(key)
+                self._attempts.pop(key, None)
+            elif row['attempts'] >= _MAX_ATTEMPTS and key != self._asking and not row.get('abandoned'):
+                self._give_up_or_retry(key, retry=False)
+
+
+def install(session, deliver, taking=None, garage=at_garage, cache=results_cache, context=None,
+            journal=None, captured=None):
+    requests = Requests(session, deliver, taking=taking, garage=garage, cache=cache, context=context,
+                        journal=journal, captured=captured)
     requests.install()
     return requests

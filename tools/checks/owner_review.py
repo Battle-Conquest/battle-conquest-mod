@@ -26,28 +26,13 @@ def check_owner_unknown_notification():
     check('an avatar announcement waits for the garage', not cache.asked)
     context['id'], garage[0] = ACCOUNT, True
     requests.drain()
-    check('an announcement without login metadata is retrieved when the garage identifies the login', cache.asked == [91])
+    check('unknown origin is never borrowed by the next login', not cache.asked)
+    requests.remember(92)
+    requests.drain()
     player.account = OTHER
     context['id'] = OTHER
-    cache.answer_now(91, 1, raw())
-    check('the fetched result retains its actual request owner across a later login switch',
-          queue.all()[0]['account'] == ACCOUNT and queue.all()[0]['request_owner']['id'] == ACCOUNT)
-    requests.remember(92)
-    cache._answers[92] = (-5, None)
-    requests.drain()
-    context['id'] = ACCOUNT
-    clock.now += 21
-    requests.drain()
-    check('a retry never borrows another login after its first scoped request', cache.asked == [91, 92])
-    # Another formerly unknown announcement can be fetched under A, but a
-    # conflicting B personal result must still be isolated, never stamped A.
-    context['id'] = None
-    requests.remember(93)
-    context['id'] = ACCOUNT
-    requests.drain()
-    cache.answer_now(93, 1, raw(OTHER, arena=93))
-    check('retrieving an unscoped announcement does not bypass result ownership checks',
-          queue.isolated() == 1 and not any(r.get('account') == OTHER for r in queue.all()))
+    cache.answer_now(92, 1, raw(arena=92))
+    check('late response keeps its original owner', queue.all()[0]['account'] == ACCOUNT)
 
 
 def check_owner_isolated_receipt():

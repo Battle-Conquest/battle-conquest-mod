@@ -150,7 +150,7 @@ def check_identity_request_context():
                        context=broken_context)
     request.remember(103)
     request.drain()
-    check('a failed context snapshot delivers an explicitly unknown origin', delivered == [{}])
+    check('a failed context snapshot never requests under an unknown origin', delivered == [])
 
 
 def check_identity_capture_context():

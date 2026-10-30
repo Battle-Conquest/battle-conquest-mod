@@ -14,7 +14,7 @@ def check_report_sender_responses():
         broken = False
         try:
             _answer(session, 200, {'accepted': 0, 'duplicates': 0, 'rejected': BATCH,
-                    'results': [{'index': 0, 'status': 'rejected', 'reason': reason}]})
+                    'results': [{'index': i, 'status': 'rejected', 'reason': reason} for i in range(BATCH)]})
         except (TypeError, ValueError):
             broken = True
         check('a malformed rejection code cannot stall the remaining backlog: %r' % reason,

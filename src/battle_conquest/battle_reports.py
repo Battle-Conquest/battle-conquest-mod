@@ -232,17 +232,26 @@ class BattleReports(object):
         can reach the queue and the mode and account checks cannot be skipped
         by whichever way it came.
         """
-        self._on_posted(results, source, request_context)
+        return self._on_posted(results, source, request_context)
 
     def _on_posted(self, posted=None, source='unknown', request_context=None):
+        # Another mod can retain this load's patch below its own wrapper.
+        if not getattr(self._session, 'alive', True):
+            return
         # Said out loud, once per battle: without it, a capture that never ran
         # and a battle that was never played read the same in game.log, and
         # that ambiguity has already cost an evening.
         _logger.info('battle results arrived by %s', source)
         try:
             results = raw_results(posted, on_miss=describe)
-            self.observe(results, source, request_context)
-            self.capture(results, request_context=request_context)
+            observed = self.observe(results, source, request_context)
+            decision = {}
+            self.capture(results, request_context=request_context, decision=decision)
+            if decision.get('ignored_arena') and self._diagnostic.enabled() and not observed:
+                return {}
+            if observed and decision.get('diagnostic_arena'):
+                return {'ignored_arena': decision['diagnostic_arena'], 'diagnostic_only': True}
+            return decision
         except Exception:
             _logger.exception('could not capture a battle')
 
@@ -250,9 +259,9 @@ class BattleReports(object):
         """Observe even a stale repair answer without queueing it for another login."""
         try:
             if request_context is None:
-                self._diagnostic.capture(results, source, self.account())
+                return self._diagnostic.capture(results, source, self.account())
             else:
-                self._diagnostic.capture(results, source, self.account(), request_context)
+                return self._diagnostic.capture(results, source, self.account(), request_context)
         except Exception:
             _logger.warning('local diagnostic failed; normal capture continues')
 
@@ -274,17 +283,23 @@ class BattleReports(object):
         the moment they arrive. The local diagnostic can explicitly request
         other modes too, without widening what is queued for the site.
         """
+        current = getattr(self._destinations, 'current', None)
+        if current is not None and not current.enabled:
+            return False
         if self._diagnostic.enabled():
             return True
         if self._destinations is None:
             return False
-        return bool(self._destinations.modes())
+        if not hasattr(self._destinations, 'current'):
+            return bool(self._destinations.modes())
+        return bool(current is not None and current.enabled and not current.blocked
+                    and current.secret and current.modes)
 
     def account(self):
         """Last login for diagnostic context only, never a result's owner."""
         return getattr(self._account, 'account', None)
 
-    def capture(self, results, constants=None, request_context=None):
+    def capture(self, results, constants=None, request_context=None, decision=None):
         """Queue a battle's results, and say whether anything was queued."""
         if results is None:
             return False
@@ -312,6 +327,8 @@ class BattleReports(object):
         if name is not None:
             report['owner_name'] = name
         if self._destinations is None:
+            if decision is not None:
+                decision['diagnostic_arena'] = report['arena_unique_id']
             return False
         lookup = getattr(self._destinations, 'for_owner', None)
         if lookup is not None:
@@ -320,6 +337,13 @@ class BattleReports(object):
         else:
             wanted = self.wanted(report['mode'])
         if not wanted:
+            # A valid but unwanted mode is a terminal policy decision, unlike
+            # a pause, missing link, owner mismatch or failed queue write.
+            if (decision is not None and lookup is not None and destination is not None
+                    and destination.enabled and destination.secret and report['mode'] not in destination.modes):
+                decision['ignored_arena'] = report['arena_unique_id']
+            elif decision is not None and lookup is not None and destination is None:
+                decision['diagnostic_arena'] = report['arena_unique_id']
             return False
         if not self._queue.add(report):
             return False

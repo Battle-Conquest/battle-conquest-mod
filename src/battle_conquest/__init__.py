@@ -15,6 +15,7 @@ from battle_conquest import (account, battle_reports, battle_feedback, destinati
                              results_request, settings_window, site_link)
 from battle_conquest.modes import MODES
 from battle_conquest.report_queue import Queue
+from battle_conquest.recovery_journal import Journal
 from battle_conquest.results_diagnostic import Diagnostic
 from battle_conquest.results_identity import request_context
 from battle_conquest.runtime.session import Session
@@ -48,10 +49,16 @@ def start(generation=0):
         # server for the battles the player never opened, which is the only way
         # they are captured at all.
         requests = results_request.install(_session, reports.arrived, reports.anything_wanted,
-                                            context=request_context)
+                                            context=request_context, journal=Journal(), captured=queue.captured)
+        def report_saved(report):
+            key = (report['owner']['region'], report['account'], long(report['arena_unique_id']))
+            if queue.captured(key):
+                requests.complete(key)
+
+        reports.on_capture(report_saved)
         sender = report_sender.install(_session, player, places, VERSION, queue)
         quest_repairs.install(_session, player, places, reports.arrived,
-                              context=request_context, observe_stale=reports.arrived)
+                              context=request_context, observe_stale=reports.arrived, requests=requests)
         garage = quest_garage_view.install(_session, player, places, sender)
         battle_feedback.Feedback(_session, garage, reports, sender, requests)
         page = settings_window.install(_session, site, places, sender)
