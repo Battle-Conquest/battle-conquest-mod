@@ -8,7 +8,6 @@ first, and sending reads from here.
 Held in memory as well as on disk: a capture happens on the frame the results
 arrive on, and reading a file there is work the player would feel.
 """
-import copy
 import logging
 import os
 
@@ -133,11 +132,11 @@ class Queue(object):
             report['quarantine'] = report.get('quarantine') or 'owner is unverified'
         key = report_key(report)
         known = any(report_key(r) == key for r in self._reports)
-        previous = copy.deepcopy(self._reports)
         self._reports = trim(deduplicate(self._reports + [report]))
-        if not self.save():
-            self._reports = previous
-            return False
+        # The cache already delivered (and may have acknowledged) this result.
+        # A transient disk error must not discard our only remaining copy.
+        # Keep it for delivery or the next successful queue write, as before.
+        self.save()
         return not known
 
     def isolated(self):

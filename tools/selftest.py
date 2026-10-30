@@ -51,6 +51,7 @@ from checks.owner_review import (check_owner_unknown_notification, check_owner_i
                                  check_owner_invalid_legacy_refresh, check_owner_settings_scope)
 from checks.owner_migration_review import (check_legacy_unlink_race, check_legacy_unlink_restart,
                                            check_legacy_unlink_owner_scope)
+from checks.queue_write_review import check_owner_capture_write_failure, check_owner_enrichment_write_failure
 from checks.engine import FakeBigWorld
 from checks.mod_updates import (check_mod_updates_contract, check_mod_updates_garage,
                                 check_mod_updates_teardown)
@@ -132,6 +133,8 @@ def main():
         check('hook delegates to the original', delegates())
         check('watcher armed', bool(bigworld.pending))
 
+        check_owner_capture_write_failure()
+        check_owner_enrichment_write_failure()
         check_legacy_unlink_race()
         check_legacy_unlink_restart()
         check_legacy_unlink_owner_scope()
