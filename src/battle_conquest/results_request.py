@@ -147,7 +147,9 @@ class Requests(RequestContext):
                 row = self._journal.entries[arena_id]
                 if announced:
                     row['announced'] = True
-                due = max(row['due'], self._now() + 5.0)
+                due = (max(self._now() + 5.0, self._retry_after)
+                       if announced and arena_id != self._asking
+                       else max(row['due'], self._now() + 5.0))
                 if announced or due != row['due']:
                     row['due'] = due
                     self._journal.save()
@@ -190,6 +192,16 @@ class Requests(RequestContext):
         """Ask about the next battle, if this is a moment that can."""
         if not getattr(self._session, 'alive', True):
             return
+        garage = None
+        if self._journal is not None:
+            garage = self._garage()
+            if garage:
+                if not self._was_garage:
+                    self._garage_ready = self._now() + 5.0
+                # Observe even an empty or paused scheduler. Some clients have
+                # no account event, and the next avatar no longer exposes ID.
+                self._origin = self._context_now()
+            self._was_garage = garage
         self._clear_stale()
         if self._journal is not None:
             self._maintain()
@@ -200,14 +212,10 @@ class Requests(RequestContext):
         # Outside the garage the cache refuses every request, and a refusal
         # spends one of the attempts a battle gets. The sender waits for the
         # same moment, for the same kind of reason.
-        garage = self._garage()
-        if self._journal is not None:
-            if garage and not self._was_garage:
-                self._garage_ready = self._now() + 5.0
-                self._origin = self._context_now()
-            self._was_garage = garage
-            if garage and self._now() < self._garage_ready:
-                return
+        if garage is None:
+            garage = self._garage()
+        if self._journal is not None and garage and self._now() < self._garage_ready:
+            return
         if not garage:
             self._say_once('not the player',
                            'battles are waiting, but the account is not the player yet; '

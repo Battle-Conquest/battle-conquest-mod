@@ -62,3 +62,64 @@ def check_recovery_review_posted():
                   cache.asked == [91])
     finally:
         BattleReports._service = original
+
+
+def check_recovery_review_idle_account():
+    import BigWorld
+    requests, clock, cache, identity, path = fixture()
+    requests.drain()
+    identity['id'] = '456'
+    # No pending work, and no account event on this client: the fallback tick
+    # is the only observation before the next avatar hides databaseID.
+    requests.drain()
+    identity['id'] = None
+    player = BigWorld.player
+    try:
+        BigWorld.player = lambda: type('Avatar', (), {'arenaUniqueID': 91})()
+        requests._entered_battle()
+    finally:
+        BigWorld.player = player
+    check('idle fallback observes new login before the avatar hides its ID',
+          ('eu', '456', 91) in requests._journal.entries
+          and ('eu', '123', 91) not in requests._journal.entries)
+
+
+def check_recovery_review_announcement():
+    from battle_conquest.results_request import arrival_types
+    from checks.results_request import _Message
+    requests, clock, cache, identity, path = fixture()
+    requests.remember(91)
+    requests.drain()
+    clock.now += 5
+    requests.drain()
+    cache.answer_now(91, -1)
+    clock.now += 30
+    requests._announced(1, _Message(sorted(arrival_types())[0], {'arenaUniqueID': 91}))
+    clock.now += 5
+    requests.drain()
+    check('public completion announcement expedites a fifteen-minute unavailable retry',
+          cache.asked == [91, 91] and requests._journal.entries[('eu', '123', 91)]['attempts'] == 2)
+
+
+def check_recovery_review_http_generations():
+    from checks.report_sender import _queue, _sender, _Response
+    queue = _queue(count=2)
+    session, sender = _sender(queue)
+    timers = []
+    session.callback = lambda delay, func: timers.append(func)
+    sender.drain()
+    old = session.sent.pop()['answer']
+    partial = {'results': [{'index': 0, 'arena_unique_id': '1', 'status': 'accepted'}]}
+    old(_Response(200, partial))
+    sender._waiting.clear()
+    sender.drain()
+    current = session.sent.pop()['answer']
+    timers[0]()
+    old(_Response(401))
+    check('old timeout and repeated HTTP response cannot release or revoke a newer operation',
+          sender._busy and not sender._stopped and not sender._waiting
+          and [r['arena_unique_id'] for r in queue.all()] == ['2'])
+    current(_Response(200, {'results': [{'index': 0, 'arena_unique_id': '2', 'status': 'rejected'}]}))
+    timers[-1]()
+    check('current definitive rejection settles once despite obsolete timeouts',
+          not queue.all() and not sender._busy and not sender._waiting)
