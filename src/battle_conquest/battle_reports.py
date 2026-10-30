@@ -235,6 +235,9 @@ class BattleReports(object):
         return self._on_posted(results, source, request_context)
 
     def _on_posted(self, posted=None, source='unknown', request_context=None):
+        # Another mod can retain this load's patch below its own wrapper.
+        if not getattr(self._session, 'alive', True):
+            return
         # Said out loud, once per battle: without it, a capture that never ran
         # and a battle that was never played read the same in game.log, and
         # that ambiguity has already cost an evening.

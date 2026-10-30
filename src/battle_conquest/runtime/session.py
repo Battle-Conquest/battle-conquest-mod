@@ -146,13 +146,17 @@ class Session(object):
     def subscribe(self, event, handler):
         """Attach to a WG Event, remembering the exact handler object.
 
-        Detaching needs the same object that was attached, so the handler is
-        stored rather than rebuilt at teardown: a fresh bound method or
-        lambda would compare unequal and silently fail to detach.
+        Detachment is best effort on some clients. Guard the subscription so
+        a retained event cannot reach a closed load's stale queues/journal.
+        Keep the exact wrapper for teardown and return it to callers.
         """
-        event += handler
-        self._subscriptions.append((event, handler))
-        return handler
+        def guarded(*args, **kwargs):
+            if self.alive:
+                return handler(*args, **kwargs)
+
+        event += guarded
+        self._subscriptions.append((event, guarded))
+        return guarded
 
     def close(self):
         """Release everything, in the reverse order it was taken.
