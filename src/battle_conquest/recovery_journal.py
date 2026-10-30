@@ -43,6 +43,8 @@ class Journal(object):
                     raise ValueError('invalid counters')
                 if not 0 <= row['attempts'] <= 5 or row['observed'] < 0 or row['due'] < 0:
                     raise ValueError('invalid bounds')
+                if 'abandoned' in row and not isinstance(row['abandoned'], bool):
+                    raise ValueError('invalid recovery state')
                 key = (region, account, long(arena))
                 if key in self.entries or sum(1 for k in self.entries if k[:2] == key[:2]) >= 50:
                     raise ValueError('duplicate or saturated owner')
@@ -71,8 +73,17 @@ class Journal(object):
             return False
 
     def add(self, key, now, due, limit=50, protected=None, repair=False, announced=False):
-        if key in self.entries or not self.writable:
+        if not self.writable:
             return False
+        if key in self.entries:
+            row = self.entries[key]
+            if not repair or not row.get('abandoned') or row['attempts'] >= 5:
+                return False
+            # A new explicit server repair can use the remaining budget, but
+            # neither a replayed announcement nor a restart can reset it.
+            row.update(abandoned=False, repair=True, due=now + 5.0)
+            self.save()
+            return True
         self.entries[key] = dict(region=key[0], account=key[1], arena=str(key[2]),
                                  observed=now, due=due, attempts=0, repair=repair, announced=announced)
         owner = [one for one in self.entries if one[:2] == key[:2]]
@@ -90,4 +101,13 @@ class Journal(object):
         if key in self.entries:
             del self.entries[key]
             _logger.info('recovery %s: %s', reason, key)
+            self.save()
+
+    def abandon(self, key, reason):
+        row = self.entries.get(key)
+        if row is not None and not row.get('abandoned'):
+            # Retain the budget until expiry or bounded eviction. Removing it
+            # would let a replayed notification reset attempts after restart.
+            row['abandoned'] = True
+            _logger.warning('recovery abandoned (%s): %s', reason, key)
             self.save()

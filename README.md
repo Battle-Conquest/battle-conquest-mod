@@ -348,10 +348,13 @@ from captured reports. Entries keep their original account and region; unknown
 origins remain isolated. Recovery waits five seconds after an announcement or
 return to the garage and shares one cache scheduler with quest evidence repair.
 Each owner has at most 50 entries, five attempts per arena and seven days of
-retention. Pausing suspends collection and recovery; a revoked link keeps data
+retention. Abandoned entries retain their attempt budget until expiry or
+bounded eviction, so repeated announcements cannot restart recovery. Pausing suspends collection and recovery; a revoked link keeps data
 until linking again (explicit local diagnostics can still retrieve results).
 
 A report leaves the sending queue only with a valid individual server verdict.
 Unreadable or partial responses keep unconfirmed reports for a later retry.
 The recovery delay reduces collisions with the results screen and other mods;
 notification behaviour and frame-time impact still require in-game testing.
+Valid results of unwanted modes and successfully saved standalone diagnostics
+do not consume repeated cache attempts; pauses and storage failures retain recovery work.

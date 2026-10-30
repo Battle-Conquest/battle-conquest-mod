@@ -143,7 +143,7 @@ def check_recovery_review_late_cache():
           requests._asking == ('eu', '123', 91) and requests.waiting() == [])
     cache.answer_now(91, -1)
     check('permanent refusal after late answer leaves no orphan pending arena',
-          not requests.waiting() and not requests._journal.entries)
+          not requests.waiting() and requests._journal.entries[('eu', '123', 91)].get('abandoned'))
     requests.remember(92, announced=True)
     clock.now += 5
     requests.drain()

@@ -40,7 +40,8 @@ class Requests(RequestContext):
         self._said = set()
         self._origin = self._context_now()
         if journal is not None:
-            self._pending = sorted(journal.entries, key=lambda key: journal.entries[key]['observed'])
+            self._pending = sorted((key for key, row in journal.entries.items() if not row.get('abandoned')),
+                                   key=lambda key: journal.entries[key]['observed'])
             self._attempts = dict((key, row['attempts']) for key, row in journal.entries.items())
 
     def install(self):
@@ -145,12 +146,15 @@ class Requests(RequestContext):
         if arena_id == self._asking or arena_id in self._pending:
             if self._journal is not None and arena_id in self._journal.entries:
                 row = self._journal.entries[arena_id]
+                promoted = repair and not row.get('repair')
+                if promoted:
+                    row['repair'] = True
                 if announced:
                     row['announced'] = True
                 due = (max(self._now() + 5.0, self._retry_after)
                        if announced and arena_id != self._asking
                        else max(row['due'], self._now() + 5.0))
-                if announced or due != row['due']:
+                if promoted or announced or due != row['due']:
                     row['due'] = due
                     self._journal.save()
             return False
@@ -159,6 +163,7 @@ class Requests(RequestContext):
                                      limit=self._limit, protected=self._asking,
                                      repair=repair, announced=announced):
                 return False
+            self._attempts[arena_id] = self._journal.entries[arena_id]['attempts']
             dropped = [key for key in self._pending if key not in self._journal.entries]
             for key in dropped:
                 self._pending.remove(key)
@@ -313,20 +318,28 @@ class Requests(RequestContext):
                     # this it is asked about a second time for an answer
                     # already in hand.
                     self._pending.remove(arena_id)
+                outcome = None
                 try:
                     source = 'the client answering about battle %s' % self._arena(arena_id)
                     if self._context is None:
-                        self._deliver(results, source)
+                        outcome = self._deliver(results, source)
                     else:
-                        self._deliver(results, source, origin)
+                        outcome = self._deliver(results, source, origin)
                 except Exception:
                     _logger.exception('could not capture the answer about battle %s', arena_id)
                 if self._journal is not None:
                     if self._captured(arena_id):
                         self.complete(arena_id)
-                    elif arena_id in self._journal.entries:
+                    elif (arena_id in self._journal.entries
+                          and not self._journal.entries[arena_id].get('abandoned')):
                         self._attempts[arena_id] = self._journal.entries[arena_id]['attempts']
-                        self._give_up_or_retry(arena_id)
+                        ignored = (isinstance(outcome, dict)
+                                   and outcome.get('ignored_arena') == str(self._arena(arena_id)))
+                        reason = None
+                        if ignored:
+                            reason = ('diagnostic saved without a destination' if outcome.get('diagnostic_only')
+                                      else 'result mode not requested')
+                        self._give_up_or_retry(arena_id, retry=not ignored, reason=reason)
                 self.drain()
                 return
             if self._journal is not None and (self._asking is not None or arena_id not in self._journal.entries):
@@ -353,7 +366,7 @@ class Requests(RequestContext):
 
         return answered
 
-    def _give_up_or_retry(self, arena_id, retry=True, front=True, delay=20.0):
+    def _give_up_or_retry(self, arena_id, retry=True, front=True, delay=20.0, reason=None):
         # A late result may fail capture while its replacement is in flight.
         # Only that replacement can decide whether this arena needs a retry.
         if self._asking == arena_id:
@@ -364,7 +377,7 @@ class Requests(RequestContext):
                 self._pending.remove(arena_id)
             self._attempts.pop(arena_id, None)
             if self._journal is not None:
-                self._journal.remove(arena_id, 'abandoned after attempts or permanent refusal')
+                self._journal.abandon(arena_id, reason or 'attempts exhausted or permanent refusal')
             _logger.warning('giving up on the results of battle %s after %d attempt(s); it is '
                             'captured only if its results screen is opened', arena_id, attempts)
             return
@@ -395,11 +408,13 @@ class Requests(RequestContext):
         for key, row in list(self._journal.entries.items()):
             if not row.get('repair') and self._captured(key):
                 self.complete(key)
-            elif self._now() - row['observed'] >= RETENTION or row['attempts'] >= _MAX_ATTEMPTS and key != self._asking:
-                self._journal.remove(key, 'expired or exhausted')
+            elif self._now() - row['observed'] >= RETENTION:
+                self._journal.remove(key, 'expired')
                 if key in self._pending:
                     self._pending.remove(key)
                 self._attempts.pop(key, None)
+            elif row['attempts'] >= _MAX_ATTEMPTS and key != self._asking and not row.get('abandoned'):
+                self._give_up_or_retry(key, retry=False)
 
 
 def install(session, deliver, taking=None, garage=at_garage, cache=results_cache, context=None,

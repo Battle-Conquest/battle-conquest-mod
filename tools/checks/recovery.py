@@ -83,7 +83,7 @@ def check_recovery():
     check('fifth persisted attempt is the last actual request', cache.asked[-1] == 99)
     clock.now += 61
     requests.drain()
-    check('no sixth attempt after timeout and repeated restart', not Journal(path).entries)
+    check('no sixth attempt after timeout and repeated restart', Journal(path).entries[('eu', '123', 99)].get('abandoned') and cache.asked.count(99) == 1)
     # Disk failure must stop the request before the cache is touched.
     requests = build()
     requests.remember(100)
@@ -106,7 +106,7 @@ def check_recovery():
               ('eu', '123', 101) in requests._journal.entries)
         requests._session.alive = False
         requests._entered_battle()
-        check('closed session cannot record new recovery work', len(requests._journal.entries) == 2)
+        check('closed session cannot record new recovery work', sum(not row.get('abandoned') for row in requests._journal.entries.values()) == 2)
     finally:
         BigWorld.player = previous
 
