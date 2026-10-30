@@ -10,6 +10,7 @@ import os
 import tempfile
 
 from checks.battle_fixtures import ACCOUNT, Bonus, Places, Player, results
+from checks.battle_fixtures import owned
 from checks.common import check
 
 
@@ -178,14 +179,14 @@ def check_battle_report_queue():
     store = os.path.join(tempfile.mkdtemp(), 'battle-reports.json')
     queue = Queue(store=store)
     check('a fresh queue is empty', queue.all() == [])
-    check('a captured battle is queued', queue.add(report_of(results(), constants=Bonus)))
-    check('the same battle is not queued twice', not queue.add(report_of(results(), constants=Bonus)))
+    check('a captured battle is queued', queue.add(owned(report_of(results(), constants=Bonus))))
+    check('the same battle is not queued twice', not queue.add(owned(report_of(results(), constants=Bonus))))
     check('and the queue still holds the one', len(queue.all()) == 1)
 
     # The point of the file: a battle that failed to send cannot be played again.
     check('the queue survives the client being closed', Queue(store=store).all() == queue.all())
 
-    queue.drop(['12457893456789012345'])
+    queue.drop(['12457893456789012345'], account='500123456')
     check('a report taken by a destination leaves the queue', queue.all() == [])
     check('and it is gone from the file too', Queue(store=store).all() == [])
 
@@ -193,7 +194,7 @@ def check_battle_report_queue():
     # gone either way; keeping it would only stop every capture after it.
     with open(store, 'wb') as handle:
         handle.write('{"schema": 1, "reports": [{"arena')
-    check('an unreadable queue file starts a new queue', Queue(store=store).all() == [])
+    check('an unreadable queue is preserved and exposes no sendable reports', Queue(store=store).all() == [])
 
     _check_delivery()
 
@@ -205,13 +206,13 @@ def _check_delivery():
     here, there = 'https://one.test/in', 'https://two.test/in'
     shared = os.path.join(tempfile.mkdtemp(), 'battle-reports.json')
     queue = Queue(store=shared)
-    queue.add({'arena_unique_id': '1', 'mode': 'ranked'})
-    queue.add({'arena_unique_id': '2', 'mode': 'random'})
+    queue.add(owned({'arena_unique_id': '1', 'mode': 'ranked'}))
+    queue.add(owned({'arena_unique_id': '2', 'mode': 'random'}))
 
     check('a destination is owed the modes it wants', len(queue.pending(here, ['ranked'])) == 1)
     check('and never a mode it did not ask for', queue.pending(here, ['onslaught']) == [])
 
-    queue.mark(here, ['1', '2'])
+    queue.mark(here, ['1', '2'], account='500123456')
     check('what a destination has taken is not offered to it again',
           queue.pending(here, ['ranked']) == [])
     # The whole point of tracking it per destination: one site taking a battle
@@ -222,20 +223,20 @@ def _check_delivery():
 
     owed = {'ranked': [here, there], 'random': [here]}
     check('a report every destination owed it has taken leaves',
-          queue.settle(lambda mode: owed.get(mode, ())) == 1)
+          queue.settle(lambda mode: owed.get(mode, ()), account='500123456') == 1)
     check('and the one another destination still waits for stays',
           [report['arena_unique_id'] for report in queue.all()] == ['1'])
 
-    queue.mark(there, ['1'])
+    queue.mark(there, ['1'], account='500123456')
     check('the last destination taking it empties the queue',
-          queue.settle(lambda mode: owed.get(mode, ())) == 1 and queue.all() == [])
+          queue.settle(lambda mode: owed.get(mode, ()), account='500123456') == 1 and queue.all() == [])
 
     # A destination switched off after a battle was captured would otherwise
     # pin the queue open behind it for good.
     left = Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json'))
-    left.add({'arena_unique_id': '9', 'mode': 'ranked'})
-    check('a report nobody is waiting for any more is dropped',
-          left.settle(lambda mode: ()) == 1 and left.all() == [])
+    left.add(owned({'arena_unique_id': '9', 'mode': 'ranked'}))
+    check('a paused or unlinked report remains recoverable',
+          left.settle(lambda mode: (), account='500123456') == 0 and len(left.all()) == 1)
 
 
 def check_battle_report_capture():
@@ -261,5 +262,5 @@ def check_battle_report_capture():
     # it would sit on disk until the queue dropped it.
     nobody = BattleReports(None, destinations=Places(), account=Player(account=None),
                            queue=Queue(store=os.path.join(tempfile.mkdtemp(), 'q.json')))
-    check('a battle nobody is logged in for is not captured',
-          not nobody.capture(results(), constants=Bonus))
+    check('verified result ownership does not depend on a logged-in account',
+          nobody.capture(results(), constants=Bonus))

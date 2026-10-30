@@ -43,7 +43,7 @@ class Repairs(object):
         current = self._places.current
         account = getattr(self._account, 'account', None)
         if (not self._garage() or account_number(account) is None or current is None
-                or not current.enabled or not current.secret or not current.modes
+                or current.blocked or not current.enabled or not current.secret or not current.modes
                 or current.url != battles_url()):
             return None
         return (account, current.url, current.secret)

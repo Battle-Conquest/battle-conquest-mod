@@ -1,12 +1,7 @@
-"""The Wargaming account the client is logged in with, followed as it changes.
+"""Follow the login for UI and delivery selection, retaining it during battle.
 
-Every captured battle is stamped with it, and only the battles of the account
-logged in are sent: a machine two people play on holds both their battles, and
-each set leaves while its own player is playing.
-
-It is remembered through a battle, where the avatar carries no database id: a
-battle's results arrive while the client is still between the battle and the
-garage, and a report naming nobody could not be attributed by the site.
+Result ownership is read independently from personal.accountDBID. This tracker
+never supplies the owner of a captured result.
 """
 import logging
 

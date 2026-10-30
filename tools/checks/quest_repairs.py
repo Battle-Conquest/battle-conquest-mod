@@ -1,4 +1,5 @@
 """Recovery requests stay bounded and belong to the active account and link."""
+from checks.battle_fixtures import owned
 from checks.common import check
 from checks.report_sender import _Session, _Response
 
@@ -99,7 +100,7 @@ def check_quest_repairs():
     _answer(sending, 200, {'accepted': 50, 'results': [{'index': i, 'status': 'accepted'} for i in range(50)]})
     richer = dict(queue.all()[0])
     richer['quest_details'] = {'metrics': {'shots': 7}}
-    queue.add(richer)
+    queue.add(owned(richer))
     _answer(sending, 200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]})
     check('enrichment after acknowledgement survives the remaining backlog',
           len(queue.pending(HERE, ('ranked',))) == 1)
@@ -110,14 +111,14 @@ def check_quest_repairs():
     check('the completed report settles after its own acknowledgement', not queue.all())
 
     queue = _queue(count=51)
-    queue.mark(HERE, ['1'], snapshots={'1': None})
+    queue.mark(HERE, ['1'], snapshots={'1': None}, account='500123456')
     richer = dict(queue.all()[0])
     richer['quest_details'] = {'metrics': {'shots': 7}}
-    queue.add(richer)
+    queue.add(owned(richer))
     sending, sender = _sender(queue)
     sender.drain()
     _answer(sending, 200, {'results': [{'index': i, 'status': 'rejected' if i == 0 else 'accepted'} for i in range(50)]})
     richer['quest_details']['metrics']['hits'] = 4
-    queue.add(richer)
+    queue.add(owned(richer))
     _answer(sending, 200, {'results': [{'index': 0, 'status': 'accepted'}]})
     check('a later rejection revokes the earlier permission to rearm', not queue.all())

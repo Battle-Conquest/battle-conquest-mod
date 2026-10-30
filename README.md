@@ -47,7 +47,7 @@ in the mods list (the icon at the top of the garage) that opens this page:
 | Mod updates | installed version, known WGMods and GitHub versions, and the recommended download source |
 
 The page's own box (enabled) pauses sending: battles played meanwhile are not
-kept. **Unlink** makes this game forget its key; revoke it on the site too.
+kept. **Unlink** forgets the current account's key; other accounts and queued reports are preserved. Revoke it on the site too.
 
 Without those two mods there is no page, and nothing is lost but pausing and
 unlinking from the game: the garage notification links the game, and a key is
@@ -61,14 +61,14 @@ A newer stable release, including one available only on GitHub, raises a garage
 warning once per target version per session. If you are in battle it waits for
 the garage. **Update my mod** opens `/my-mod` in your own browser. WGMods remains
 the recommended download whenever its approved version can update your installation;
-GitHub can carry a still newer release. Older servers without this information
-continue to link and send battles normally.
+GitHub can carry a still newer release. Servers without optional update information remain compatible. Account linking
+requires the identity metadata delivered by Battle-Conquest#1012.
 
 ## What is sent, and what is not
 
 - Only the modes the site says it scores, read from the site when you link and
   checked again now and then.
-- Per battle: its arena id, mode, end time, outcome, whether you survived, and
+- Per battle: its owner WG account ID and region, arena id, mode, end time, outcome, whether you survived, and
   your own counters (damage, kills, spotting, XP...). Nothing about the other
   players.
 - The battles of the account logged in only, proven by a key the mod draws
@@ -85,8 +85,8 @@ Everything the mod writes is in `mods/configs/battle_conquest/`:
 
 | File | |
 |---|---|
-| `link.json` | the key, the modes the site scores, and whether sending is paused |
-| `battle-reports.json` | battles waiting to be sent |
+| `link.json` | schema 2: separate keys, modes and pause state per site, region and WG account |
+| `battle-reports.json` | schema 2: owner-scoped pending battles and isolated reports with unverified ownership |
 | `battle-reports-refused.json` | the last batch the site could not read, kept for whoever has to find out why |
 
 An optional local results diagnostic is available for the quest measurements
@@ -94,6 +94,26 @@ work in [#953](https://github.com/Battle-Conquest/Battle-Conquest/issues/953).
 It is disabled by default. See the [in-game diagnostic procedure (French)](./DIAGNOSTIC.md)
 for activation, files, limits and the comparisons to record. These observations
 are never sent to the site and do not change the existing battle reports.
+
+## Multiple game accounts (#964)
+
+Result ownership is always read from the personal `accountDBID` fields, even
+with diagnostics disabled. A result received after a login switch retains its
+owner. Different accounts in the same arena have independent queue entries,
+acknowledgements and a 500-report limit each. Only the logged-in account's
+reports leave, using its own saved key. Linking B no longer replaces A.
+
+A legacy key is migrated only after `/api/mod/me` returns its WG ID and region.
+Legacy reports without verifiable owner evidence are retained in isolation,
+not attributed from their old login stamp. Missing or conflicting ownership
+also isolates a report. The settings page reports the count and `game.log`
+explains the reason. An `account_mismatch` or revoked key suspends that link;
+link the same account again to resume its pending reports. Pause, unlink and
+revocation do not purge another account's backlog.
+
+See [installation, migration and verification (French)](OWNER-ISOLATION.md).
+`identity_enabled` only writes optional local diagnostic observations; leave
+both diagnostic options false for normal play.
 
 ## With unicum.gg-mod installed
 
@@ -157,7 +177,9 @@ When the linked site reports missing quest fields, the mod polls
 current account and link. Requests are paged, bounded to 20 arenas at a time,
 and each arena is retried once per load/link through the existing results cache.
 Recovered results follow normal capture and the server’s missing-only merge.
-Account/link changes, paused sending and entering battle stop stale callbacks.
+Account/link changes, paused sending and entering battle stop further repair
+requests. A late response passes the same result-owner checks as any capture;
+it can never be stamped with the new login.
 No missing premium or multi-vehicle total is guessed. Deploy the site’s migration
 0057 before this mod; a server without this endpoint simply returns an error and
 normal capture continues. No automatic release is needed for this branch.

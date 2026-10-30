@@ -101,6 +101,8 @@ class Destination(object):
         self.enabled = bool(enabled)
         self.modes = list(modes)
         self.secret = secret
+        self.owner = None
+        self.blocked = None
 
     def wants(self, mode):
         """Whether the destination is owed a battle of this mode."""
@@ -152,121 +154,221 @@ def read(payload, known_modes, url):
 
 
 class Destinations(object):
-    """The one destination, read from disk and written back.
+    """Links keyed by site, region and WG account. Legacy keys await /me."""
 
-    Shaped as a collection all the same: the capture and the sender ask it
-    which destinations want a mode, and an answer that is a list keeps them
-    from having to know there is only ever one.
-    """
-
-    def __init__(self, known_modes, store=STORE, url=None):
+    def __init__(self, known_modes, store=STORE, url=None, account=None):
+        from battle_conquest.account import current_account_id
         self._store = store
         self._known = tuple(known_modes)
         self.url = url or battles_url()
-        self._destination = self._read()
+        self._account = account if account is not None else current_account_id
+        self._links = {}
+        self._suspensions = []
+        self._foreign = []
+        self._foreign_legacy = []
+        self._legacy_unlinked = []
+        self.legacy = None
+        self._writable = True
+        self._read()
+
+    def identity(self):
+        from battle_conquest.battle_owner import account_id
+        value = self._account() if callable(self._account) else getattr(self._account, 'account', None)
+        identity = account_id(value)
+        return (config.REGION, identity) if identity else None
 
     def _read(self):
+        from battle_conquest.local_store import load_json
         try:
-            with open(self._store, 'rb') as handle:
-                payload = json.load(handle)
+            payload = load_json(self._store)
         except (IOError, OSError) as problem:
             if getattr(problem, 'errno', None) == errno.ENOENT:
-                _logger.info('no link file at %s: not linked yet. Link the site from the mod\'s '
-                             'settings page', self._store)
+                _logger.info('no link file at %s: not linked yet', self._store)
             else:
-                _logger.warning('could not open %s (%s); not linked', self._store, problem)
-            return None
+                self._writable = False
+                _logger.warning('could not open link file; not linked')
+            return
         except ValueError:
-            _logger.warning('%s is not readable JSON; not linked. The file is left as it is '
-                            'rather than overwritten, so a hand edit can be undone', self._store)
-            return None
-        return read(payload, self._known, self.url)
+            self._writable = False
+            _logger.warning('link file is not readable JSON; preserved, not linked')
+            return
+        if not isinstance(payload, dict) or payload.get('schema') not in (1, 2):
+            self._writable = False
+            _logger.warning('unsupported link schema; this mod reads 1 and 2')
+            return
+        if payload['schema'] == 1:
+            if payload.get('url') != self.url:
+                self._foreign_legacy.append(payload)
+            else:
+                self.legacy = read(payload, self._known, self.url)
+            return
+        self._legacy_unlinked = payload.get('legacy_unlinked', [])
+        if not isinstance(self._legacy_unlinked, list):
+            self._writable = False
+            return
+        entries = payload.get('links')
+        if not isinstance(entries, list):
+            self._writable = False
+            return
+        # Keep entries for other sites too, but never expose their secret to
+        # the active build. Switching a dev build must not erase production.
+        self._foreign = [entry for entry in entries if isinstance(entry, dict)
+                         and entry.get('url') != self.url]
+        for entry in self._foreign:
+            _logger.info('link for %s preserved; not used by this build', entry.get('url'))
+        from battle_conquest.battle_owner import account_id, REGIONS
+        for entry in entries:
+            if not isinstance(entry, dict) or entry.get('url') != self.url:
+                continue
+            owner = entry.get('owner')
+            identity = account_id(owner.get('id')) if isinstance(owner, dict) else None
+            region = owner.get('region') if isinstance(owner, dict) else None
+            if not identity or region not in REGIONS:
+                self._writable = False
+                continue
+            destination = read(entry, self._known, self.url)
+            if destination is not None:
+                destination.owner = (region, identity)
+                destination.blocked = entry.get('blocked')
+                self._links[(region, identity)] = destination
+        legacy_entries = payload.get('legacy_links', [])
+        if not isinstance(legacy_entries, list):
+            self._writable = False
+            return
+        legacy = payload.get('legacy')
+        if isinstance(legacy, dict):
+            legacy_entries = [legacy] + legacy_entries
+        candidates = [entry for entry in legacy_entries
+                      if isinstance(entry, dict) and entry.get('url') == self.url]
+        selected = candidates[0] if candidates else None
+        self._foreign_legacy = [entry for entry in legacy_entries
+                                if isinstance(entry, dict) and entry is not selected]
+        if selected is not None:
+            self.legacy = read(selected, self._known, self.url)
+
+    def for_owner(self, owner):
+        return self._links.get(tuple(owner)) if owner else None
 
     @property
     def current(self):
-        return self._destination
+        return self.for_owner(self.identity())
 
     @property
     def linked(self):
-        """Whether battles can be proven to the site: a secret it accepted."""
-        return self._destination is not None and bool(self._destination.secret)
+        current = self.current
+        return current is not None and bool(current.secret) and not current.blocked
 
     @property
     def enabled(self):
-        return self.linked and self._destination.enabled
+        return self.linked and self.current.enabled
 
     def all(self):
-        return [self._destination] if self._destination is not None else []
+        return [self.current] if self.current is not None else []
 
     def wanting(self, mode):
-        """The destinations owed a battle of this mode: the site, or nothing."""
-        return [destination for destination in self.all() if destination.wants(mode)]
+        return [d for d in self.all() if d.wants(mode)]
 
     def modes(self):
-        """Every mode the site is owed while sending is on.
+        current = self.current
+        # A broken proof suspends delivery, not capture of this known owner.
+        return list(current.modes) if current and current.enabled and current.secret else []
 
-        What the capture consults to know whether a battle is worth keeping at
-        all: a mode nothing is waiting for is a report nobody will ever read.
-        """
-        if not self.enabled:
-            return []
-        return list(self._destination.modes)
-
-    def remember(self, label, modes, secret, enabled=True):
-        """Write down the link the player has just made, and return it.
-
-        Replacing the one there rather than keeping both: a second linking
-        must not leave a credential nobody will ever present again.
-        """
-        self._destination = Destination(url=self.url, label=label, enabled=enabled,
-                                        modes=clean_modes(modes, self._known), secret=secret)
-        self.save()
-        return self._destination
+    def remember(self, label, modes, secret, enabled=True, owner=None):
+        self._check_writable()
+        identity = tuple(owner) if owner is not None else self.identity()
+        from battle_conquest.battle_owner import account_id, REGIONS
+        if (identity is None or len(identity) != 2 or identity[0] not in REGIONS
+                or account_id(identity[1]) != identity[1]):
+            raise ValueError('a verified owner is required to remember a link')
+        destination = Destination(self.url, label, enabled,
+                                  clean_modes(modes, self._known), secret)
+        destination.owner = identity
+        previous, legacy = self._links.get(identity), self.legacy
+        self._links[identity] = destination
+        if self.legacy is not None and self.legacy.secret == secret:
+            self.legacy = None
+        try:
+            self.save()
+        except (IOError, OSError):
+            self.legacy = legacy
+            if previous is None:
+                self._links.pop(identity, None)
+            else:
+                self._links[identity] = previous
+            raise
+        return destination
 
     def set_enabled(self, enabled):
-        """Pause or resume sending, the link itself left alone."""
-        if self._destination is None or self._destination.enabled == bool(enabled):
+        self._check_writable()
+        current = self.current
+        if current is None or current.enabled == bool(enabled):
             return False
-        self._destination.enabled = bool(enabled)
+        current.enabled = bool(enabled)
         self.save()
         return True
 
-    def forget(self):
-        """Drop the link here. The site keeps its copy until it is revoked there."""
-        if self._destination is None:
+    def on_suspend(self, callback):
+        self._suspensions.append(callback)
+
+    def block(self, owner, secret, reason):
+        self._check_writable()
+        current = self.for_owner(owner)
+        if current is not None and current.secret == secret and current.blocked != reason:
+            current.blocked = reason
+            try:
+                self.save()
+            finally:
+                for callback in list(self._suspensions):
+                    try:
+                        callback()
+                    except Exception:
+                        _logger.exception('a link suspension listener failed')
+
+    def _legacy_marker(self, owner):
+        return {'url': self.url, 'owner': {'region': owner[0], 'id': int(owner[1])}}
+
+    def legacy_unlinked(self, owner):
+        return self._legacy_marker(owner) in self._legacy_unlinked
+
+    def forget(self, owner=None):
+        self._check_writable()
+        identity = tuple(owner) if owner is not None else self.identity()
+        if identity not in self._links:
             return False
-        self._destination = None
-        try:
-            os.remove(self._store)
-        except (IOError, OSError):
-            _logger.debug('could not remove the link file', exc_info=True)
+        if self.legacy is not None and not self.legacy_unlinked(identity):
+            # An in-flight /me can still reveal that the old key belongs to
+            # this owner. Persist the explicit unlink so it cannot restore it,
+            # including after restart, without discarding another owner's key.
+            self._legacy_unlinked.append(self._legacy_marker(identity))
+        del self._links[identity]
+        self.save()
         return True
 
+    def _check_writable(self):
+        if not self._writable:
+            raise IOError('the unreadable link file is preserved; restore it before linking')
+
     def save(self):
-        if self._destination is None:
-            return
-        try:
-            directory = os.path.dirname(self._store)
-            if directory and not os.path.isdir(directory):
-                os.makedirs(directory)
-            with open(self._store, 'wb') as handle:
-                json.dump(self._destination.as_dict(), handle)
-        except (IOError, OSError):
-            _logger.debug('could not write the link down', exc_info=True)
+        self._check_writable()
+        from battle_conquest.local_store import save_json
+        entries = list(getattr(self, '_foreign', []))
+        for (region, identity), destination in sorted(self._links.items()):
+            entry = destination.as_dict()
+            entry['owner'] = {'id': int(identity), 'region': region}
+            entry['blocked'] = destination.blocked
+            entries.append(entry)
+        save_json(self._store, {'schema': 2, 'links': entries,
+                               'legacy': self.legacy.as_dict() if self.legacy else None,
+                               'legacy_links': self._foreign_legacy,
+                               'legacy_unlinked': self._legacy_unlinked})
 
 
-def install(session, known_modes, store=None):
-    # `store` is here so a check can watch what this says about a file it wrote
-    # itself. Reassigning the module's STORE would not do: it is a default
-    # argument, bound once when the class is defined.
-    destinations = (Destinations(known_modes) if store is None
-                    else Destinations(known_modes, store=store))
+def install(session, known_modes, store=None, account=None):
+    destinations = Destinations(known_modes, store=store or STORE, account=account)
+    if destinations.legacy is not None:
+        _logger.info('legacy Battle-Conquest link awaits owner verification')
     current = destinations.current
-    if current is not None and current.enabled:
-        _logger.info('sending battles to %s (%s), for %s', current.label, current.url,
-                     ', '.join(current.modes) or 'nothing')
-    elif current is not None:
-        # Not a failure, and worth a line: a player who sees nothing arrive has
-        # no other way of learning that sending is paused.
-        _logger.info('linked to %s, but sending is paused', current.label)
+    if current is not None:
+        _logger.info('%s (%s): %s, for %s', current.label, current.url,
+                     'sending' if current.enabled else 'paused', ', '.join(current.modes))
     return destinations

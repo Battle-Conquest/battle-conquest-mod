@@ -48,7 +48,7 @@ def results(**overrides):
                'capturePoints': 0,
                'droppedCapturePoints': 40}
     vehicle.update(overrides.pop('vehicle', {}))
-    personal = {'8721': vehicle, 'avatar': {'team': 1}}
+    personal = {'8721': vehicle, 'avatar': {'team': 1, 'accountDBID': int(ACCOUNT)}}
     personal.update(overrides.pop('personal', {}))
     payload = {'arenaUniqueID': 12457893456789012345,
                'common': common,
@@ -88,3 +88,9 @@ class Player(object):
 
     def __init__(self, account=ACCOUNT):
         self.account = account
+
+
+def owned(report, account=None):
+    """A report captured with verified ownership, rather than a legacy stamp."""
+    account = account or report.get('account') or ACCOUNT
+    return dict(report, account=account, owner={'id': int(account), 'region': 'eu'})

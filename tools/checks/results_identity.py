@@ -136,6 +136,7 @@ def check_identity_request_context():
     late = cache._pending[101]
     account['id'] = '500222222'
     clock.now += 61
+    request.remember(102)
     request.drain()
     cache.answer_now(102, 1, results())
     late(1, results())
@@ -149,7 +150,7 @@ def check_identity_request_context():
                        context=broken_context)
     request.remember(103)
     request.drain()
-    check('a failed context snapshot never blocks ordinary result delivery', delivered == [None])
+    check('a failed context snapshot delivers an explicitly unknown origin', delivered == [{}])
 
 
 def check_identity_capture_context():

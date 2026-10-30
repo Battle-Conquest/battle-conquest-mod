@@ -6,6 +6,7 @@ import sys
 import tempfile
 import types
 
+from checks.battle_fixtures import owned
 from checks.common import check
 from checks.engine import FakeEvent
 
@@ -139,7 +140,7 @@ def _places():
     from battle_conquest.destinations import Destinations
 
     return Destinations(('random', 'ranked', 'onslaught'), store=os.path.join(tempfile.mkdtemp(), 'link.json'),
-                        url='https://example.test/api/mod/battles')
+                        url='https://example.test/api/mod/battles', account=lambda: '500123456')
 
 
 def _texts(column):
@@ -281,7 +282,7 @@ def check_settings_window_live():
               and u'Waiting to be sent: 0 battles' in _texts(api.visible['column2']))
         check('the accepted battle is also gone from disk', Queue(sender._queue._store).all() == [])
 
-        sender._queue.add({'arena_unique_id': '2', 'mode': 'ranked', 'account': sender._account.account})
+        sender._queue.add(owned({'arena_unique_id': '2', 'mode': 'ranked', 'account': sender._account.account}))
         for tick in session.ticks:
             tick()
         session.run_later()

@@ -24,8 +24,9 @@ import json
 import logging
 
 from battle_conquest import config, i18n, mod_updates
+from battle_conquest.battle_owner import account_id, REGIONS
 from battle_conquest.quest_details import header as capabilities_header
-from battle_conquest.destinations import LABEL, new_secret, secret_hash
+from battle_conquest.destinations import LABEL, new_secret, secret_hash, clean_modes
 
 _logger = logging.getLogger('battle_conquest.site_link')
 
@@ -75,6 +76,18 @@ def read_me(response):
     if not isinstance(label, basestring) or not label.strip():
         label = LABEL
     return label.strip(), list(modes)
+
+
+def me_owner(response):
+    try:
+        payload = json.loads(response.body)
+    except (ValueError, TypeError, AttributeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    identity = account_id(payload.get('account_id'))
+    region = payload.get('region')
+    return (region, identity) if identity and region in REGIONS else None
 
 
 def open_url(url):
@@ -131,8 +144,14 @@ class Attempt(object):
         me = read_me(response)
         if me is None:
             return
+        identity = me_owner(response)
+        expected = (config.REGION, account_id(self._account))
+        if identity != expected or self._destinations.identity() != expected:
+            _logger.warning('link not saved: browser account or region differs from game account')
+            self._finish(None)
+            return
         label, modes = me
-        destination = self._destinations.remember(label, modes, self._secret)
+        destination = self._destinations.remember(label, modes, self._secret, owner=identity)
         if self._on_update is not None:
             self._on_update(response)
         self._finish(destination)
@@ -159,6 +178,7 @@ class SiteLink(object):
         self._listeners = []
         self._endings = []
         self.mod_update = None
+        self._destinations.on_suspend(self._changed)
 
     @property
     def version(self):
@@ -204,6 +224,17 @@ class SiteLink(object):
     def install(self):
         self._session.callback(0.0, self.verify)
         self._session.repeat(_VERIFY_SECONDS, self.verify)
+        on_change = getattr(self._account, 'on_change', None)
+        if on_change is not None:
+            on_change(self._account_changed)
+
+    def _account_changed(self):
+        if self._attempt is not None:
+            self._attempt.cancel()
+            self._attempt = None
+        self.mod_update = None
+        self._changed()
+        self.verify()
 
     def start(self):
         """Begin a linking attempt, unless one is already waiting.
@@ -244,36 +275,60 @@ class SiteLink(object):
         return forgot
 
     def verify(self):
-        """Ask the site who our secret is, and follow what it answers."""
-        destination = self._destinations.current
+        """Verify an owned key, or migrate the legacy key using the site's owner."""
+        legacy = self._destinations.legacy
+        if legacy is not None and not legacy.secret:
+            legacy = None
+        destination = legacy or self._destinations.current
         if destination is None or not destination.secret or self._attempt is not None:
             return
-        secret = destination.secret
+        secret, identity = destination.secret, destination.owner
 
         def answered(response):
-            current = self._destinations.current
-            if current is None or current.secret != secret:
-                # Linked again or unlinked while the question was out.
+            current = (self._destinations.legacy if legacy is not None
+                       else self._destinations.for_owner(identity))
+            if current is not destination or current.secret != secret:
                 return
             code = getattr(response, 'responseCode', None)
             if code == 401:
-                _logger.info('%s no longer knows this link (revoked on the site?); forgetting it',
-                             self._site)
-                self._destinations.forget()
+                if legacy is not None:
+                    self._destinations.legacy = None
+                    self._destinations.save()
+                else:
+                    self._destinations.forget(owner=identity)
                 self.mod_update = None
                 self._changed()
                 return
-            me = read_me(response)
-            if me is None:
-                # Down, or answering something we cannot read: say nothing
-                # about the link either way, and ask again next time.
+            me, owner = read_me(response), me_owner(response)
+            if me is None or owner is None:
+                return
+            if identity is not None and owner != identity:
+                self._destinations.block(identity, secret, 'account_mismatch')
+                _logger.warning('stored link owner disagrees with /me; link again')
+                self._changed()
                 return
             label, modes = me
-            self._read_update(response)
-            if sorted(modes) != sorted(current.modes) or label != current.label:
-                _logger.info('%s now scores %s', self._site, ', '.join(modes))
-                self._destinations.remember(label, modes, secret, enabled=current.enabled)
+            if legacy is not None:
+                if self._destinations.legacy_unlinked(owner):
+                    self._destinations.legacy = None
+                    self._destinations.save()
+                    self._changed()
+                    return
+                existing = self._destinations.for_owner(owner)
+                if existing is None:
+                    self._destinations.remember(label, modes, secret,
+                                                enabled=current.enabled, owner=owner)
+                else:
+                    # A newer explicit link always wins over a legacy key.
+                    self._destinations.legacy = None
+                    self._destinations.save()
                 self._changed()
+            elif sorted(modes) != sorted(current.modes) or label != current.label:
+                current.label, current.modes = label, clean_modes(modes, self._destinations._known)
+                self._destinations.save()
+                self._changed()
+            if self._destinations.identity() == owner:
+                self._read_update(response)
 
         self._session.fetch(ME_PATH % self._site, answered,
                             headers={'X-Mod-Secret': secret, 'X-Mod-Version': self._version,

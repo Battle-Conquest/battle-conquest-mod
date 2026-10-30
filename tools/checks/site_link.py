@@ -15,7 +15,7 @@ from checks.common import check
 class _Response(object):
     def __init__(self, code, payload=None):
         self.responseCode = code
-        self.body = None if payload is None else json.dumps(payload)
+        self.body = None if payload is None else json.dumps(dict({'account_id': '500123456', 'region': 'eu'}, **payload) if isinstance(payload, dict) else payload)
 
 
 class _Session(object):
@@ -49,7 +49,7 @@ def _destinations(known=('random', 'ranked', 'other')):
     from battle_conquest.destinations import Destinations
 
     return Destinations(known, store=os.path.join(tempfile.mkdtemp(), 'link.json'),
-                        url='https://example.test/api/mod/battles')
+                        url='https://example.test/api/mod/battles', account=lambda: '500123456')
 
 
 def _opened(monkey):
@@ -141,7 +141,7 @@ def check_site_link_writes_the_destination():
     from battle_conquest.destinations import Destinations
 
     reopened = Destinations(('random', 'ranked', 'other'), store=places._store,
-                            url='https://example.test/api/mod/battles')
+                            url='https://example.test/api/mod/battles', account=lambda: '500123456')
     survivor = reopened.current
     check('and it survives a client restart', survivor is not None)
     check('with its secret and its modes',
@@ -270,8 +270,8 @@ def check_site_link_startup():
         with open(stored._store, 'rb') as handle:
             original = handle.read()
         places = Destinations(('random', 'ranked', 'other'), store=stored._store,
-                              url=stored.url)
-        sites = SiteLink(session, places, _Link(account=None), site='https://example.test', version='1.2.3')
+                              url=stored.url, account=lambda: '500123456')
+        sites = SiteLink(session, places, _Link(), site='https://example.test', version='1.2.3')
         changes = []
         sites.on_change(lambda: changes.append(1))
         sites.install()
@@ -286,7 +286,7 @@ def check_site_link_startup():
         session.sent[0]['answer'](_Response(code, payload))
         if code == 401:
             check('a revoked startup link is forgotten on disk and in memory',
-                  not sites.linked and not os.path.exists(stored._store))
+                  not sites.linked and json.load(open(stored._store))['links'] == [])
             check('listeners hear that the startup link was revoked', changes == [1])
         else:
             with open(stored._store, 'rb') as handle:

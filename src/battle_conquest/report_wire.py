@@ -5,7 +5,7 @@ The sender re-exports these helpers for its existing callers.
 """
 import json
 
-FIELDS = ('arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'vehicle', 'metrics', 'quest_details')
+FIELDS = ('owner', 'arena_unique_id', 'mode', 'finished_at', 'outcome', 'survived', 'vehicle', 'metrics', 'quest_details')
 
 
 def wire(report):

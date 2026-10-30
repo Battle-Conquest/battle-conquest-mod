@@ -1,6 +1,7 @@
 """Provisional capture, immediate delivery and authoritative receipt races."""
 import copy
 
+from checks.battle_fixtures import owned
 from checks.common import check
 from checks.report_sender import _Session, _Response, _places, _destination, _queue
 from checks.battle_fixtures import ACCOUNT, Player, results, Bonus
@@ -198,8 +199,8 @@ def check_battle_feedback():
 def check_battle_feedback_refresh():
     # A restarted client has a durable queue, but no in-session capture card.
     session, queue, player, place, garage, reports, sender, feedback = fixture()
-    queue.add({'arena_unique_id': '92', 'account': ACCOUNT, 'mode': 'other',
-               'finished_at': '2026-10-25T16:00:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}})
+    queue.add(owned({'arena_unique_id': '92', 'account': ACCOUNT, 'mode': 'other',
+               'finished_at': '2026-10-25T16:00:00Z', 'outcome': 'win', 'survived': True, 'metrics': {}}))
     sender.drain()
     session.sent.pop()['answer'](_Response(200, {'accepted': 1, 'results': [{'index': 0, 'status': 'accepted'}]}))
     session.flush()
@@ -275,9 +276,11 @@ def check_battle_feedback_identity_callbacks():
     profile = copy.deepcopy(garage.data)
     player.account = '500999999'
     place.secret = 'd' * 64
+    place.owner = ('eu', player.account)
     garage.tick()
     session.sent.pop()['answer'](_Response(200, profile))
     second = results(arenaUniqueID=first['arenaUniqueID'] + 1, common={'bonusType': 160})
+    second['personal']['avatar']['accountDBID'] = int(player.account)
     reports.capture(second, constants=Bonus)
     check('a new identity arms its own immediate send while an old callback is pending', bool(session.callbacks))
     old_callback()
@@ -302,6 +305,7 @@ def check_battle_feedback_identity_callbacks():
     feedback.snapshot()
     place.secret = original_secret
     feedback.snapshot()
+    second['personal']['avatar']['accountDBID'] = int(player.account)
     reports.capture(second, constants=Bonus)
     old_callback()
     check('switching back to the original link does not revive its old callback', not session.sent and bool(session.callbacks))

@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """French UI catalogue; English source messages are the fallback catalogue."""
 MESSAGES = {
+    u'Reports isolated: %d. See game.log.': u'Rapports isolés : %d. Consulter game.log.',
+    u'Link suspended: link this account again. Reports retained.': u'Liaison suspendue : relier ce compte. Rapports conservés.',
+
     'Closed - receiving final results': u'Clôturé - réception des derniers résultats',
     'Closed - final results': u'Clôturé - résultats définitifs',
     'Cancelled': u'Annulé',

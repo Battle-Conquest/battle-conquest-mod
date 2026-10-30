@@ -10,6 +10,7 @@ import os
 import tempfile
 
 from checks.battle_fixtures import ACCOUNT, Player
+from checks.battle_fixtures import owned
 from checks.common import check
 
 OTHER_ACCOUNT = '500999999'
@@ -70,18 +71,20 @@ def _places(*destinations):
     return type('Places', (object,), {'all': lambda self: list(destinations)})()
 
 
-def _destination(url=HERE, modes=('ranked', ), enabled=True, secret=SECRET, label=None):
+def _destination(url=HERE, modes=('ranked', ), enabled=True, secret=SECRET, label=None, account=ACCOUNT):
     from battle_conquest.destinations import Destination
-    return Destination(url=url, label=label or url, enabled=enabled, modes=modes, secret=secret)
+    destination = Destination(url=url, label=label or url, enabled=enabled, modes=modes, secret=secret)
+    destination.owner = ('eu', account) if account else None
+    return destination
 
 
 def _queue(store=None, count=1, mode='ranked', account=ACCOUNT, first=1):
     from battle_conquest.report_queue import Queue
     queue = Queue(store=store or os.path.join(tempfile.mkdtemp(), 'q.json'))
     for index in range(count):
-        queue.add({'arena_unique_id': str(first + index), 'mode': mode,
+        queue.add(owned({'arena_unique_id': str(first + index), 'mode': mode,
                    'finished_at': '2026-09-25T18:10:00Z', 'outcome': 'win',
-                   'survived': True, 'metrics': {'xp': 1420}, 'account': account})
+                   'survived': True, 'metrics': {'xp': 1420}, 'account': account}))
     return queue
 
 
@@ -89,7 +92,7 @@ def _sender(queue, places=None, secret=SECRET, account=ACCOUNT, refused=None):
     """A sender over this queue, linked to the site unless `places` says otherwise."""
     from battle_conquest.report_sender import Sender
     if places is None:
-        places = _places(_destination(secret=secret))
+        places = _places(_destination(secret=secret, account=account))
     session = _Session()
     sender = Sender(session, Player(account), queue=queue,
                     destinations=places, version='1.2.3', garage=lambda: True,
@@ -148,7 +151,7 @@ def check_report_sender_payload():
     check('nor does where else it was sent', 'sent' not in wire(kept))
     check('and what does is exactly the contract',
           sorted(wire(kept)) == ['arena_unique_id', 'finished_at', 'metrics', 'mode',
-                                 'outcome', 'survived'])
+                                 'outcome', 'owner', 'survived'])
     # Optional, so absent above: when the capture read a tank, it travels too.
     check('the tank played travels when it is known',
           wire(dict(kept, vehicle={'tank_id': 8721}))['vehicle'] == {'tank_id': 8721})
@@ -208,9 +211,9 @@ def check_report_sender_delivery():
 
 def check_report_sender_account():
     queue = _queue(count=1)
-    queue.add({'arena_unique_id': '77', 'mode': 'ranked', 'account': OTHER_ACCOUNT,
+    queue.add(owned({'arena_unique_id': '77', 'mode': 'ranked', 'account': OTHER_ACCOUNT,
                'finished_at': '2026-09-25T18:10:00Z', 'outcome': 'win',
-               'survived': True, 'metrics': {'xp': 1}})
+               'survived': True, 'metrics': {'xp': 1}}))
     session, sender = _sender(queue)
 
     sender.drain()
@@ -391,9 +394,9 @@ def check_report_sender_startup():
 def check_report_sender_status():
     """What the settings page reads off the sender: the last batch and the queue."""
     queue = _queue(count=2)
-    queue.add({'arena_unique_id': '77', 'mode': 'ranked', 'account': OTHER_ACCOUNT,
+    queue.add(owned({'arena_unique_id': '77', 'mode': 'ranked', 'account': OTHER_ACCOUNT,
                'finished_at': '2026-09-25T18:10:00Z', 'outcome': 'win',
-               'survived': True, 'metrics': {'xp': 1}})
+               'survived': True, 'metrics': {'xp': 1}}))
     session, sender = _sender(queue)
     changes = []
     sender.on_change(lambda: changes.append(1))

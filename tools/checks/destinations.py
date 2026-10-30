@@ -14,20 +14,20 @@ SECRET = 'a' * 64
 URL = 'https://battle-conquest.test/api/mod/battles'
 
 GOOD = {'schema': 1, 'url': URL, 'label': 'Battle-Conquest', 'enabled': True,
-        'modes': ['ranked'], 'secret': SECRET}
+        'modes': ['ranked'], 'secret': SECRET, 'owner': {'id': 500123456, 'region': 'eu'}}
 
 
 def _file(payload):
     path = os.path.join(tempfile.mkdtemp(), 'link.json')
     with open(path, 'wb') as handle:
-        json.dump(payload, handle)
+        json.dump({'schema': 2, 'links': [payload]} if isinstance(payload, dict) and payload.get('schema') == 1 else payload, handle)
     return path
 
 
 def _places(store):
     from battle_conquest.destinations import Destinations
 
-    return Destinations(MODES, store=store, url=URL)
+    return Destinations(MODES, store=store, url=URL, account=lambda: '500123456')
 
 
 def check_destination_urls():
@@ -128,7 +128,7 @@ def check_destination_pause_and_forget():
     check('resuming owes it its modes again', places.modes() == ['ranked'])
 
     check('forgetting drops the link', places.forget() is True and not places.linked)
-    check('and the file with it', not os.path.exists(store))
+    check('and the file with it', json.load(open(store))['links'] == [])
     check('so a restart finds nothing linked', not _places(store).linked)
     check('forgetting twice changes nothing', places.forget() is False)
     check('and pausing what is not linked changes nothing', places.set_enabled(False) is False)
@@ -174,7 +174,7 @@ def _loading(store):
     original = module.battles_url
     module.battles_url = lambda site=None: URL
     try:
-        module.install(None, MODES, store=store)
+        module.install(None, MODES, store=store, account=lambda: '500123456')
     finally:
         module.battles_url = original
         logger.removeHandler(captured)
