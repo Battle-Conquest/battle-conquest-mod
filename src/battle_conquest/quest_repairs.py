@@ -86,6 +86,9 @@ class Repairs(object):
         ticket = object()
         self._poll = ticket
         self._polled_at = self._now()
+        # This poll's authenticated owner is already known. Do not replace it
+        # with client metadata that may disappear before its response arrives.
+        origin = {'region': config.REGION, 'id': str(key[0])}
 
         def answered(response):
             if self._poll is not ticket:
@@ -110,11 +113,11 @@ class Repairs(object):
                     continue
                 self._seen.add(arena)
                 _logger.info('retrying missing quest evidence for battle %s', arena)
-                self._requests.remember(arena, repair=True)
+                self._requests.remember(arena, origin=origin, repair=True)
             self.drain()
 
         url = (config.SITE.rstrip('/') + '/api/mod/quest-repairs?account_id=%s&region=%s'
-               % (account_number(key[0]), config.REGION))
+               % (account_number(key[0]), origin['region']))
         if self._cursor is not None:
             url += '&cursor=' + self._cursor
         self._session.fetch(url, answered,

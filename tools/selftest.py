@@ -27,6 +27,7 @@ from checks.battle_reports import (check_battle_report_arena_id, check_battle_re
 from checks.battle_feedback import check_battle_feedback, check_battle_feedback_refresh, check_garage_finished_selection, check_battle_feedback_identity_callbacks
 from checks.recovery_review import check_recovery_review_atomic_capacity, check_recovery_review_posted, check_recovery_review_idle_account, check_recovery_review_announcement, check_recovery_review_http_generations, check_recovery_review_late_cache, check_recovery_review_temporary_copy
 from checks.recovery_lifecycle import check_recovery_terminal_restart, check_recovery_transition_sequences, check_recovery_terminal_retention, check_recovery_unwanted_mode, check_recovery_capture_decisions, check_recovery_explicit_repair_budget, check_recovery_cache_setup_failure
+from checks.repair_origin_review import check_repair_poll_origin
 from checks.recovery import check_recovery, check_receipts
 from checks.client import install_fake_client
 from checks.catalog_tester import check_catalog_tester
@@ -136,6 +137,7 @@ def main():
         check('hook delegates to the original', delegates())
         check('watcher armed', bool(bigworld.pending))
 
+        check_repair_poll_origin()
         check_recovery_cache_setup_failure()
         check_recovery_unwanted_mode()
         check_recovery_capture_decisions()
