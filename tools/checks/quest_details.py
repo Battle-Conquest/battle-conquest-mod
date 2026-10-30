@@ -151,4 +151,4 @@ def check_quest_details():
     session, sender = _sender(queue)
     sender.drain()
     _answer(session, 200, {'results': 1})
-    check('an unreadable verdict list still settles the final HTTP 200', queue.all() == [])
+    check('an unreadable verdict list retains the reports', bool(queue.all()))

@@ -56,3 +56,33 @@ def rejections(payload):
     return reasons
 
 
+
+def verdicts(payload, batch):
+    """Only unambiguous individual acknowledgements can settle a report."""
+    results = (payload or {}).get('results')
+    if not isinstance(results, list):
+        return []
+    counts = {}
+    for result in results:
+        index = result.get('index') if isinstance(result, dict) else None
+        if isinstance(index, (int, long)) and not isinstance(index, bool):
+            counts[index] = counts.get(index, 0) + 1
+    valid = []
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        index = result.get('index')
+        if (not isinstance(index, (int, long)) or isinstance(index, bool)
+                or counts.get(index) != 1 or not 0 <= index < len(batch)):
+            continue
+        status, arena = result.get('status'), result.get('arena_unique_id')
+        if status not in ('accepted', 'duplicate', 'rejected'):
+            continue
+        reason = result.get('reason')
+        validation = (status == 'rejected' and 'arena_unique_id' in result and arena is None
+                      and isinstance(reason, basestring) and reason.startswith('payload:'))
+        if not validation and (not isinstance(arena, basestring)
+                               or arena != batch[index]['arena_unique_id']):
+            continue
+        valid.append(result)
+    return valid

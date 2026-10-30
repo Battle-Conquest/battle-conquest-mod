@@ -18,7 +18,7 @@ _logger = logging.getLogger('battle_conquest.quest_repairs')
 class Repairs(object):
 
     def __init__(self, session, account, places, deliver, garage=at_garage,
-                 cache=results_cache, now=time.time, context=None, observe_stale=None):
+                 cache=results_cache, now=time.time, context=None, observe_stale=None, requests=None):
         self._session = session
         self._context = context
         self._observe_stale = observe_stale
@@ -29,7 +29,8 @@ class Repairs(object):
         self._cache = cache
         self._now = now
         self._key = None
-        self._requests = None
+        self._shared = requests
+        self._requests = requests
         self._seen = set()
         self._poll = None
         self._polled_at = 0
@@ -74,7 +75,7 @@ class Repairs(object):
                 elif self._observe_stale is not None:
                     self._observe_stale(results, source, origin)
 
-            self._requests = Requests(self._session, deliver, garage=active, cache=self._cache,
+            self._requests = self._shared or Requests(self._session, deliver, garage=active, cache=self._cache,
                                       context=self._context)
         # Advancing pages while a slow cache is full would make Requests drop
         # untried arenas which _seen would then refuse for the rest of this load.
@@ -109,7 +110,7 @@ class Repairs(object):
                     continue
                 self._seen.add(arena)
                 _logger.info('retrying missing quest evidence for battle %s', arena)
-                self._requests.remember(arena)
+                self._requests.remember(arena, repair=True)
             self.drain()
 
         url = (config.SITE.rstrip('/') + '/api/mod/quest-repairs?account_id=%s&region=%s'
@@ -120,7 +121,7 @@ class Repairs(object):
                             headers={'X-Mod-Secret': key[2]}, timeout=config.API_TIMEOUT)
 
 
-def install(session, account, places, deliver, context=None, observe_stale=None):
-    repairs = Repairs(session, account, places, deliver, context=context, observe_stale=observe_stale)
+def install(session, account, places, deliver, context=None, observe_stale=None, requests=None):
+    repairs = Repairs(session, account, places, deliver, context=context, observe_stale=observe_stale, requests=requests)
     repairs.install()
     return repairs

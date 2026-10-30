@@ -274,11 +274,17 @@ class BattleReports(object):
         the moment they arrive. The local diagnostic can explicitly request
         other modes too, without widening what is queued for the site.
         """
+        current = getattr(self._destinations, 'current', None)
+        if current is not None and not current.enabled:
+            return False
         if self._diagnostic.enabled():
             return True
         if self._destinations is None:
             return False
-        return bool(self._destinations.modes())
+        if not hasattr(self._destinations, 'current'):
+            return bool(self._destinations.modes())
+        return bool(current is not None and current.enabled and not current.blocked
+                    and current.secret and current.modes)
 
     def account(self):
         """Last login for diagnostic context only, never a result's owner."""

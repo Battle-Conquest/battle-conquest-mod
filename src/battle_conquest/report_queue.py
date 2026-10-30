@@ -8,6 +8,7 @@ first, and sending reads from here.
 Held in memory as well as on disk: a capture happens on the frame the results
 arrive on, and reading a file there is work the player would feel.
 """
+import copy
 import logging
 import os
 
@@ -92,6 +93,7 @@ class Queue(object):
         self._store = store
         self._writable = True
         self._reports = self._read()
+        self._durable = dict((report_key(r), copy.deepcopy(r)) for r in self._reports)
 
     def _read(self):
         try:
@@ -213,7 +215,13 @@ class Queue(object):
             return False
         try:
             save_json(self._store, {'schema': SCHEMA, 'reports': self._reports})
+            self._durable = dict((report_key(r), copy.deepcopy(r)) for r in self._reports)
             return True
         except (IOError, OSError):
             _logger.error('could not persist the battle queue; check disk space and permissions')
             return False
+
+    def captured(self, key):
+        identity = (key[:2], False, key[1], str(key[2]))
+        known = self._durable.get(identity)
+        return known is not None and any(report_key(r) == identity and r == known for r in self._reports)
