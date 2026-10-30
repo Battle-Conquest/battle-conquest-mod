@@ -152,11 +152,15 @@ class Requests(RequestContext):
                     row['due'] = due
                     self._journal.save()
             return False
-        if self._journal is not None and not self._journal.add(arena_id, self._now(), self._now() + 5.0):
-            return False
-        if self._journal is not None and (repair or announced):
-            self._journal.entries[arena_id].update(repair=repair, announced=announced)
-            self._journal.save()
+        if self._journal is not None:
+            if not self._journal.add(arena_id, self._now(), self._now() + 5.0,
+                                     limit=self._limit, protected=self._asking,
+                                     repair=repair, announced=announced):
+                return False
+            dropped = [key for key in self._pending if key not in self._journal.entries]
+            for key in dropped:
+                self._pending.remove(key)
+                self._attempts.pop(key, None)
         self._pending.append(arena_id)
         scope = arena_id[:2] if isinstance(arena_id, tuple) else None
         candidates = self._pending + ([self._asking] if self._asking is not None else [])
@@ -231,11 +235,14 @@ class Requests(RequestContext):
                 from battle_conquest.battle_reports import BattleReports
                 service = BattleReports._service()
                 posted = getattr(service, 'areResultsPosted', None)
-                if posted is not None and posted(self._arena(arena_id)):
-                    # The UI flag is not proof of persistence. Keep the arena
-                    # available for hooks and eventual diagnosed expiration.
+                row = self._journal.entries[arena_id]
+                if (posted is not None and posted(self._arena(arena_id))
+                        and not row.get('repair') and not row.get('posted_waited')):
+                    # Give live hooks one grace period. The UI flag cannot
+                    # prevent a repair or replace a durable report forever.
                     self._pending.append(arena_id)
-                    self._journal.entries[arena_id]['due'] = self._now() + 20.0
+                    row['posted_waited'] = True
+                    row['due'] = self._now() + 5.0
                     self._journal.save()
                     return
             except Exception:

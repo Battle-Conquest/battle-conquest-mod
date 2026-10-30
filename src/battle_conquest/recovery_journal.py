@@ -64,11 +64,19 @@ class Journal(object):
             _logger.error('could not persist recovery journal; check disk space and permissions')
             return False
 
-    def add(self, key, now, due):
+    def add(self, key, now, due, limit=50, protected=None, repair=False, announced=False):
         if key in self.entries or not self.writable:
             return False
         self.entries[key] = dict(region=key[0], account=key[1], arena=str(key[2]),
-                                 observed=now, due=due, attempts=0)
+                                 observed=now, due=due, attempts=0, repair=repair, announced=announced)
+        owner = [one for one in self.entries if one[:2] == key[:2]]
+        candidates = sorted((one for one in owner if one not in (key, protected)),
+                            key=lambda one: (self.entries[one]['observed'], one[2]))
+        for dropped in candidates[:max(0, len(owner) - limit)]:
+            del self.entries[dropped]
+            _logger.warning('recovery saturated: abandoned %s', dropped)
+        # Never persist an intermediate 51-entry state: a crash could leave
+        # that as the only copy, and the reader correctly rejects it.
         self.save()
         return True
 
