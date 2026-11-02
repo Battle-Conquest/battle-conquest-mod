@@ -1,7 +1,7 @@
 """Additive quest measurements, separate from the historical seven counters.
 
-The two random, single-vehicle observations from #953 establish only the
-standard-account economy. Premium and respawn totals remain unverified.
+The random observations from #953 and Frontline observation from #1050
+establish only their standard-account economies, not premium or other bonuses.
 Missing inputs omit a measure; no client clock or zero substitutes for them.
 """
 import copy
@@ -26,7 +26,8 @@ ECONOMY = ('originalCredits', 'credits', 'factualCredits', 'petSystemCredits',
 def capabilities():
     return {'schema': 1, 'fields': ['started_at', 'vehicles', 'economy'] + list(METRICS),
             'modes': list(MODES),
-            'verified_scenarios': ['random_single_standard', 'first_win', 'pet_bonus']}
+            'verified_scenarios': ['random_single_standard', 'first_win', 'pet_bonus',
+                                   'frontline_multi_standard']}
 
 
 def header():
@@ -80,6 +81,42 @@ def observations(vehicle):
     return economy
 
 
+def frontline_credits(vehicles):
+    """Only the no-bonus per-vehicle correspondence observed in #1050.
+
+    The received observation has no isPremium flag: the explicit factor and
+    equal earnings establish the supported case, without inventing that flag.
+    """
+    bonuses = ('petSystemCredits', 'boosterCredits', 'orderCredits', 'eventCredits',
+               'achievementCredits', 'premSquadCredits', 'referral20Credits',
+               'wotPlusCredits', 'wotPlusProBoostCredits')
+    costs = ('autoLoadCost', 'autoEquipCost', 'autoEquipBoostersCost')
+    gross, net, complete_costs = 0, 0, True
+    for vehicle in vehicles:
+        economy = observations(vehicle)
+        base = economy.get('originalCredits')
+        premium = vehicle.get('isPremium')
+        if ((premium is not None and premium is not False)
+                or economy.get('appliedPremiumCreditsFactor100') != 100
+                or not all(economy.get(key) == 0 for key in bonuses)
+                or not integer(base) or economy.get('credits') != base
+                or economy.get('factualCredits') != base):
+            return {}
+        gross += base
+        if all(key in economy for key in costs) and integer(economy.get('autoRepairCost')):
+            # Credit slots are actual debits; other currencies and inventory
+            # replacement values are not expenses. Keep each vehicle's loss.
+            net += base - economy['autoRepairCost'] - sum(economy[key][0] for key in costs)
+        else:
+            complete_costs = False
+    metrics = {}
+    if integer(gross):
+        metrics['credits_gross'] = gross
+    if complete_costs and integer(net, signed=True):
+        metrics['credits_net'] = net
+    return metrics
+
+
 def details_of(results, constants=None):
     common, personal = results.get('common', {}), results.get('personal', {})
     mode = quest_mode(common.get('bonusType'), constants)
@@ -104,6 +141,11 @@ def details_of(results, constants=None):
         raw_vehicles.append(entry)
     if raw_vehicles:
         out['vehicle_observations'] = raw_vehicles
+    if (mode == 'frontline' and complete and len(vehicles) > 1
+            and len(out.get('vehicles', [])) == len(vehicles)):
+        metrics = frontline_credits(vehicles)
+        if metrics:
+            out['metrics'] = metrics
     if not complete or len(vehicles) != 1:
         return out
     vehicle = vehicles[0]

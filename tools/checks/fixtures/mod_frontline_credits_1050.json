@@ -1,0 +1,205 @@
+{
+  "source": "Battle-Conquest/Battle-Conquest#1050 — observation du 2 novembre 2026, diagnostic désactivé",
+  "note": "Rapport reçu expurgé de son identifiant d’arène. Les enveloppes client reconstituées par les tests sont synthétiques ; aucun champ économique observé n’est ajouté.",
+  "report": {
+    "metrics": {
+      "damage_dealt": 9560,
+      "spotted": 6,
+      "capture_points": 288,
+      "damage_received": 8475,
+      "frags": 7,
+      "xp": 11415,
+      "dropped_capture_points": 0
+    },
+    "quest_details": {
+      "started_at": "2026-11-02T10:13:22Z",
+      "vehicle_observations": [
+        {
+          "fields": {
+            "spotted": 6,
+            "originalCredits": 111233,
+            "damageAssistedTrack": 0,
+            "kills": 5,
+            "orderXP": 0,
+            "premSquadCredits": 0,
+            "appliedPremiumCreditsFactor100": 100,
+            "damageDealt": 6659,
+            "orderCredits": 0,
+            "originalXP": 2064,
+            "damageAssistedRadio": 1741,
+            "piercings": 26,
+            "damageBlockedByArmor": 376,
+            "wotPlusCredits": 0,
+            "autoEquipCost": [
+              0,
+              0,
+              0
+            ],
+            "xp": 6398,
+            "autoRepairCost": 10818,
+            "stunNum": 12,
+            "factualXP": 6398,
+            "petSystemCredits": 0,
+            "boosterCredits": 0,
+            "eventCredits": 0,
+            "autoEquipBoostersCost": [
+              0,
+              0,
+              0
+            ],
+            "eventXP": 0,
+            "deathReason": 2,
+            "premiumVehicleXP": 206,
+            "damageAssistedStun": 0,
+            "factualCredits": 111233,
+            "autoLoadCost": [
+              10320,
+              0
+            ],
+            "wotPlusProBoostCredits": 0,
+            "damageReceived": 4327,
+            "explosionHits": 0,
+            "boosterXP": 0,
+            "referral20Credits": 0,
+            "appliedPremiumXPFactor100": 100,
+            "credits": 111233,
+            "directHits": 30,
+            "appliedPremiumTmenXPFactor100": 100,
+            "shots": 39,
+            "dailyXPFactor10": 10,
+            "achievementCredits": 0
+          },
+          "tank_id": 51361
+        },
+        {
+          "fields": {
+            "spotted": 0,
+            "originalCredits": 28821,
+            "damageAssistedTrack": 0,
+            "kills": 2,
+            "orderXP": 0,
+            "premSquadCredits": 0,
+            "appliedPremiumCreditsFactor100": 100,
+            "damageDealt": 2340,
+            "orderCredits": 0,
+            "originalXP": 1194,
+            "damageAssistedRadio": 234,
+            "piercings": 42,
+            "damageBlockedByArmor": 0,
+            "wotPlusCredits": 0,
+            "autoEquipCost": [
+              0,
+              0,
+              0
+            ],
+            "xp": 3582,
+            "autoRepairCost": 17650,
+            "stunNum": 2,
+            "factualXP": 3582,
+            "petSystemCredits": 0,
+            "boosterCredits": 0,
+            "eventCredits": 0,
+            "autoEquipBoostersCost": [
+              0,
+              0,
+              0
+            ],
+            "eventXP": 0,
+            "deathReason": 0,
+            "premiumVehicleXP": 0,
+            "damageAssistedStun": 556,
+            "factualCredits": 28821,
+            "autoLoadCost": [
+              16795,
+              0
+            ],
+            "wotPlusProBoostCredits": 0,
+            "damageReceived": 3817,
+            "explosionHits": 0,
+            "boosterXP": 0,
+            "referral20Credits": 0,
+            "appliedPremiumXPFactor100": 100,
+            "credits": 28821,
+            "directHits": 77,
+            "appliedPremiumTmenXPFactor100": 100,
+            "shots": 113,
+            "dailyXPFactor10": 10,
+            "achievementCredits": 0
+          },
+          "tank_id": 23073
+        },
+        {
+          "fields": {
+            "spotted": 0,
+            "originalCredits": 17476,
+            "damageAssistedTrack": 0,
+            "kills": 0,
+            "orderXP": 0,
+            "premSquadCredits": 0,
+            "appliedPremiumCreditsFactor100": 100,
+            "damageDealt": 561,
+            "orderCredits": 0,
+            "originalXP": 463,
+            "damageAssistedRadio": 18,
+            "piercings": 1,
+            "damageBlockedByArmor": 0,
+            "wotPlusCredits": 0,
+            "autoEquipCost": [
+              0,
+              0,
+              0
+            ],
+            "xp": 1435,
+            "autoRepairCost": 1986,
+            "stunNum": 0,
+            "factualXP": 1435,
+            "petSystemCredits": 0,
+            "boosterCredits": 0,
+            "eventCredits": 0,
+            "autoEquipBoostersCost": [
+              0,
+              0,
+              0
+            ],
+            "eventXP": 0,
+            "deathReason": -1,
+            "premiumVehicleXP": 46,
+            "damageAssistedStun": 0,
+            "factualCredits": 17476,
+            "autoLoadCost": [
+              0,
+              0
+            ],
+            "wotPlusProBoostCredits": 0,
+            "damageReceived": 331,
+            "explosionHits": 0,
+            "boosterXP": 0,
+            "referral20Credits": 0,
+            "appliedPremiumXPFactor100": 100,
+            "credits": 17476,
+            "directHits": 2,
+            "appliedPremiumTmenXPFactor100": 100,
+            "shots": 4,
+            "dailyXPFactor10": 10,
+            "achievementCredits": 0
+          },
+          "tank_id": 45057
+        }
+      ],
+      "vehicles": [
+        23073,
+        45057,
+        51361
+      ],
+      "mode": "frontline"
+    },
+    "mode": "frontline",
+    "survived": false,
+    "finished_at": "2026-11-02T10:37:48Z",
+    "outcome": "win"
+  },
+  "expected": {
+    "credits_gross": 157530,
+    "credits_net": 99961
+  }
+}

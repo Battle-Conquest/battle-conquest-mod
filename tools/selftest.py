@@ -43,6 +43,7 @@ from checks.i18n import check_i18n
 from checks.native_font import check_native_font
 from checks.quest_garage_players import check_quest_garage_players
 from checks.quest_details import check_quest_details
+from checks.frontline_credits import check_frontline_credits
 from checks.quest_review import check_quest_review
 from checks.quest_repairs import check_quest_repairs
 from checks.destinations import (check_destination_capture, check_destination_modes,
@@ -192,6 +193,7 @@ def main():
         check_quest_garage_players()
         check_quest_garage_platoon()
         check_quest_details()
+        check_frontline_credits()
         check_quest_review()
         check_quest_repairs()
         check_battle_report_reading()
