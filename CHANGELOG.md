@@ -6,6 +6,8 @@ Battle-Conquest for **World of Tanks EU 2.4.1.1**.
 
 ### Fixed
 
+- Report gross and signed net credits for the verified standard-account, no-bonus Frontline multivehicle scenario. The observed three-vehicle battle produces 157,530 gross and 99,961 net credits, including one vehicle with a 5,624-credit loss. Unknown costs remain unknown, and premium or other unverified bonuses are not inferred.
+- Allow available Frontline results to complete previously accepted reports through existing targeted recovery, without replacing known values or counting a battle twice. Receipt deadlines and settled rankings remain enforced.
 - Keep account links, pause settings and battle queues separate for each Wargaming account and region. Reports without verified ownership remain isolated instead of being sent for the next login.
 - Recover battles missed before their results were captured, including after a client interruption. Recovery keeps its retry budget across restarts, with up to 50 entries per account, five attempts per arena and seven days of retention.
 - Keep unconfirmed reports queued when the site returns an unreadable, incomplete or contradictory response. Missing HTTP callbacks no longer stall delivery indefinitely.
@@ -14,7 +16,7 @@ Battle-Conquest for **World of Tanks EU 2.4.1.1**.
 
 ### Installation
 
-1. The server must include [account-isolation support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1012). This mod update adds no server migration or configuration requirement.
+1. The server must include [account-isolation support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1012). Deploy [Frontline credit capability support and recovery guidance](https://github.com/Battle-Conquest/Battle-Conquest/pull/1051) before this mod. This update adds no server migration or configuration requirement.
 2. Fully close the game and back up `mods/configs/battle_conquest/`. Keep this backup private: it contains account-link secrets.
 3. Remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Extract `battle-conquest-mod_1.2.1.zip` into the game directory, or place `eu.battle-conquest_1.2.1.wotmod` in `mods/2.4.1.1/`. Keep only one Battle-Conquest package installed.
 4. Start the game, verify the current account link and relink if requested. Play a supported battle and confirm that it appears once on Battle-Conquest.
@@ -23,7 +25,7 @@ Existing links and queues migrate automatically. Unverified older reports are pr
 
 ### Validation
 
-Python 2.7 selftests and the built-package release check passed. **In-game acceptance remains pending**: test random battles and Onslaught, interruption recovery, account/pause isolation, notifications and the results window, including coexistence with Unicum when installed. The cache delay reduces collisions but does not guarantee their absence. Publish only after testing this compiled package in the real client.
+Python 2.7 selftests and the built-package release check passed. **In-game acceptance remains pending**: test the Frontline credit recipe in [#1050](https://github.com/Battle-Conquest/Battle-Conquest/issues/1050) with diagnostics disabled, random battles and Onslaught, interruption recovery, account/pause isolation, notifications and the results window, including coexistence with Unicum when installed. The cache delay reduces collisions but does not guarantee their absence. Publish only after testing this compiled package in the real client.
 
 ## 1.2.0
 
