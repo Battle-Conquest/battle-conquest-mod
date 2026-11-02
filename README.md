@@ -157,16 +157,17 @@ Reports now include optional `quest_details`: actual battle start, complete
 vehicle ids when known, distinct base/total XP, direct shot counters and
 conditional gross/net credits. Missing measurements stay absent. The seven
 historical counters and current quest proof keep their meaning. Numeric raw
-observations remain separate per vehicle; premium and respawn totals are not
-inferred. Support and its verified scenarios are announced on the first linked
+observations remain separate per vehicle; unverified premium and respawn totals
+are not inferred. Support and its verified scenarios are announced on the first linked
 `/api/mod/me` response, even before any battle and while sending is paused.
 
 Deploy the [server contract](https://github.com/Battle-Conquest/Battle-Conquest/blob/feat/954-mod-measures/docs/mod-battles-api.md)
 and migration `0055_add_mod_quest_details.php` first. Then use the normal build
 and installation commands. Optional diagnostics remain local and opt-in.
 The two observed SU-130PM battles from 22 October 2026 are regression fixtures;
-all account/arena ids have been removed. Premium, other bonuses, negative net
-and respawn totals still need live verification. A reopened result may enrich
+all account/arena ids have been removed. Premium and other bonuses still need
+live verification. The specific Frontline multivehicle and negative-net
+observation is documented below. A reopened result may enrich
 an accepted report but cannot replace known values or reopen a rejection.
 
 
@@ -180,8 +181,8 @@ Recovered results follow normal capture and the server’s missing-only merge.
 Account/link changes, paused sending and entering battle stop further repair
 requests. A late response passes the same result-owner checks as any capture;
 it can never be stamped with the new login.
-No missing premium or multi-vehicle total is guessed. Deploy the site’s migration
-0057 before this mod; a server without this endpoint simply returns an error and
+No missing premium or unverified multi-vehicle total is guessed. Deploy the
+site’s migration 0057 before this mod; a server without this endpoint simply returns an error and
 normal capture continues. No automatic release is needed for this branch.
 
 ### Event/fun challenges
@@ -358,3 +359,34 @@ The recovery delay reduces collisions with the results screen and other mods;
 notification behaviour and frame-time impact still require in-game testing.
 Valid results of unwanted modes and successfully saved standalone diagnostics
 do not consume repeated cache attempts; pauses and storage failures retain recovery work.
+
+### Frontline multivehicle credits (#1050)
+
+The received report from 2 November 2026 establishes 157,530 gross and 99,961
+net credits across three vehicles, including a 5,624-credit loss on one vehicle.
+The mod now supports this specific `frontline_multi_standard` scenario, without
+diagnostics. It requires a complete, unambiguous vehicle list, an explicit 100%
+credit factor on each vehicle, all observed credit bonuses equal to zero, and
+matching original, credited and factual earnings. The observation contains no
+`isPremium` flag; tests do not invent one. Explicit premium accounts remain excluded.
+
+Gross credits sum the base earnings. Net subtracts actual credit debits for
+repair and automatic ammunition, consumable and booster replenishment. Avatar
+totals, other currencies and inventory replacement values never contribute.
+Unknown costs omit net while retaining a provable gross amount. Unknown bonuses
+or earnings omit the unsupported measurement; negative values remain signed.
+Other premium, bonus and multivehicle contexts remain unverified. Historical XP,
+BFFA counters and single-vehicle random calculations keep their meaning.
+
+Deploy the matching server capability support before installing the updated mod;
+no new migration or configuration is needed. Accepted reports can be enriched
+through existing targeted repair or reopening a result, only while WoT still
+provides it. Known values and rejected reports never change, and receipt deadlines
+and settled rankings remain enforced. An expired result or unsupported economy
+cannot be fixed by repeatedly reopening it: update the mod and contact the site
+if required data remains unavailable. No server-side backfill is performed.
+
+The identical fixture in both repositories preserves the received economic fields
+without the arena ID. The client envelope reconstructed in tests uses synthetic
+identity and team metadata; it is not a raw client capture. Synthetic variants
+check defensive behaviour, not additional live economic correspondences.
