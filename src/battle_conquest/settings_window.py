@@ -132,6 +132,10 @@ def template(state, templates=None):
         _heading(templates, tr('Mod updates')),
         templates.createLabel(state.update),
     ]
+    if state.displays is not None:
+        account += [templates.createEmpty(_SPACER), _heading(templates, tr('Garage windows'))]
+        for name, title in (('widget', 'Show garage card'), ('details', 'Show detailed window')):
+            account.append(templates.createCheckbox(tr(title), name, state.displays[name]))
     return {'modDisplayName': NAME, 'enabled': state.enabled,
             'column1': account, 'column2': sending}
 
@@ -139,7 +143,7 @@ def template(state, templates=None):
 class State(object):
     """What the page shows, compared as a whole to know when to redraw it."""
 
-    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u'', isolated=0, scope=None):
+    def __init__(self, linked=False, running=False, modes=(), enabled=True, last=u'', waiting=0, update=u'', isolated=0, scope=None, displays=None):
         self.linked = linked
         self.running = running
         self.modes = tuple(modes)
@@ -150,9 +154,10 @@ class State(object):
         self.update = update
         self.language = locale()
         self.scope = scope
+        self.displays = displays
 
     def key(self):
-        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language, self.isolated, self.scope)
+        return (self.linked, self.running, self.modes, self.enabled, self.last, self.waiting, self.update, self.language, self.isolated, self.scope, self.displays)
 
     def __eq__(self, other):
         return isinstance(other, State) and self.key() == other.key()
@@ -163,11 +168,13 @@ class State(object):
 
 class SettingsWindow(object):
 
-    def __init__(self, session, site, destinations, sender=None):
+    def __init__(self, session, site, destinations, sender=None, displays=None):
         self._session = session
         self._site = site
         self._destinations = destinations
         self._sender = sender
+        self._displays = displays
+        self._preview_displays = {}
         self._state = None
         self._alive = True
         self._api = None
@@ -225,6 +232,7 @@ class SettingsWindow(object):
         sender = self._sender
         blocked = current is not None and current.blocked
         return State(linked=linked, scope=self._scope(),
+                     displays=self._displays.switches() if self._displays is not None else None,
                      running=self._site.running,
                      modes=current.modes if current is not None else (),
                      # Ticked while unlinked: the box is about sending, and an
@@ -247,6 +255,7 @@ class SettingsWindow(object):
             return
         if self._state is not None and state.scope != self._state.scope:
             self._preview_enabled = None
+            self._preview_displays = {}
             self._scope_token = object()
         self._state = state
         # A new template replaces the page; its callbacks are added again, so
@@ -274,6 +283,10 @@ class SettingsWindow(object):
             # the sender's actual state until then.
             if self._preview_enabled is not None:
                 page['enabled'] = self._preview_enabled
+            for component in page['column1']:
+                name = component.get('varName')
+                if name in self._preview_displays:
+                    component['value'] = self._preview_displays[name]
             reload_template(LINKAGE, page)
 
     def _follow_live_settings(self):
@@ -301,9 +314,13 @@ class SettingsWindow(object):
             enabled = raw.get('enabled')
             if isinstance(enabled, bool):
                 self._preview_enabled = enabled
+            for name in ('widget', 'details'):
+                if isinstance(raw.get(name), bool):
+                    self._preview_displays[name] = raw[name]
 
     def _on_window_closed(self):
         self._preview_enabled = None
+        self._preview_displays = {}
 
     def _register(self):
         self._window_handler = self._scoped(self._on_window)
@@ -315,7 +332,8 @@ class SettingsWindow(object):
         # player's choice, so it is set to the truth first.
         self._publishing = True
         try:
-            self._api.updateModSettings(LINKAGE, {'enabled': self._state.enabled})
+            values = dict(self._state.displays or {}, enabled=self._state.enabled)
+            self._api.updateModSettings(LINKAGE, values)
         finally:
             self._publishing = False
 
@@ -324,11 +342,16 @@ class SettingsWindow(object):
                 or self._state.scope != self._scope()):
             return
         enabled = raw.get('enabled')
+        self._preview_displays = {}
+        if self._displays is not None:
+            for name in ('widget', 'details'):
+                if isinstance(raw.get(name), bool):
+                    self._displays.switch(name, raw[name])
         if isinstance(enabled, bool):
             self._preview_enabled = None
         if isinstance(enabled, bool) and self._destinations.set_enabled(enabled):
             _logger.info('sending battles %s', 'resumed' if enabled else 'paused')
-            self._check_state()
+        self._check_state()
 
     def _on_button(self, linkage, var_name, value=None):
         if not self._alive or linkage != LINKAGE or self._state.scope != self._scope():
@@ -369,7 +392,7 @@ class SettingsWindow(object):
         return getattr(self._api, '_ModsSettingsApi__instance', self._api)
 
 
-def install(session, site, destinations, sender=None):
-    window = SettingsWindow(session, site, destinations, sender)
+def install(session, site, destinations, sender=None, displays=None):
+    window = SettingsWindow(session, site, destinations, sender, displays)
     window.install()
     return window

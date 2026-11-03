@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 """French UI catalogue; English source messages are the fallback catalogue."""
 MESSAGES = {
+    u'Battle-Conquest: integrated card unavailable; using the detailed window.': u'Battle-Conquest : case intégrée indisponible ; affichage de la fenêtre détaillée.',
+    u'Show detailed window': u'Afficher la fenêtre détaillée',
+    u'Show garage card': u'Afficher la case du garage',
+    u'Garage windows': u'Fenêtres du garage',
+    u'Quest tracking unavailable': u'Suivi des quêtes indisponible',
+    u'Unavailable': u'Indisponible',
+    u'Choose a quest': u'Choisir une quête',
+    u'No active quest': u'Aucune quête active',
+    u'Close': u'Fermer',
+    u'Settings': u'Réglages',
+    u'Details': u'Détails',
     u'Reports isolated: %d. See game.log.': u'Rapports isolés : %d. Consulter game.log.',
     u'Link suspended: link this account again. Reports retained.': u'Liaison suspendue : relier ce compte. Rapports conservés.',
 

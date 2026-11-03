@@ -32,6 +32,40 @@ Not affiliated with Wargaming.net. Derived from
 
 ## The settings page
 
+### Integrated garage card (#1047)
+
+The garage card appears beneath the game's mission cards, before visible Unicum
+widgets. It offers **Link my account** before linking, then your own objectives,
+official progress and available mod estimates. Missing or incomplete values stay
+explicitly unknown. A dropdown selects the shared tracked quest; **Details**
+opens and persistently enables the existing comparison window.
+
+Install the complete ZIP: it includes the pinned MIT-licensed
+`net.openwg.gameface_1.2.2.wotmod` under `mods/<game version>/net.openwg/` and its
+licence. Keep this shared dependency path, including with other mods installed,
+and restart the client after installing the new resources. A standalone mod file
+without the dependency falls back to the detailed window. Submit the complete
+installation archive when distributing this version through a mod portal.
+
+The settings page has independent **Show garage card** and **Show detailed
+window** switches. The first run of this update enables only the card. Each
+window's cross persists its own hidden state per site, region and WoT account.
+The garage notification can restore either window without optional mod menus.
+An unavailable Gameface card opens the detailed window for the session without
+changing those preferences. Display switches never pause sending battles.
+
+The site and mod automatically choose a sole active individual quest or a sole
+running challenge you participate in, excluding waiting, expired and followed-only
+challenges. The saved choice survives a second active objective appearing. This
+requires the matching server update from Battle-Conquest#1047 before the new mod;
+no schema migration is needed.
+
+Local verification: `python2.7 tools/selftest.py`, then build and release check
+as below. `tools/test_garage_card.mjs` tests the real card scripts in Playwright
+(Node 20+, `BC_PLAYWRIGHT_MODULE` and `PLAYWRIGHT_BROWSERS_PATH` when needed).
+Real WoT rendering, Gameface input, Unicum coexistence and return from battle
+still require in-game acceptance; browser and Python fakes do not replace it.
+
 Optional. With [modsSettingsApi](https://github.com/izeberg/modssettingsapi)
 and [modsListApi](https://gitlab.com/wot-public-mods/mods-list) installed (most
 modpacks carry them; this mod does not ship them), Battle-Conquest has an entry
@@ -88,6 +122,7 @@ Everything the mod writes is in `mods/configs/battle_conquest/`:
 | `link.json` | schema 2: separate keys, modes and pause state per site, region and WG account |
 | `battle-reports.json` | schema 2: owner-scoped pending battles and isolated reports with unverified ownership |
 | `battle-reports-refused.json` | the last batch the site could not read, kept for whoever has to find out why |
+| `garage-displays.json` | schema 1: independent card/window visibility per site, region and WG account |
 
 An optional local results diagnostic is available for the quest measurements
 work in [#953](https://github.com/Battle-Conquest/Battle-Conquest/issues/953).

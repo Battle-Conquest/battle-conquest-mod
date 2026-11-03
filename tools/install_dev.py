@@ -41,6 +41,7 @@ MOD_VERSION = '0.1.0'
 MODS_SUBPATH = Path('scripts') / 'client' / 'gui' / 'mods'
 
 RES = REPO / 'res'
+GAMEFACE = REPO / 'vendor' / 'openwg'
 
 PYTHON27_CANDIDATES = [
     Path(os.path.expanduser('~/scoop/apps/python27/current/python.exe')),
@@ -136,6 +137,9 @@ def build_wotmod(pyc: Path, target: Path) -> None:
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_STORED) as archive:
         archive.writestr('meta.xml', meta)
         archive.write(pyc, str(Path('res') / MODS_SUBPATH / pyc.name).replace('\\', '/'))
+        for resource in sorted(RES.rglob('*')):
+            if resource.is_file():
+                archive.write(resource, 'res/' + resource.relative_to(RES).as_posix())
 
 
 def install_res(game: Path, version: str) -> int:
@@ -166,6 +170,13 @@ def main() -> None:
         raise SystemExit(f'not a directory: {game}')
 
     version = args.version or find_version(game)
+    dependencies = sorted(GAMEFACE.glob('net.openwg.gameface_*.wotmod'))
+    if len(dependencies) != 1:
+        raise SystemExit('expected exactly one pinned openwg_gameface package')
+    dependency_dir = game / 'mods' / version / 'net.openwg'
+    dependency_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(dependencies[0], dependency_dir / dependencies[0].name)
+    shutil.copy2(GAMEFACE / 'LICENSE-gameface', dependency_dir / 'LICENSE-gameface.txt')
     stub_source = render_stub()
     print(f'sources  {SRC.as_posix()}')
     print(f'client   {version}')

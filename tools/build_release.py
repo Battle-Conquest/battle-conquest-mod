@@ -42,6 +42,7 @@ DIST = REPO / 'dist'
 
 MOD_ID = 'eu.battle-conquest'
 ARCHIVE = 'battle-conquest-mod'
+GAMEFACE = REPO / 'vendor' / 'openwg'
 
 # The client the package is built for: its mods/ folder in the zip.
 GAME_VERSION = '2.4.1.1'
@@ -143,8 +144,13 @@ def main() -> None:
 def bundle(package: Path, version: str) -> None:
     """The zip a player unzips into the game folder, laid out as that folder."""
     target = DIST / f'{ARCHIVE}_{version}.zip'
+    dependencies = sorted(GAMEFACE.glob('net.openwg.gameface_*.wotmod'))
+    if len(dependencies) != 1:
+        raise SystemExit('expected exactly one pinned openwg_gameface package')
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
         archive.write(package, f'mods/{GAME_VERSION}/{package.name}')
+        archive.write(dependencies[0], f'mods/{GAME_VERSION}/net.openwg/{dependencies[0].name}')
+        archive.write(GAMEFACE / 'LICENSE-gameface', 'LICENSE-openwg-gameface.txt')
     print(f'wrote {target} ({target.stat().st_size / 1024:.0f} KB)')
 
 
