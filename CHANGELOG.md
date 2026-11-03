@@ -4,8 +4,16 @@
 
 Battle-Conquest for **World of Tanks EU 2.4.1.1**.
 
+### Added
+
+- An integrated garage card beneath the game's mission cards, with account linking, your own objectives, official progress and available mod estimates. The existing detailed comparison window remains available through **Details**.
+- Independent, persistent visibility settings for the card and detailed window, scoped to the site, region and Wargaming account. Only the card is enabled initially; garage notifications can restore either display without optional mod menus. Display settings never pause battle delivery.
+- Shared quest selection with the website: automatically follow a sole active individual quest or running challenge you participate in, while preserving the saved choice when another objective becomes active. When none is active, keep an accessible manually selected challenge; without a valid selection, show the latest result.
+- The pinned MIT-licensed Gameface dependency in the installation ZIP, under the shared `net.openwg/` folder. If the card is unavailable, the native detailed window provides a session fallback.
+
 ### Fixed
 
+- Keep concurrent selection changes explicit instead of silently adopting another client's settings. Preserve Gameface refreshes through temporary resource failures and disposed views, and respect dismissal of the fallback window.
 - Report gross and signed net credits for the verified standard-account, no-bonus Frontline multivehicle scenario. The observed three-vehicle battle produces 157,530 gross and 99,961 net credits, including one vehicle with a 5,624-credit loss. Unknown costs remain unknown, and premium or other unverified bonuses are not inferred.
 - Allow available Frontline results to complete previously accepted reports through existing targeted recovery, without replacing known values or counting a battle twice. Receipt deadlines and settled rankings remain enforced.
 - Keep account links, pause settings and battle queues separate for each Wargaming account and region. Reports without verified ownership remain isolated instead of being sent for the next login.
@@ -16,16 +24,20 @@ Battle-Conquest for **World of Tanks EU 2.4.1.1**.
 
 ### Installation
 
-1. The server must include [account-isolation support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1012). Deploy [Frontline credit capability support and recovery guidance](https://github.com/Battle-Conquest/Battle-Conquest/pull/1051) before this mod. This update adds no server migration or configuration requirement.
+If you installed an earlier 1.2.1 prerelease, download this ZIP again and replace that installation: the version number remains 1.2.1.
+
+1. Deploy Battle-Conquest **2.3.4** with [shared garage selection support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1056) before this mod. The server must also include [account-isolation support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1012) and [Frontline credit support](https://github.com/Battle-Conquest/Battle-Conquest/pull/1051). This update adds no server migration or configuration requirement.
 2. Fully close the game and back up `mods/configs/battle_conquest/`. Keep this backup private: it contains account-link secrets.
-3. Remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Extract `battle-conquest-mod_1.2.1.zip` into the game directory, or place `eu.battle-conquest_1.2.1.wotmod` in `mods/2.4.1.1/`. Keep only one Battle-Conquest package installed.
-4. Start the game, verify the current account link and relink if requested. Play a supported battle and confirm that it appears once on Battle-Conquest.
+3. Remove the previous Battle-Conquest `.wotmod` and disable any development bootstrap. Extract the complete `battle-conquest-mod_1.2.1.zip` into the game directory. It contains `mods/2.4.1.1/eu.battle-conquest_1.2.1.wotmod`, `mods/2.4.1.1/net.openwg/net.openwg.gameface_1.2.2.wotmod` and the dependency licence. Preserve the shared `net.openwg/` location and keep only one Battle-Conquest package installed. The standalone Battle-Conquest asset requires this dependency for the integrated card; without it, the detailed window is used instead.
+4. Start the game, verify the current account link and relink if requested. Check the garage card and shared selection, then play a supported battle and confirm that it appears once on Battle-Conquest.
 
 Existing links and queues migrate automatically. Unverified older reports are preserved but not uploaded. See [account isolation and rollback](https://github.com/Battle-Conquest/battle-conquest-mod/blob/v1.2.1/OWNER-ISOLATION.md) before downgrading.
 
 ### Validation
 
-Python 2.7 selftests and the built-package release check passed. **In-game acceptance remains pending**: test the Frontline credit recipe in [#1050](https://github.com/Battle-Conquest/Battle-Conquest/issues/1050) with diagnostics disabled, random battles and Onslaught, interruption recovery, account/pause isolation, notifications and the results window, including coexistence with Unicum when installed. The cache delay reduces collisions but does not guarantee their absence. Publish only after testing this compiled package in the real client.
+Python 2.7 selftests, 28 Python 3 tooling tests and the built-package release check passed. Six FR/EN browser scenarios previously passed for the card at 1280×720, 1920×1080 and 2560×1440.
+
+**In-game acceptance remains pending**: native Gameface rendering and input, Unicum coexistence, return from battle and the [#1047 recipe](https://github.com/Battle-Conquest/Battle-Conquest/issues/1047) still require a real client. Also test the Frontline credit recipe in [#1050](https://github.com/Battle-Conquest/Battle-Conquest/issues/1050) with diagnostics disabled, random battles and Onslaught, interruption recovery, account/pause isolation, notifications and the results window. The cache delay reduces collisions but does not guarantee their absence. GitHub publication does not imply WGMods approval.
 
 ## 1.2.0
 
