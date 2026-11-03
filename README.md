@@ -20,8 +20,10 @@ Not affiliated with Wargaming.net. Derived from
    or use the WGMods application.
    For the very latest version, download `battle-conquest-mod_<version>.zip`
    from the [latest GitHub release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
-   and unzip it into your World of Tanks folder. It holds one file,
-   `mods/<game version>/eu.battle-conquest_<version>.wotmod`. GitHub may be ahead
+   and unzip the complete archive into your World of Tanks folder. It contains
+   `mods/<game version>/eu.battle-conquest_<version>.wotmod`, the pinned Gameface
+   dependency under `mods/<game version>/net.openwg/`, and its licence. Preserve
+   that shared dependency path and restart the client. GitHub may be ahead
    while Wargaming reviews the WGMods submission; the site shows both versions
    when they are available.
 3. Start the game. Once in the garage, a notification says the game is not
