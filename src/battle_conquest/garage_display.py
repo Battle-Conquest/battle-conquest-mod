@@ -39,7 +39,8 @@ class Displays(object):
         self.allowed = False
         self.notified = set()
         self.restore_scopes = set()
-        self.panel.dismiss = lambda: self.switch('details', False)
+        self.dismissed_fallbacks = set()
+        self.panel.dismiss = self.dismiss_details
 
     def account_id(self):
         return account_number(getattr(self.account, 'account', None))
@@ -52,9 +53,18 @@ class Displays(object):
         return self.preferences.get(self.account_id())
 
     def switch(self, name, value):
+        previous = self.switches().get(name)
+        if name == 'details' and value is False and previous is True:
+            self.dismissed_fallbacks.add(self.scope_key)
+        elif name == 'widget' and value is True and previous is False:
+            self.dismissed_fallbacks.discard(self.scope_key)
         self.preferences.set(self.account_id(), name, value)
         if self.garage is not None:
             self.garage.tick()
+
+    def dismiss_details(self):
+        self.dismissed_fallbacks.add(self.scope_key)
+        self.switch('details', False)
 
     def visible(self, visible, preserve_draft=False):
         self.allowed = visible
@@ -65,7 +75,7 @@ class Displays(object):
         self.scope_key = None
 
     def fallback(self, ready):
-        if not ready or not self.switches()['widget']:
+        if not ready or not self.switches()['widget'] or self.scope_key in self.dismissed_fallbacks:
             self.started = None
             return False
         if self.started is None:

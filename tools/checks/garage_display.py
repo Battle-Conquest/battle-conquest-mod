@@ -57,9 +57,22 @@ def check_garage_displays():
         check('Details persists its own switch for the current account', preferences.get('456')['details'])
         display.panel.dismiss()
         check('the detailed cross clears only its own switch', preferences.get('456') == {'widget': True, 'details': False})
+        display.switch('widget', False)
+        display.switch('widget', True)
         clock[0] = 109
         check('missing Gameface enables a session fallback', display.fallback(True))
         check('fallback never writes either display preference', preferences.get('456') == {'widget': True, 'details': False})
+        garage.data = {'config': {'version': 1, 'selection': '', 'mode': 'manual', 'manual_ids': []}, 'players': []}
+        garage.tick()
+        check('fallback opens the detailed window while the card is unavailable', display.panel.shown)
+        display.panel.dismiss()
+        garage.tick()
+        check('the fallback window stays closed after its cross is clicked', not display.panel.shown)
+        display.switch('widget', True)
+        display.switch('details', False)
+        check('applying unchanged switches cannot resurrect a dismissed fallback', not display.panel.shown)
+        display.switch('details', True)
+        check('the notification can restore a dismissed fallback window', display.panel.shown)
         garage.data = {'criteria': [{'criterion_type': 'damage_dealt', 'label': 'Damage', 'target_value': 100}],
             'players': [{'username': 'Self', 'official': {'available': True, 'totals': {'damage_dealt': None},
                                                         'known_totals': {'damage_dealt': 20}, 'incomplete': True}},
@@ -108,6 +121,13 @@ def check_garage_auto_selection():
     garage.auto_select()
     session.sent.pop()['answer'](_Response(409, {'error': 'conflict'}))
     check('automatic selection conflicts preserve the observed configuration', garage.conflict and garage.data['config']['selection'] == '')
+    garage.conflict = False
+    previous = copy.deepcopy(garage.data)
+    garage.auto_select()
+    changed = copy.deepcopy(garage.data)
+    changed['config'].update(version=5, selection='individual:1', manual_ids=[3])
+    session.sent.pop()['answer'](_Response(200, changed))
+    check('automatic acknowledgements cannot adopt another client list update', garage.conflict and garage.data == previous)
 
 
 def check_garage_gameface():
@@ -159,6 +179,25 @@ def check_garage_gameface():
               len(model.values) == 5 and model.values[1] == bridge.revision and json.loads(model.values[4])['scope'] == 'a')
         bridge.received('a')
         check('only the current display scope acknowledges rendering', bridge.healthy('a') and not bridge.healthy('b'))
+        from battle_conquest import hangar_inject
+        original_read = hangar_inject.read
+        try:
+            def missing(name): raise IOError('resource temporarily replaced by editor')
+            hangar_inject.read = missing
+            bridge.refresh()
+            check('a transient resource read keeps an already running card healthy', bridge.healthy('a'))
+            another = bridge.make_view().getViewModel()
+            setter = model._setString
+            def disposed(index, value): raise RuntimeError('disposed native model')
+            model._setString = disposed
+            bridge.models = lambda: [model, another]
+            hangar_inject.read = lambda name: original_read(name) + '\n'
+            bridge.refresh()
+            check('a disposed model cannot prevent live cards from receiving edited resources', another.values[1] == bridge.revision)
+            model._setString = setter
+            del bridge.models
+        finally:
+            hangar_inject.read = original_read
         bridge.close()
         session.close()
         check('teardown stops JavaScript and restores the original presenter',
@@ -166,7 +205,7 @@ def check_garage_gameface():
         session = Session(1048)
         bridge = Bridge(session)
         bridge.install()
-        check('reload adopts live models without stacking a second child', len(getattr(Presenter, REGISTRY)) == 1)
+        check('reload adopts live models without stacking a second child', len(getattr(Presenter, REGISTRY)) == 2)
         bridge.close()
         session.close()
     finally:

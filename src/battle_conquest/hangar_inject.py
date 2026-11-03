@@ -109,9 +109,13 @@ class Bridge(object):
             self.sources = (script, style)
             self.revision = (zlib.crc32((script + style).encode('utf-8')) & 0x3fffffff) or 1
             for model in self.models():
-                self.load(model)
+                try:
+                    self.load(model)
+                except Exception:
+                    _logger.debug('garage model already disposed during refresh', exc_info=True)
         except Exception:
-            self.installed = False
+            # An editor can briefly replace a resource. Keep the last working
+            # script; rendering acknowledgements decide whether fallback is needed.
             _logger.exception('could not load garage card resources')
 
     def load(self, model):

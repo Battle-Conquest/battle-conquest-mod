@@ -174,6 +174,8 @@ class Garage(object):
 
     def request(self, url, key, payload=None, on_saved=None, automatic=False):
         serial = self.refresh_serial
+        original_config = dict(self.data['config']) if automatic else None
+        expected_config = dict(original_config, selection=self.data['automatic_selection']) if automatic else None
         # A settings POST has no receipt query and cannot replace the fresh
         # read requested by an acknowledged battle.
         if payload is None:
@@ -204,7 +206,9 @@ class Garage(object):
             elif code != 200 or not is_snapshot(data):
                 self.offline = code != 422
                 self.error = ('Invalid configuration or access denied.' if code == 422 else None)
-            elif automatic and data['config']['version'] not in (payload['version'], payload['version'] + 1):
+            elif automatic and (data['config']['version'] not in (payload['version'], payload['version'] + 1)
+                                or any(data['config'][name] != (original_config if data['config']['version'] == payload['version'] else expected_config)[name]
+                                       for name in ('selection', 'mode', 'manual_ids'))):
                 self.offline = False
                 self.conflict = True
                 self.error = 'Configuration changed again after saving. Click Reload before editing.'
