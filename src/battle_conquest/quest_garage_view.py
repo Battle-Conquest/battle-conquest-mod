@@ -65,6 +65,8 @@ class Panel(object):
         self.subtitle = label(self.header, 'subtitle', u'Quest tracker - drag header to move', 'muted')
         self.fold_button = surface(self.header, 'fold', 'button')
         self.fold_label = label(self.fold_button, 'caption')
+        self.close_button = surface(self.header, 'close', 'button')
+        self.close_label = label(self.close_button, 'caption')
         self.region = surface(self.root, 'content')
         self.body = label(self.region, 'text')
         from battle_conquest.quest_garage_content import Content
@@ -175,7 +177,7 @@ class Panel(object):
         callbacks = [self.submit_edit, self.cancel_edit, self.clear_edit, self.reload] if editing else [garage.next_quest, garage.toggle_mode, self.edit, self.reload]
         enabled = [editable, True, True, not busy] if editing else [editable, editable, editable, not busy]
         self.disabled = set(id(node) for node, ok in zip(self.buttons, enabled) if not ok)
-        self.actions = [(self.fold_button, self.toggle)] + list(zip(self.buttons, callbacks))
+        self.actions = [(self.fold_button, self.toggle)] + list(zip(self.buttons, callbacks)) + [(self.close_button, self.dismiss)]
         self.styles = dict((id(node), 'disabled' if not ok else 'primary' if index == 0 else 'button')
                            for index, (node, ok) in enumerate(zip(self.buttons, enabled)))
         self.layout()
@@ -184,7 +186,7 @@ class Panel(object):
         self.restyle()
 
     def restyle(self):
-        for node in [self.fold_button] + self.buttons + (self.picker.targets if self.picker else []):
+        for node in [self.fold_button, self.close_button] + self.buttons + (self.picker.targets if self.picker else []):
             role = self.styles.get(id(node), 'button')
             active = self.pressed[0] if self.pressed else self.hovered
             if node is active and id(node) not in self.disabled:
@@ -322,6 +324,9 @@ class Panel(object):
             if not self.collapsed and self.editing is not None and self.picker.query:
                 self.picker.type(self.picker.query)
 
+    def dismiss(self):
+        self.visible(False)
+
     def handleDragStartEvent(self, component, position):
         self.drag = (position[0], position[1], self.root.position[0], self.root.position[1])
         _logger.info('garage drag started at %s', self.root.position)
@@ -364,7 +369,7 @@ class Panel(object):
         self.content = self.hovered = None
         self.root = self.title = self.body = self.drag = self.pressed = None
         self.buttons, self.button_labels, self.actions = [], [], []
-        for name in ('header', 'accent', 'subtitle', 'fold_button', 'fold_label', 'region', 'input_box', 'input_label', 'footer', 'status_dot', 'track', 'thumb'):
+        for name in ('header', 'accent', 'subtitle', 'fold_button', 'fold_label', 'close_button', 'close_label', 'region', 'input_box', 'input_label', 'footer', 'status_dot', 'track', 'thumb'):
             setattr(self, name, None)
         self.attached = False
         if root is not None and attached:

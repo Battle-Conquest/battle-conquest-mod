@@ -13,6 +13,12 @@ repository's git log.
 Both are licensed under the GNU Affero General Public License, version 3: see
 LICENSE.
 
+The garage card's Gameface integration and native-card decoration follow the
+patterns in unicum.gg-mod's tank_button, layouts and account_card modules.
+Its optional injector is redistributed as vendor/openwg/net.openwg.gameface_1.2.2.wotmod,
+Copyright (c) 2024-2025 Andrii Andruschyshyn, under the MIT licence included at
+vendor/openwg/LICENSE-gameface and in the installation archive.
+
 When they are installed, the mod's settings page uses two mods by other
 authors, which it neither contains nor ships:
 

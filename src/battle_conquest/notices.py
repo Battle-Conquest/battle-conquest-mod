@@ -152,6 +152,11 @@ class Notices(object):
             if name == ACTION:
                 self.clicked()
                 return None
+            if name in ('battle_conquest.show_widget', 'battle_conquest.show_details'):
+                from battle_conquest import garage_display
+                if garage_display._active is not None:
+                    garage_display._active.switch('widget' if name.endswith('widget') else 'details', True)
+                return None
             if name == mod_updates.ACTION:
                 from battle_conquest.site_link import open_url
                 open_url(self._site.page)

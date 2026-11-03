@@ -26,6 +26,10 @@ class _Templates(object):
     def createEmpty(height=None):
         return {'type': 'Empty'}
 
+    @staticmethod
+    def createCheckbox(text, varName, value):
+        return {'type': 'Checkbox', 'text': text, 'varName': varName, 'value': value}
+
 
 class _Api(object):
     def __init__(self):

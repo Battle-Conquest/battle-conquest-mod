@@ -59,9 +59,10 @@ def start(generation=0):
         sender = report_sender.install(_session, player, places, VERSION, queue)
         quest_repairs.install(_session, player, places, reports.arrived,
                               context=request_context, observe_stale=reports.arrived, requests=requests)
-        garage = quest_garage_view.install(_session, player, places, sender)
+        from battle_conquest import garage_display
+        garage = garage_display.install(_session, player, places, sender, site)
         battle_feedback.Feedback(_session, garage, reports, sender, requests)
-        page = settings_window.install(_session, site, places, sender)
+        page = settings_window.install(_session, site, places, sender, garage.view)
         mods_list.install(_session)
         # After the page, which it falls back on: the garage's notice is how a
         # client without modsSettingsApi links at all.

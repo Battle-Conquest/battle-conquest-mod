@@ -27,6 +27,8 @@ def platoon_accounts():
 def is_snapshot(data):
     if not isinstance(data, dict) or data.get('schema') != 1:
         return False
+    if data.get('automatic_selection') is not None and not isinstance(data['automatic_selection'], basestring):
+        return False
     settings = data.get('config')
     if (not isinstance(settings, dict) or not isinstance(settings.get('version'), (int, long))
             or isinstance(settings['version'], bool) or settings['version'] < 0
@@ -150,6 +152,7 @@ class Garage(object):
                           preserve_draft=visible and not ready and not self.unavailable)
         if visible:
             self.poll()
+        if visible or getattr(self.view, 'renders_unlinked', False) is True:
             self.view.render(self)
 
     def url(self):
@@ -169,7 +172,7 @@ class Garage(object):
             url += '&receipt_arena=' + self.feedback.arena()
         self.request(url, key)
 
-    def request(self, url, key, payload=None, on_saved=None):
+    def request(self, url, key, payload=None, on_saved=None, automatic=False):
         serial = self.refresh_serial
         # A settings POST has no receipt query and cannot replace the fresh
         # read requested by an acknowledged battle.
@@ -201,7 +204,11 @@ class Garage(object):
             elif code != 200 or not is_snapshot(data):
                 self.offline = code != 422
                 self.error = ('Invalid configuration or access denied.' if code == 422 else None)
-            elif payload is not None and (data['config']['version'] != payload['version'] + 1
+            elif automatic and data['config']['version'] not in (payload['version'], payload['version'] + 1):
+                self.offline = False
+                self.conflict = True
+                self.error = 'Configuration changed again after saving. Click Reload before editing.'
+            elif payload is not None and not automatic and (data['config']['version'] != payload['version'] + 1
                                           or any(data['config'][key] != payload[key] for key in ('selection', 'mode', 'manual_ids'))):
                 self.offline = False
                 self.conflict = True
@@ -223,6 +230,8 @@ class Garage(object):
                 self.view.render(self)
             if self.refresh_pending:
                 self.session.callback(0.0, lambda: self.poll(force=True))
+            elif payload is None and code == 200 and is_snapshot(data) and not self.conflict and data.get('automatic_selection'):
+                self.session.callback(0.0, self.auto_select)
 
         try:
             self.session.fetch(url, answered, headers={'X-Mod-Secret': key[2], 'Content-Type': 'application/json'},
@@ -236,6 +245,15 @@ class Garage(object):
             self.error = None
             return False
         return True
+
+    def auto_select(self):
+        if (not self.data or self.conflict or self.busy is not None or not self.garage()
+                or self.identity() != self.key or getattr(self.view, 'editing', None) is not None):
+            return
+        selected = self.data.get('automatic_selection')
+        if selected and selected != self.data['config']['selection']:
+            return self.request(self.url().replace('/quest-garage?', '/quest-garage/auto-select?'), self.key,
+                                {'version': self.data['config']['version']}, automatic=True)
 
     def save(self, expected_version=None, on_saved=None, **changes):
         if self.data is None or self.conflict or self.busy is not None or not self.garage():

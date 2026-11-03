@@ -9,8 +9,11 @@ def layout(self):
     place(self.title, 16, 6)
     place(self.subtitle, 16, 33)
     self.fold_button.width, self.fold_button.height = 112, 36
-    place(self.fold_button, width - 128, 14)
+    place(self.fold_button, width - 170, 14)
     caption(self.fold_button, self.fold_label, u'Expand' if self.collapsed else u'Collapse')
+    self.close_button.width, self.close_button.height = 36, 36
+    place(self.close_button, width - 48, 14)
+    caption(self.close_button, self.close_label, u'\u00d7')
     self.accent.width, self.accent.height = width, 2
     place(self.accent, 0, 62)
     for node in [self.region, self.input_box, self.footer, self.status_dot, self.track, self.thumb] + self.buttons:
@@ -22,7 +25,7 @@ def layout(self):
         return
     self.root.height = min(520, screen_height - 32)
     editing = self.editing is not None
-    self.actions = self.actions[:5]
+    self.actions = self.actions[:6]
     self.input_box.visible = editing
     self.input_box.width = width - 48
     if editing:
