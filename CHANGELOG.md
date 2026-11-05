@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.2
+
+Testing prerelease for **World of Tanks EU 2.4.1.1**. The target game version is unchanged.
+
+### Added
+
+- Premium-account XP support for individual quest tracking and the detailed garage window. Supported battles now use the XP counted by Wargaming, including account premium and excluding combat XP reserves. Challenge base XP and total XP keep their existing meanings.
+- Gross and signed net credit measurements for the observed premium-account scenario. Net credits include the companion bonus and deduct actual credit expenses; a loss remains negative. The verified Tiger I example produces **-28,690 net credits**.
+- Recovery of missing individual-quest measurements from results still available in the game cache, using the server's targeted requests. Enrichment preserves known values and never counts the same battle twice.
+
+### Supported cases
+
+The new premium normalization covers **random, single-vehicle battles with an explicitly applied 150% account-premium factor**. XP supports no first-win bonus and either no combat XP reserve or the observed +50% reserve, with no other unsupported XP modifier. Credits with event rewards remain unnormalized. Missing or unsupported measurements stay unknown; standard-account and Frontline behavior is preserved.
+
+### Installation
+
+1. Deploy Battle-Conquest **2.3.7** with [server support #1072](https://github.com/Battle-Conquest/Battle-Conquest/pull/1072) before this mod.
+2. Fully close the game and back up `mods/configs/battle_conquest/` privately. Remove the previous Battle-Conquest package and disable any development bootstrap.
+3. Extract the complete `battle-conquest-mod_1.2.2.zip` into the game directory. It contains `mods/2.4.1.1/eu.battle-conquest_1.2.2.wotmod`, the pinned Gameface dependency in `mods/2.4.1.1/net.openwg/`, and its licence. Keep only one Battle-Conquest package installed and preserve the shared dependency folder.
+4. Start the game, verify the account link and play a supported battle. Confirm that it appears once on the site, compare individual-quest XP with the Wargaming tank-stat delta, and compare net credits with the actual wallet change.
+
+### Validation
+
+This prerelease packages the premium support reviewed in [mod PR #40](https://github.com/Battle-Conquest/battle-conquest-mod/pull/40). Python 2.7 selftests and the built-package release check are run during preparation. **Acceptance of the new 1.2.2 binary in a real client remains pending.** Existing numerical observations came from 1.2.1 diagnostics. This is not a WGMods-approved release.
+
 ## 1.2.1
 
 Battle-Conquest for **World of Tanks EU 2.4.1.1**.
