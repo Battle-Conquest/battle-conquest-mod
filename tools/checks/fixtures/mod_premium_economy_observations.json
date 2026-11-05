@@ -1,0 +1,73 @@
+{
+  "provenance": "Trois batailles aléatoires réelles en Tiger I, mod 1.2.1, fournies par le joueur le 4 novembre 2026. Diagnostics personnels répétés par arène, jamais additionnés ; relevés WG directs avant/après. Projection numérique expurgée des identifiants du compte et des arènes. Les soldes crédits sont observés uniquement pour la troisième bataille.",
+  "tank_id": 529,
+  "mode": "random",
+  "mod_version": "1.2.1",
+  "common_fields": {
+    "isPremium": true, "appliedPremiumXPFactor100": 150, "appliedPremiumCreditsFactor100": 150,
+    "additionalXPFactor10": 10, "igrXPFactor10": 10,
+    "achievementXP": 0, "squadXP": 0, "referral20XP": 0, "playerRankXP": 0,
+    "xpPenalty": 0, "originalXPPenalty": 0,
+    "creditsContributionIn": 0, "creditsContributionOut": 0, "creditsPenalty": 0,
+    "dailyXPFactor10": 10, "premiumVehicleXP": 0, "eventXP": 0, "orderXP": 0,
+    "autoEquipCost": [0, 0, 0], "autoEquipBoostersCost": [0, 0, 0],
+    "boosterCredits": 0, "orderCredits": 0, "achievementCredits": 0,
+    "premSquadCredits": 0, "referral20Credits": 0, "wotPlusCredits": 0, "wotPlusProBoostCredits": 0
+  },
+  "cases": [
+    {
+      "scenario": "premium_with_combat_xp_reserve_50",
+      "observed_at": ["2026-11-04T17:45:43Z", "2026-11-04T17:45:50Z"],
+      "fields": {
+        "originalXP": 359, "subtotalXP": 539, "xp": 809, "factualXP": 809,
+        "boosterXP": 270, "boosterXPFactor100": 50,
+        "originalCredits": 14779, "subtotalCredits": 22169,
+        "petSystemCredits": 2217, "eventCredits": 0, "credits": 24386, "factualCredits": 24386,
+        "autoLoadCost": [30800, 0], "autoRepairCost": 11704
+      },
+      "wg_tank_before": {"observed_at": "2026-11-03T10:17:39Z", "battles": 10, "xp": 7744},
+      "wg_tank_after": {"observed_at": "2026-11-04T17:46:36Z", "battles": 11, "xp": 8283},
+      "calculated_net": -18118,
+      "credit_balances": null
+    },
+    {
+      "scenario": "premium_with_combat_xp_reserve_50_and_event_credits",
+      "observed_at": ["2026-11-04T18:52:38Z", "2026-11-04T18:52:46Z"],
+      "fields": {
+        "originalXP": 427, "subtotalXP": 641, "xp": 962, "factualXP": 962,
+        "boosterXP": 321, "boosterXPFactor100": 50,
+        "originalCredits": 22472, "subtotalCredits": 33708,
+        "petSystemCredits": 3371, "eventCredits": 15000, "credits": 52079, "factualCredits": 37079,
+        "autoLoadCost": [63515, 0], "autoRepairCost": 11954
+      },
+      "wg_tank_before": {"observed_at": "2026-11-04T17:46:36Z", "battles": 11, "xp": 8283},
+      "wg_tank_after": {"observed_at": "2026-11-04T18:53:26Z", "battles": 12, "xp": 8924},
+      "calculated_net": -23390,
+      "credit_balances": null
+    },
+    {
+      "scenario": "premium_without_reserve_or_first_win_with_observed_negative_net",
+      "observed_at": ["2026-11-04T19:50:09Z", "2026-11-04T19:50:19Z"],
+      "fields": {
+        "originalXP": 486, "subtotalXP": 729, "xp": 729, "factualXP": 729,
+        "boosterXP": 0, "boosterXPFactor100": 0,
+        "originalCredits": 19597, "subtotalCredits": 29396,
+        "petSystemCredits": 2940, "eventCredits": 0, "credits": 32336, "factualCredits": 32336,
+        "autoLoadCost": [48400, 0], "autoRepairCost": 12626
+      },
+      "displayed": {"credits_before_pet": 29396, "pet_credits": 2940, "credits_net": -28690, "xp": 729},
+      "credit_balances": {"before": 20450496, "after": 20421806},
+      "reported_garage_vehicle_xp_before": 34155,
+      "calculated_net": -28690,
+      "wg_tank_before": {"observed_at": "2026-11-04T19:37:35Z", "battles": 12, "xp": 8924},
+      "wg_tank_after": {"observed_at": "2026-11-04T19:53:27Z", "battles": 13, "xp": 9653},
+      "wg_account_before": {"observed_at": "2026-11-04T19:37:34Z", "battles": 13210, "xp": 8536857},
+      "wg_account_stale_reads": [
+        {"observed_at": "2026-11-04T19:53:27Z", "battles": 13210, "xp": 8536857},
+        {"observed_at": "2026-11-04T19:54:51Z", "battles": 13210, "xp": 8536857}
+      ],
+      "wg_account_after": {"observed_at": "2026-11-04T19:56:45Z", "battles": 13211, "xp": 8537586},
+      "account_update_note": "Dernière lecture après que le joueur a annoncé sa déconnexion. Concordance constatée, sans prouver que la déconnexion soit toujours nécessaire. La valeur XP signalée au garage n'est pas utilisée comme cumul WG."
+    }
+  ]
+}

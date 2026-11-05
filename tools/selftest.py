@@ -42,6 +42,7 @@ from checks.quest_garage_theme import check_quest_garage_theme
 from checks.i18n import check_i18n
 from checks.native_font import check_native_font
 from checks.quest_garage_players import check_quest_garage_players
+from checks.premium_economy import check_premium_economy
 from checks.quest_details import check_quest_details
 from checks.frontline_credits import check_frontline_credits
 from checks.quest_review import check_quest_review
@@ -197,6 +198,7 @@ def main():
         check_native_font()
         check_quest_garage_players()
         check_quest_garage_platoon()
+        check_premium_economy()
         check_quest_details()
         check_frontline_credits()
         check_quest_review()
