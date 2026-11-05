@@ -21,7 +21,7 @@ def check_quest_details():
         raw = copy.deepcopy(original)
         raw['arenaUniqueID'] = 18446744073709551000 + index
         details = details_of(raw, Bonus)
-        check('observed battle %d: exact screen measurements' % (index + 1), details['metrics'] == raw['expected'])
+        check('observed battle %d: exact screen measurements' % (index + 1), details['metrics'] == dict(raw['expected'], xp_wg=raw['expected']['xp_base']))
         check('observed vehicle is retained', details['vehicles'] == [45057])
         report = report_of(raw, constants=Bonus)
         check('historical XP keeps its meaning', report['metrics']['xp'] == raw['expected']['xp_total'])

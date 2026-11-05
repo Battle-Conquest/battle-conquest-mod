@@ -1,23 +1,28 @@
 """Additive quest measurements, separate from the historical seven counters.
 
 The random observations from #953 and Frontline observation from #1050
-establish only their standard-account economies, not premium or other bonuses.
+establish standard economies; #1052 adds the observed random premium factor 150.
 Missing inputs omit a measure; no client clock or zero substitutes for them.
 """
 import copy
 import json
 import time
 
+from battle_conquest.quest_economy import integer, premium_credits, xp_metrics
+
 MODES = ('random', 'ranked', 'onslaught', 'stronghold', 'frontline', 'other')
-METRICS = ('xp_base', 'xp_total', 'credits_gross', 'credits_net',
+METRICS = ('xp_base', 'xp_total', 'xp_wg', 'credits_gross', 'credits_net',
            'shots', 'hits', 'piercings', 'explosion_hits')
-ECONOMY = ('originalCredits', 'credits', 'factualCredits', 'petSystemCredits',
+ECONOMY = ('originalCredits', 'subtotalCredits', 'credits', 'factualCredits', 'petSystemCredits',
            'autoLoadCost', 'autoEquipCost', 'autoEquipBoostersCost', 'autoRepairCost',
            'appliedPremiumCreditsFactor100', 'appliedPremiumXPFactor100',
            'boosterCredits', 'orderCredits', 'eventCredits', 'achievementCredits',
            'premSquadCredits', 'referral20Credits', 'wotPlusCredits', 'wotPlusProBoostCredits',
-           'originalXP', 'xp', 'factualXP', 'premiumVehicleXP', 'dailyXPFactor10',
-           'boosterXP', 'orderXP', 'eventXP', 'appliedPremiumTmenXPFactor100',
+           'originalXP', 'subtotalXP', 'xp', 'factualXP', 'premiumVehicleXP', 'dailyXPFactor10',
+           'additionalXPFactor10', 'igrXPFactor10', 'achievementXP', 'squadXP',
+           'referral20XP', 'playerRankXP', 'xpPenalty', 'originalXPPenalty',
+           'creditsContributionIn', 'creditsContributionOut', 'creditsPenalty',
+           'boosterXP', 'boosterXPFactor100', 'orderXP', 'eventXP', 'appliedPremiumTmenXPFactor100',
            'shots', 'directHits', 'piercings', 'explosionHits', 'kills', 'spotted',
            'damageDealt', 'damageReceived', 'damageBlockedByArmor', 'damageAssistedRadio',
            'damageAssistedTrack', 'damageAssistedStun', 'stunNum', 'deathReason')
@@ -27,16 +32,11 @@ def capabilities():
     return {'schema': 1, 'fields': ['started_at', 'vehicles', 'economy'] + list(METRICS),
             'modes': list(MODES),
             'verified_scenarios': ['random_single_standard', 'first_win', 'pet_bonus',
-                                   'frontline_multi_standard']}
+                                   'frontline_multi_standard', 'random_single_premium_150', 'negative_net']}
 
 
 def header():
     return json.dumps(capabilities(), separators=(',', ':'))
-
-
-def integer(value, bound=100000000, signed=False):
-    return (isinstance(value, (int, long)) and not isinstance(value, bool)
-            and (-bound if signed else 0) <= value <= bound)
 
 
 def quest_mode(bonus, constants=None):
@@ -155,11 +155,7 @@ def details_of(results, constants=None):
         value = vehicle.get(theirs)
         if integer(value, 1000000):
             metrics[ours] = value
-    # No inferred XP multiplier: retain the game's explicit base and total.
-    if integer(vehicle.get('appliedPremiumXPFactor100')) and vehicle['appliedPremiumXPFactor100'] == 100:
-        for ours, theirs in (('xp_base', 'originalXP'), ('xp_total', 'xp')):
-            if integer(vehicle.get(theirs), 1000000):
-                metrics[ours] = vehicle[theirs]
+    metrics.update(xp_metrics(vehicle, mode))
     economy = observations(vehicle)
     costs = ('autoLoadCost', 'autoEquipCost', 'autoEquipBoostersCost')
     if economy:
@@ -180,6 +176,7 @@ def details_of(results, constants=None):
             net = earned - economy['autoRepairCost'] - sum(economy[key][0] for key in costs)
             if integer(net, signed=True):
                 metrics['credits_net'] = net
+    metrics.update(premium_credits(vehicle, economy, mode))
     if metrics:
         out['metrics'] = metrics
     return out

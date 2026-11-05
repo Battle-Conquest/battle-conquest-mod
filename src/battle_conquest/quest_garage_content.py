@@ -107,7 +107,9 @@ def battle_card(parent, width, y, data):
     metrics = [c['criterion_type'] for c in data.get('criteria', [])] or ['damage_dealt', 'frags']
     for metric in dict.fromkeys(metrics):
         if 'totals' in feedback:
-            card.text(u'%s: %s' % (tr(NAMES.get(metric, metric)), number(feedback['totals'].get(metric, u'?'))), translate=False)
+            key = 'xp_wg' if metric == 'xp' and (data.get('selected') or {}).get('kind') == 'individual' else metric
+            card.text(u'%s: %s' % (tr(NAMES.get(metric, metric)),
+                                   number(feedback['totals'].get(key, u'?'))), translate=False)
     if feedback.get('source') != 'site' and 'totals' in feedback:
         card.text(u'Eligibility and rewards are confirmed by the site.', 'muted')
     return card.finish()
