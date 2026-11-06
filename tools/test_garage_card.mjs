@@ -8,7 +8,7 @@ const css = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.css',
 const browser = await chromium.launch({headless: true});
 let scenarios = 0;
 try {
-    for (const language of ['en', 'fr']) for (const [width, height] of [[1280, 720], [1920, 1080], [2560, 1440]]) {
+    for (const native of [true, false]) for (const language of ['en', 'fr']) for (const [width, height] of [[1280, 720], [1920, 1080], [2560, 1440]]) {
         const page = await browser.newPage({viewport: {width, height}});
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
@@ -16,7 +16,8 @@ try {
             .QuestCard_base_a {position:absolute;top:40px;right:46px;width:319px;height:160px}
             .UnicumAccountCard {position:absolute;top:208px;right:46px;width:319px;height:55px}
             .UnicumTwitchPanel {position:absolute;top:271px;right:46px;width:319px;height:140px}
-            ${css}</style><div class="QuestCard_base_a Card_ab12"><div class="Card_border_ab12"></div></div>
+            .Card_ab12 {background:transparent;font-weight:bold}
+            ${css}</style>${native ? '<div class="QuestCard_base_a Card_ab12"><div class="Card_border_ab12"></div></div>' : ''}
             <div class="UnicumAccountCard">Unicum</div><div class="UnicumTwitchPanel">Chat</div>`);
         await page.evaluate(({script, language}) => {
             window.commands = [];
@@ -34,6 +35,15 @@ try {
             }, 250);
         }, {script, language});
         const card = page.locator('.BattleConquestGarage');
+        await card.waitFor({state: 'visible'});
+        assert.deepEqual(await card.evaluate(el => {
+            const style = getComputedStyle(el);
+            return [style.backgroundColor, style.fontSize, style.fontWeight, el.classList.contains('Card_ab12')];
+        }), ['rgba(23, 23, 23, 0.95)', '16px', '400', false]);
+        const settings = card.getByRole('button', {name: language === 'fr' ? 'Réglages' : 'Settings', exact: true});
+        assert.equal(await settings.locator('svg[aria-hidden="true"] path').count(), 1);
+        await settings.click();
+        assert.equal(await page.evaluate(() => commands.at(-1).action), 'settings');
         await card.getByText(language === 'fr' ? 'Lier mon compte' : 'Link my account', {exact: true}).click();
         assert.equal(await page.evaluate(() => commands.at(-1).action), 'link');
         await page.evaluate(() => update({linked: true, has_data: true,
@@ -60,8 +70,37 @@ try {
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('Enter');
         assert.equal(await page.evaluate(() => commands.at(-1).selection), 'session:2');
-        await card.getByText(language === 'fr' ? 'Détails' : 'Details', {exact: true}).click();
-        assert.equal(await page.evaluate(() => commands.at(-1).action), 'details');
+        for (const [name, action] of [[language === 'fr' ? 'Détails' : 'Details', 'details'],
+                                      [language === 'fr' ? 'Actualiser' : 'Reload', 'reload']]) {
+            const button = card.getByRole('button', {name, exact: true});
+            await button.hover();
+            const hovered = await button.evaluate(el => getComputedStyle(el).backgroundColor);
+            assert.equal(hovered, 'rgb(57, 56, 50)');
+            const before = await page.evaluate(action => commands.filter(item => item.action === action).length, action);
+            for (let click = 0; click < 2; click++) {
+                await page.mouse.down();
+                assert.equal(await button.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(81, 75, 59)');
+                await page.mouse.up();
+                assert.equal(await button.evaluate(el => getComputedStyle(el).backgroundColor), hovered);
+            }
+            assert.equal(await page.evaluate(action => commands.filter(item => item.action === action).length, action), before + 2);
+        }
+        await page.mouse.move(0, 0);
+        await card.getByRole('button', {name: language === 'fr' ? 'Détails' : 'Details', exact: true}).focus();
+        await page.keyboard.press('Tab');
+        const reload = card.getByRole('button', {name: language === 'fr' ? 'Actualiser' : 'Reload', exact: true});
+        assert.equal(await reload.evaluate(el => document.activeElement === el), true);
+        assert.deepEqual(await reload.evaluate(el => {
+            const style = getComputedStyle(el);
+            return [style.outlineStyle, style.outlineWidth, style.backgroundColor];
+        }), ['solid', '2px', 'rgb(36, 35, 31)']);
+        for (const key of ['Enter', 'Space']) {
+            const before = await page.evaluate(() => commands.filter(item => item.action === 'reload').length);
+            await page.keyboard.press(key);
+            assert.equal(await page.evaluate(() => commands.filter(item => item.action === 'reload').length), before + 1);
+            assert.equal(await reload.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(36, 35, 31)');
+        }
+        if (native && language === 'fr' && height === 720) await page.screenshot({path: '/tmp/bc-mod-38-card.png'});
         await page.evaluate(() => update({scope: 'B', automatic: true, status: 'Ready to choose'}));
         await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_status').textContent === 'Ready to choose');
         assert.equal(await card.locator('.BattleConquestGarage_choose').isEnabled(), true, 'a sole active objective must not lock manual choices');
@@ -76,6 +115,12 @@ try {
             await page.evaluate(patch => update(patch), patch);
             await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_choose').disabled);
             assert.equal(await card.locator('.BattleConquestGarage_choose').isDisabled(), true);
+            if (patch.busy) {
+                assert.equal(await reload.isDisabled(), true);
+                const before = await page.evaluate(() => commands.filter(item => item.action === 'reload').length);
+                await reload.evaluate(el => el.click());
+                assert.equal(await page.evaluate(() => commands.filter(item => item.action === 'reload').length), before);
+            }
         }
         await page.evaluate(() => update({blocked: false}));
         await card.getByRole('button', {name: language === 'fr' ? 'Fermer' : 'Close', exact: true}).click();

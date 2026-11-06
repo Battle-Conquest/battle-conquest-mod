@@ -100,13 +100,21 @@ class ModsListEntry(object):
             _logger.exception('could not remove the modsListApi entry')
 
 
-def open_settings():
+def open_settings(session=None, on_unavailable=None, can_open=None):
     """What the entry does: open the settings window, once its menu has closed."""
     now = time.time()
     if now - _last_open[0] < _REOPEN_SECONDS:
         return
     _last_open[0] = now
-    BigWorld.callback(_OPEN_DELAY, _OPEN_NOW)
+    if session is None:
+        BigWorld.callback(_OPEN_DELAY, _OPEN_NOW)
+    else:
+        def attempt():
+            if can_open is not None and not can_open():
+                return
+            if not open_now() and on_unavailable is not None:
+                on_unavailable()
+        session.callback(_OPEN_DELAY, attempt)
 
 
 def open_now():
@@ -115,10 +123,11 @@ def open_now():
         try:
             if opener():
                 _logger.info('settings window opened with %s', opener.__name__)
-                return
+                return True
         except Exception:
             _logger.exception('could not open the settings window with %s', opener.__name__)
     _logger.warning('no settings window to open')
+    return False
 
 
 def _open_aslain():

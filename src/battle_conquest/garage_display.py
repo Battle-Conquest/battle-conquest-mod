@@ -136,10 +136,13 @@ class Displays(object):
                 'incomplete': any((player.get(source) or {}).get('incomplete') for source in ('official', 'estimate')),
                 'incomplete_label': tr('Incomplete data (?)')}
 
+    def accepts(self, payload):
+        return (self.session.alive and isinstance(payload, dict) and payload.get('scope') == self.scope
+                and self.scope_key == (self.account_id(), self.places.current.secret if self.places.current else None)
+                and at_garage() and garage_ready())
+
     def command(self, payload):
-        if (not self.session.alive or not isinstance(payload, dict) or payload.get('scope') != self.scope
-                or self.scope_key != (self.account_id(), self.places.current.secret if self.places.current else None)
-                or not at_garage() or not garage_ready()):
+        if not self.accepts(payload):
             return
         action = payload.get('action')
         if action == 'ready' and self.bridge is not None:
@@ -154,9 +157,8 @@ class Displays(object):
             self.site.unlink()
         elif action == 'settings':
             from battle_conquest.mods_list import open_settings
-            open_settings()
-            # The notification remains a usable alternative without optional menus.
-            self.restore_notice()
+            open_settings(session=self.session, on_unavailable=self.restore_notice,
+                          can_open=lambda: self.accepts(payload))
         elif action == 'reload':
             self.garage.reload()
         elif action == 'select' and self.garage.data:
