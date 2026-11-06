@@ -38,7 +38,7 @@ try {
         assert.equal(await page.evaluate(() => commands.at(-1).action), 'link');
         await page.evaluate(() => update({linked: true, has_data: true,
             selected: {key: 'individual:1', title: '<script>quest</script>'},
-            choices: [{key: 'individual:1', title: '<script>quest</script>', status: 'active'}, {key: 'session:2', title: 'Challenge', status: 'running'}],
+            choices: [{key: 'individual:1', title: '<script>quest</script>', status: 'active'}, {key: 'session:2', title: 'Finished challenge', status: 'settled'}],
             criteria: Array.from({length: 6}, (_, i) => ({label: `Objective ${i}`, target: 100,
                 values: {official: i === 0 ? '20 + ?' : String(i), estimate: 'Unavailable'}}))}));
         await page.waitForFunction(() => document.querySelectorAll('.BattleConquestGarage_metric').length === 6);
@@ -62,9 +62,22 @@ try {
         assert.equal(await page.evaluate(() => commands.at(-1).selection), 'session:2');
         await card.getByText(language === 'fr' ? 'Détails' : 'Details', {exact: true}).click();
         assert.equal(await page.evaluate(() => commands.at(-1).action), 'details');
-        await page.evaluate(() => update({scope: 'B', automatic: true, status: 'Offline - retained'}));
-        await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_choose').disabled);
-        assert.equal(await card.locator('.BattleConquestGarage_choose').isDisabled(), true);
+        await page.evaluate(() => update({scope: 'B', automatic: true, status: 'Ready to choose'}));
+        await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_status').textContent === 'Ready to choose');
+        assert.equal(await card.locator('.BattleConquestGarage_choose').isEnabled(), true, 'a sole active objective must not lock manual choices');
+        await card.locator('.BattleConquestGarage_choose').click();
+        await card.getByRole('option', {name: 'Finished challenge — settled'}).click();
+        assert.equal(await page.evaluate(() => commands.at(-1).selection), 'session:2');
+        await page.evaluate(() => update({selected: {key: 'session:2', title: 'Finished challenge'}, automatic: false,
+            criteria: [{label: 'Final damage', target: 100, values: {official: '75', estimate: 'Unavailable'}}]}));
+        await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_choose').textContent === 'Finished challenge');
+        assert.match(await card.textContent(), /75/);
+        for (const patch of [{busy: true}, {busy: false, blocked: true}]) {
+            await page.evaluate(patch => update(patch), patch);
+            await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_choose').disabled);
+            assert.equal(await card.locator('.BattleConquestGarage_choose').isDisabled(), true);
+        }
+        await page.evaluate(() => update({blocked: false}));
         await card.getByRole('button', {name: language === 'fr' ? 'Fermer' : 'Close', exact: true}).click();
         assert.equal(await page.evaluate(() => commands.at(-1).scope), 'B');
         assert.equal(await page.locator('.UnicumAccountCard').evaluate(el => el.getBoundingClientRect().top), 208);

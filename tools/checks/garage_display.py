@@ -129,6 +129,40 @@ def check_garage_auto_selection():
     session.sent.pop()['answer'](_Response(200, changed))
     check('automatic acknowledgements cannot adopt another client list update', garage.conflict and garage.data == previous)
 
+    garage.conflict = False
+    data['config'].update(version=5, selection='session:2')
+    data.update(automatic_selection=None,
+                choices=[{'key': 'individual:1', 'title': 'Active', 'status': 'active'},
+                         {'key': 'session:2', 'title': 'Finished', 'status': 'settled'}],
+                selected={'key': 'session:2', 'title': 'Finished', 'status': 'settled'},
+                criteria=[{'criterion_type': 'damage_dealt', 'target_value': 100}],
+                players=[{'username': 'Self', 'participant': True,
+                          'official': {'available': True, 'totals': {'damage_dealt': 75}, 'battles': 2}}])
+    garage.data = copy.deepcopy(data)
+    garage.save(selection='individual:1')
+    request = session.sent.pop()
+    saved = copy.deepcopy(data)
+    saved['config'].update(version=6, selection='individual:1')
+    saved['selected'] = saved['choices'][0]
+    request['answer'](_Response(200, saved))
+    garage.next_quest()
+    request = session.sent.pop()
+    check('the detailed selector can choose the finished result beside an active quest',
+          request['body']['selection'] == 'session:2')
+    data['config']['version'] = 7
+    request['answer'](_Response(200, data))
+    garage.auto_select()
+    check('the acknowledged result keeps its own official statistics without an automatic write',
+          garage.data['selected']['key'] == 'session:2'
+          and garage.data['players'][0]['official']['totals']['damage_dealt'] == 75 and not session.sent)
+    restarted = Garage(session, account, places, View(), garage=lambda: True, ready=lambda: True, platoon=lambda: [])
+    restarted.key = restarted.identity()
+    restarted.poll(force=True)
+    session.sent.pop()['answer'](_Response(200, data))
+    restarted.auto_select()
+    check('a new garage instance restores the server choice and final statistics',
+          restarted.data == data and not session.sent)
+
 
 def check_garage_gameface():
     from battle_conquest.hangar_inject import Bridge, REGISTRY

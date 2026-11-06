@@ -57,9 +57,12 @@ An unavailable Gameface card opens the detailed window for the session without
 changing those preferences. Display switches never pause sending battles.
 
 The site and mod automatically choose a sole active individual quest or a sole
-running challenge you participate in, excluding waiting, expired and followed-only
-challenges. The saved choice survives a second active objective appearing. This
-requires the matching server update from Battle-Conquest#1047 before the new mod;
+running challenge you participate in only when the saved choice is empty or no
+longer available. Waiting, expired and followed-only challenges are not automatic
+candidates. A valid saved choice, including the latest finished result, stays
+selected across refreshes and restarts even with a sole active objective. The
+dropdown remains available for choosing another objective and its statistics. This
+requires the matching server update for battle-conquest-mod#39 before the new mod;
 no schema migration is needed.
 
 Local verification: `python2.7 tools/selftest.py`, then build and release check
