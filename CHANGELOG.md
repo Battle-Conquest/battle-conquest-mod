@@ -10,20 +10,30 @@ Testing prerelease for **World of Tanks EU 2.4.1.1**. The target game version is
 - Gross and signed net credit measurements for the observed premium-account scenario. Net credits include the companion bonus and deduct actual credit expenses; a loss remains negative. The verified Tiger I example produces **-28,690 net credits**.
 - Recovery of missing individual-quest measurements from results still available in the game cache, using the server's targeted requests. Enrichment preserves known values and never counts the same battle twice.
 
+### Fixed
+
+- Keep manual quest selection available when a sole active objective exists, including the latest finished result and its statistics. A valid saved choice survives refreshes and restarts.
+- Improve garage-card readability with a 95% dark background, larger regular body text and opaque buttons. Pressed feedback ends on release; keyboard focus remains visible with Gameface-compatible styling.
+- Replace the settings glyph with a vector gear and show the fallback notification only when no compatible settings menu opens. Discard delayed opening requests after an account, link or garage-context change or when the mod stops.
+
 ### Supported cases
 
 The new premium normalization covers **random, single-vehicle battles with an explicitly applied 150% account-premium factor**. XP supports no first-win bonus and either no combat XP reserve or the observed +50% reserve, with no other unsupported XP modifier. Credits with event rewards remain unnormalized. Missing or unsupported measurements stay unknown; standard-account and Frontline behavior is preserved.
 
 ### Installation
 
-1. Deploy Battle-Conquest **2.3.7** with [server support #1072](https://github.com/Battle-Conquest/Battle-Conquest/pull/1072) before this mod.
+If you installed an earlier 1.2.2 prerelease, download this ZIP again and replace that installation: the version number remains 1.2.2.
+
+1. Deploy Battle-Conquest **2.3.7 or later**, including [premium support #1072](https://github.com/Battle-Conquest/Battle-Conquest/pull/1072) and [saved quest-selection support #1076](https://github.com/Battle-Conquest/Battle-Conquest/pull/1076), before this mod.
 2. Fully close the game and back up `mods/configs/battle_conquest/` privately. Remove the previous Battle-Conquest package and disable any development bootstrap.
 3. Extract the complete `battle-conquest-mod_1.2.2.zip` into the game directory. It contains `mods/2.4.1.1/eu.battle-conquest_1.2.2.wotmod`, the pinned Gameface dependency in `mods/2.4.1.1/net.openwg/`, and its licence. Keep only one Battle-Conquest package installed and preserve the shared dependency folder.
 4. Start the game, verify the account link and play a supported battle. Confirm that it appears once on the site, compare individual-quest XP with the Wargaming tank-stat delta, and compare net credits with the actual wallet change.
 
 ### Validation
 
-This prerelease packages the premium support reviewed in [mod PR #40](https://github.com/Battle-Conquest/battle-conquest-mod/pull/40). Python 2.7 selftests and the built-package release check are run during preparation. **Acceptance of the new 1.2.2 binary in a real client remains pending.** Existing numerical observations came from 1.2.1 diagnostics. This is not a WGMods-approved release.
+This prerelease packages the premium support reviewed in [mod PR #40](https://github.com/Battle-Conquest/battle-conquest-mod/pull/40), manual-selection fixes in [PR #42](https://github.com/Battle-Conquest/battle-conquest-mod/pull/42) and garage-card fixes in [PR #43](https://github.com/Battle-Conquest/battle-conquest-mod/pull/43). Python 2.7 selftests, 24 Python 3 client-tool tests, 12 FR/EN browser scenarios at three resolutions with and without native mission cards, and the built-package release check passed.
+
+**Acceptance of the refreshed 1.2.2 binary in a real client remains pending.** Check manual quest selection, card readability and repeated button presses, keyboard focus, settings with and without optional menus, and return from battle. Existing numerical observations came from 1.2.1 diagnostics. This is not a WGMods-approved release.
 
 ## 1.2.1
 
