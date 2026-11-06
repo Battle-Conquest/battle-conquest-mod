@@ -161,7 +161,7 @@ function render(data) {
     notice.textContent = data.running ? label('Account: confirm in your browser') : '';
     notice.style.display = data.running ? '' : 'none';
     choose.textContent = data.selected ? data.selected.title : label('Choose a quest');
-    choose.disabled = data.busy || data.blocked || data.automatic;
+    choose.disabled = data.busy || data.blocked;
     choose.setAttribute('aria-label', label('Choose a quest'));
     picker.style.display = data.linked && data.has_data ? '' : 'none';
     selectedStatus.textContent = data.selected ? ((data.choices.find((row) => row.key === data.selected.key) || {}).status || '') : label('No active quest');
