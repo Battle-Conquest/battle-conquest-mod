@@ -19,7 +19,18 @@ function node(tag, name, parent, text) {
 const heading = node('div', 'BattleConquestGarage_heading', root);
 node('strong', 'BattleConquestGarage_brand', heading, 'BC');
 const title = node('strong', 'BattleConquestGarage_title', heading, 'Battle-Conquest');
-const settings = node('button', '', heading, '\u2699');
+const settings = node('button', 'BattleConquestGarage_settings', heading);
+// The garage font does not reliably include the Unicode gear glyph.
+const gear = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+gear.setAttribute('viewBox', '0 0 24 24');
+gear.setAttribute('aria-hidden', 'true');
+gear.setAttribute('focusable', 'false');
+const gearShape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+gearShape.setAttribute('d', 'M9 2h6l1 4 3-1 3 5-3 2 3 2-3 5-3-1-1 4H9l-1-4-3 1-3-5 3-2-3-2 3-5 3 1z M16 12a4 4 0 1 0-8 0 4 4 0 1 0 8 0');
+gearShape.setAttribute('fill', 'currentColor');
+gearShape.setAttribute('fill-rule', 'evenodd');
+gear.appendChild(gearShape);
+settings.appendChild(gear);
 const close = node('button', '', heading, '\u00d7');
 const content = node('div', 'BattleConquestGarage_content', root);
 const link = node('button', 'BattleConquestGarage_link', content);
@@ -67,7 +78,12 @@ action(choose, () => {
     if (open && options.firstChild) options.firstChild.focus();
 });
 function stop(event) { event.stopPropagation(); }
-root.addEventListener('mousedown', stop);
+function keyboardMode() { root.classList.add('BattleConquestGarage__keyboard'); }
+document.addEventListener('keydown', keyboardMode, true);
+root.addEventListener('mousedown', (event) => {
+    root.classList.remove('BattleConquestGarage__keyboard');
+    stop(event);
+});
 root.addEventListener('wheel', stop);
 function keyboard(event) {
     event.stopPropagation();
@@ -98,7 +114,6 @@ function shown(item) {
     return true;
 }
 const toRem = (px) => typeof viewEnv !== 'undefined' && viewEnv.pxToRem ? viewEnv.pxToRem(px) : px;
-let decor = false;
 function placement() {
     if (root.style.display === 'none') { externalStyle.textContent = ''; return; }
     const cards = Array.from(document.querySelectorAll('[class*="QuestCard_base"], [class*="PersonalMissionCard_base"]'))
@@ -109,28 +124,7 @@ function placement() {
         const rect = cards[0].getBoundingClientRect();
         root.style.right = `${Math.round(toRem(window.innerWidth - rect.right))}rem`;
         root.style.width = `${Math.round(toRem(rect.width))}rem`;
-        if (!decor) {
-            // Borrow decor by stable prefixes, never by a client-build hash.
-            const card = cards[0];
-            const base = String(card.className).split(/\s+/).find((name) => /^Card_[0-9a-f]+$/.test(name));
-            if (base) {
-                root.classList.add(base);
-                root.classList.add('BattleConquestGarage__native');
-                for (const name of String(card.className).split(/\s+/)) {
-                    if (/^Card_card__enabled_[0-9a-f]+$/.test(name) || /^(QuestCard|PersonalMissionCard)_[0-9a-f]+$/.test(name)) root.classList.add(name);
-                }
-                for (const spec of ['hoverBg', 'Card_border_', 'Card_borderHelper_']) {
-                    const sample = card.querySelector(`[class*="${spec}"]`);
-                    if (sample) {
-                        const layer = document.createElement('div');
-                        layer.className = sample.className;
-                        layer.style.zIndex = '0'; layer.style.pointerEvents = 'none';
-                        root.insertBefore(layer, heading);
-                    }
-                }
-                decor = true;
-            }
-        }
+        // Borrow geometry only: the game's decor can remove our dark background.
     }
     root.style.top = `${Math.round(toRem(top))}rem`;
     const account = document.querySelector('.UnicumAccountCard');
@@ -215,6 +209,7 @@ poll();
 return { stop() {
     alive = false; clearInterval(timer);
     document.removeEventListener('mousedown', outside);
+    document.removeEventListener('keydown', keyboardMode, true);
     if (root.parentNode) root.parentNode.removeChild(root);
     if (externalStyle.parentNode) externalStyle.parentNode.removeChild(externalStyle);
 } };

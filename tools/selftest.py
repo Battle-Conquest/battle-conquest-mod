@@ -100,6 +100,7 @@ from checks.settings_window import (check_settings_window, check_settings_window
                                     check_settings_window_pending_pause,
                                     check_settings_window_without_api)
 from checks.garage_display import check_garage_displays, check_garage_auto_selection, check_garage_gameface, check_garage_settings
+from checks.garage_card import check_garage_card_settings
 from checks.site_link import (check_site_link_gives_up, check_site_link_needs_an_account,
                               check_site_link_unlinks, check_site_link_url, check_site_link_verifies,
                               check_site_link_waiting, check_site_link_writes_the_destination,
@@ -181,6 +182,7 @@ def main():
         check_garage_auto_selection()
         check_garage_gameface()
         check_garage_settings()
+        check_garage_card_settings()
         check_battle_feedback()
         check_battle_feedback_refresh()
         check_garage_finished_selection()
