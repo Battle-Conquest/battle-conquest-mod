@@ -4,7 +4,9 @@ import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
 const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.css', import.meta.url), 'utf8');
+// Gameface ignores outline properties; Chromium must not hide that limitation.
+const css = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.css', import.meta.url), 'utf8')
+    .replace(/\boutline(?:-[a-z]+)?\s*:[^;}]+;?/g, '');
 const browser = await chromium.launch({headless: true});
 let scenarios = 0;
 try {
@@ -92,8 +94,8 @@ try {
         assert.equal(await reload.evaluate(el => document.activeElement === el), true);
         assert.deepEqual(await reload.evaluate(el => {
             const style = getComputedStyle(el);
-            return [style.outlineStyle, style.outlineWidth, style.backgroundColor];
-        }), ['solid', '2px', 'rgb(36, 35, 31)']);
+            return [style.borderTopColor, style.boxShadow, style.backgroundColor];
+        }), ['rgb(234, 197, 110)', 'rgb(234, 197, 110) 0px 0px 0px 1px inset', 'rgb(36, 35, 31)']);
         for (const key of ['Enter', 'Space']) {
             const before = await page.evaluate(() => commands.filter(item => item.action === 'reload').length);
             await page.keyboard.press(key);

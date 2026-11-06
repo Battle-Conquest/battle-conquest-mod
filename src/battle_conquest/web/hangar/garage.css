@@ -16,8 +16,8 @@
 }
 .BattleConquestGarage button:hover { background: #393832; }
 .BattleConquestGarage button:active { background: #514b3b; }
-/* Gameface versions without :focus-visible still expose keyboard focus. */
-.BattleConquestGarage__keyboard button:focus { outline: 2rem solid #eac56e; outline-offset: -2rem; }
+/* Gameface has no outline support; keep the focus ring inside the button. */
+.BattleConquestGarage__keyboard button:focus { border-color: #eac56e; box-shadow: inset 0 0 0 1rem #eac56e; }
 .BattleConquestGarage button:disabled { background: #24231f; color: #8c8981; cursor: default; }
 .BattleConquestGarage_heading button { margin-left: 6rem; }
 .BattleConquestGarage_settings { flex-shrink: 0; }
