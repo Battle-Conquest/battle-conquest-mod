@@ -44,6 +44,9 @@ try {
         }), ['rgba(23, 23, 23, 0.95)', '16px', '400', false]);
         const settings = card.getByRole('button', {name: language === 'fr' ? 'Réglages' : 'Settings', exact: true});
         assert.equal(await settings.locator('svg[aria-hidden="true"] path').count(), 1);
+        const titleColor = await card.locator('.BattleConquestGarage_title').evaluate(el => getComputedStyle(el).color);
+        assert.equal(titleColor, 'rgb(230, 226, 216)');
+        assert.equal(await settings.locator('svg path').evaluate(el => getComputedStyle(el).fill), titleColor);
         await settings.click();
         assert.equal(await page.evaluate(() => commands.at(-1).action), 'settings');
         await card.getByText(language === 'fr' ? 'Lier mon compte' : 'Link my account', {exact: true}).click();
@@ -56,6 +59,11 @@ try {
         await page.waitForFunction(() => document.querySelectorAll('.BattleConquestGarage_metric').length === 6);
         assert.equal(await card.locator('script').count(), 0);
         assert.match(await card.textContent(), /20 \+ \?/);
+        assert.deepEqual(await card.locator('.BattleConquestGarage_metric strong').evaluateAll(items =>
+            items.map(el => getComputedStyle(el).fontWeight)), Array(6).fill('400'));
+        for (const button of await card.getByRole('button').all()) {
+            if (await button.isVisible()) assert.equal(await button.evaluate(el => getComputedStyle(el).color), titleColor);
+        }
         await page.waitForTimeout(550);
         const positions = await page.evaluate(() => {
             const rect = selector => {const r = document.querySelector(selector).getBoundingClientRect(); return {top: r.top, bottom: r.bottom};};
@@ -68,6 +76,8 @@ try {
             assert.equal(await card.locator('.BattleConquestGarage_content').evaluate(el => el.scrollHeight > el.clientHeight), true);
         }
         await card.locator('.BattleConquestGarage_choose').click();
+        assert.deepEqual(await card.getByRole('option').evaluateAll(items => items.map(el => getComputedStyle(el).color)),
+            Array(3).fill(titleColor));
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('Enter');
@@ -77,11 +87,13 @@ try {
             const button = card.getByRole('button', {name, exact: true});
             await button.hover();
             const hovered = await button.evaluate(el => getComputedStyle(el).backgroundColor);
+            assert.equal(await button.evaluate(el => getComputedStyle(el).color), titleColor);
             assert.equal(hovered, 'rgb(57, 56, 50)');
             const before = await page.evaluate(action => commands.filter(item => item.action === action).length, action);
             for (let click = 0; click < 2; click++) {
                 await page.mouse.down();
                 assert.equal(await button.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(81, 75, 59)');
+                assert.equal(await button.evaluate(el => getComputedStyle(el).color), titleColor);
                 await page.mouse.up();
                 assert.equal(await button.evaluate(el => getComputedStyle(el).backgroundColor), hovered);
             }
@@ -117,6 +129,7 @@ try {
             await page.evaluate(patch => update(patch), patch);
             await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_choose').disabled);
             assert.equal(await card.locator('.BattleConquestGarage_choose').isDisabled(), true);
+            assert.equal(await card.locator('.BattleConquestGarage_choose').evaluate(el => getComputedStyle(el).color), 'rgb(140, 137, 129)');
             if (patch.busy) {
                 assert.equal(await reload.isDisabled(), true);
                 const before = await page.evaluate(() => commands.filter(item => item.action === 'reload').length);
