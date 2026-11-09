@@ -54,7 +54,11 @@ window** switches. The first run of this update enables only the card. Each
 window's cross persists its own hidden state per site, region and WoT account.
 The garage notification can restore either window without optional mod menus.
 An unavailable Gameface card opens the detailed window for the session without
-changing those preferences. Display switches never pause sending battles.
+changing those preferences. An installed integration gets 30 seconds to load
+after the garage is ready, including after returning from battle or reenabling
+the card. A missing Gameface dependency still triggers the fallback immediately.
+When the card recovers, only automatically opened details close; explicitly
+enabled details stay open. Display switches never pause sending battles.
 
 The site and mod automatically choose a sole active individual quest or a sole
 running challenge you participate in only when the saved choice is empty or no

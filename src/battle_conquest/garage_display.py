@@ -12,6 +12,7 @@ from battle_conquest.report_sender import account_number, at_garage
 
 _logger = logging.getLogger('battle_conquest.garage_display')
 _active = None
+CARD_LOADING_GRACE = 30.0
 
 LABELS = ('Link my account', 'Account: confirm in your browser', 'Cancel', 'Details',
           'Settings', 'Close', 'No active quest', 'Choose a quest', 'OFFICIAL', 'MOD ESTIMATE',
@@ -54,6 +55,8 @@ class Displays(object):
 
     def switch(self, name, value):
         previous = self.switches().get(name)
+        if name == 'widget' and value != previous:
+            self.started = None
         if name == 'details' and value is False and previous is True:
             self.dismissed_fallbacks.add(self.scope_key)
         elif name == 'widget' and value is True and previous is False:
@@ -80,8 +83,10 @@ class Displays(object):
             return False
         if self.started is None:
             self.started = self.now()
+        # Hangar readiness precedes Gameface's first rendered card on a cold
+        # start. A late first heartbeat is not an installation failure (#45).
         return (self.bridge is None or not self.bridge.installed
-                or (self.now() - self.started > 8 and not self.bridge.healthy(self.scope)))
+                or (self.now() - self.started >= CARD_LOADING_GRACE and not self.bridge.healthy(self.scope)))
 
     def render(self, garage):
         self.garage = garage
