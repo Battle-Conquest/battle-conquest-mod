@@ -116,6 +116,17 @@ class ReleasePublicationTests(unittest.TestCase):
                 self.publish(hub, testing)
                 self.assertEqual((len(hub.writes), len(hub.uploads), len(hub.items)), before)
 
+    def test_completed_receipt_cannot_hide_a_subsequent_tag_move(self):
+        for testing in (False, True):
+            with self.subTest(testing=testing):
+                hub = GitHub(testing)
+                self.publish(hub, testing)
+                before = (len(hub.writes), len(hub.uploads))
+                hub.refs["v1.2.2"] = "d" * 40
+                with self.assertRaisesRegex(ValueError, "receipt.*tag"):
+                    self.publish(hub, testing)
+                self.assertEqual((len(hub.writes), len(hub.uploads)), before)
+
     def test_interrupted_upload_resumes_same_version_without_publishing_a_partial_stable(self):
         for testing in (False, True):
             with self.subTest(testing=testing):
@@ -200,6 +211,23 @@ class ReleasePublicationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "failed check"):
                 publisher.main()
         publish.assert_not_called()
+
+    def test_success_and_completed_retry_schedule_changes_queued_during_publication(self):
+        (self.root / ".github").mkdir()
+        (self.root / shared.PLAN).write_text(json.dumps(planned()))
+        (self.root / "CHANGELOG.md").write_text("# Changelog\n\n## 1.2.2\n\nNotes.\n")
+        for already_done in (False, True):
+            with self.subTest(already_done=already_done), \
+                    patch.object(publisher, "REPO", self.root), \
+                    patch.object(publisher, "validate_checkout", return_value=COMMIT), \
+                    patch.object(publisher, "state", return_value=(None, already_done)), \
+                    patch.object(publisher, "build"), \
+                    patch.object(publisher, "publish"), \
+                    patch.object(publisher, "run") as command, \
+                    patch("sys.argv", ["release_publish.py", "--python27", "/fake/python"]):
+                publisher.main()
+                command.assert_called_once_with(["gh", "workflow", "run", "release-pr.yml", "--repo",
+                                                 shared.REPOSITORY, "--ref", "main"])
 
     def test_checkout_must_be_clean_merged_and_contain_only_reviewed_metadata(self):
         calls = []

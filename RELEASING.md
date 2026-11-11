@@ -34,8 +34,9 @@ modification par API de cette politique nécessite notamment le scope
 
 Dans **Settings → Actions → General → Workflow permissions**, activer
 **Allow GitHub Actions to create and approve pull requests**. Les workflows
-demandent explicitement `contents: write` et, pour la proposition uniquement,
-`pull-requests: write`. Aucun PAT ni secret supplémentaire n'est nécessaire.
+demandent explicitement `contents: write`, `pull-requests: write` pour la
+proposition et `actions: write` pour relancer la proposition après publication.
+Aucun PAT ni secret supplémentaire n'est nécessaire.
 La permission peut également être configurée avec :
 
 ```bash
@@ -102,6 +103,13 @@ Un reçu `release-build.json` consigne le plan, le commit, le dossier WoT et les
 SHA-256 des fichiers. Il est joint après les autres fichiers ; une nouvelle
 stable reste en brouillon jusqu'à la fin des envois. Une prérelease peut être
 momentanément incomplète pendant le remplacement de ses fichiers.
+
+Après publication, une nouvelle proposition est demandée sur `main` pour
+reprendre les changements éventuellement arrivés pendant les envois. Une
+reprise d'un plan déjà terminé redemande également cette proposition sans
+reconstruire ni remplacer les fichiers. Le reçu ne vaut validation que si son
+commit correspond encore au tag ; un déplacement ultérieur du tag bloque
+l'automatisation au lieu de masquer une incohérence entre sources et fichiers.
 
 Une publication incomplète bloque la prochaine proposition. Ne pas incrémenter
 le numéro pour masquer cet échec : relancer **Mod release** pour le **même commit

@@ -8,7 +8,7 @@ import sys
 
 from build_release import GAME_VERSION
 from release_state import (PLAN, RECEIPT, REPO, REPOSITORY, api, choose,
-                           completed, digest, notes, receipt, releases, run, validate)
+                           confirmed, digest, notes, receipt, releases, run, validate)
 
 
 def existing_tag(repo, tag, commit, request):
@@ -25,7 +25,7 @@ def state(repo, plan, commit, request=api, read_receipt=receipt):
     if len(matches) > 1:
         raise ValueError("multiple releases for the planned version")
     target = matches[0] if matches else None
-    if target and not target["draft"] and completed(plan, read_receipt(repo, target), target):
+    if target and not target["draft"] and confirmed(repo, plan, target, request, read_receipt):
         return target, True
     baseline, _, testing = choose(published)
     if baseline["id"] != plan["release_id"] or testing != plan["prerelease"]:
@@ -120,11 +120,15 @@ def main():
     _, done = state(repo, plan, commit)
     if done:
         print("This release plan was already published.")
-        return
-    build(plan, str(Path(args.python27).resolve()))
-    files = [REPO / "dist" / (template % plan["version"])
-             for template in ("eu.battle-conquest_%s.wotmod", "battle-conquest-mod_%s.zip")]
-    publish(repo, plan, commit, text, files)
+    else:
+        build(plan, str(Path(args.python27).resolve()))
+        files = [REPO / "dist" / (template % plan["version"])
+                 for template in ("eu.battle-conquest_%s.wotmod", "battle-conquest-mod_%s.zip")]
+        publish(repo, plan, commit, text, files)
+    # A main push during publication was intentionally blocked by pending().
+    # No push occurs when assets finish uploading, so explicitly replay the
+    # proposal then. A completed retry also repairs a failed dispatch.
+    run(["gh", "workflow", "run", "release-pr.yml", "--repo", repo, "--ref", "main"])
 
 
 if __name__ == "__main__":

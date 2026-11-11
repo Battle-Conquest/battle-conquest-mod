@@ -75,7 +75,11 @@ class ReleaseDecisionTests(unittest.TestCase):
             release["assets"] = [dict(name=name, digest="sha256:" + value) for name, value in files.items()]
             record = dict(plan=shared.digest(plan), commit=COMMIT, files=files)
             with patch.object(shared, "receipt", return_value=record):
-                self.assertFalse(shared.pending("o/r", [release], root))
+                self.assertFalse(shared.pending("o/r", [release], root,
+                                                request=lambda _: {"object": {"sha": COMMIT}}))
+                with self.assertRaisesRegex(ValueError, "receipt.*tag"):
+                    shared.pending("o/r", [release], root,
+                                   request=lambda _: {"object": {"sha": "d" * 40}})
             release["assets"][0]["digest"] = "sha256:" + "0" * 64
             with patch.object(shared, "receipt", return_value=record):
                 self.assertTrue(shared.pending("o/r", [release], root))
@@ -261,6 +265,18 @@ class GitReleasePRTests(unittest.TestCase):
         self.commit("fix(#4): unrelated main fix")
         with self.assertRaisesRegex(ValueError, "source changes into main"):
             proposer.proposal([released("v1.2.2", testing=True)], self.git)
+
+    def test_squashed_release_source_commits_already_on_main_do_not_block_refresh(self):
+        self.git(["git", "switch", "-c", "manual-release"])
+        self.commit("feat(#3): first source change")
+        self.commit("fix(#4): second source change")
+        self.git(["git", "tag", "v1.2.2"])
+        self.git(["git", "switch", "main"])
+        self.git(["git", "merge", "--squash", "manual-release"])
+        self.git(["git", "commit", "-m", "feat(#3): integrate both source changes"])
+        self.commit("fix(#5): later mod fix")
+        plan = proposer.proposal([released("v1.2.2", testing=True)], self.git)
+        self.assertEqual((plan["version"], plan["prerelease"]), ("1.2.2", True))
 
     def test_publication_accepts_a_merged_plan_and_refuses_an_unmerged_one(self):
         self.commit("fix(#1): mod change")

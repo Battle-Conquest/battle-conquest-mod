@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  # Dispatch the proposal again for main changes queued during publication.
+  actions: write
 
 concurrency:
   group: mod-release-publication

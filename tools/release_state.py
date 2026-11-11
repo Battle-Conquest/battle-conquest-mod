@@ -104,6 +104,16 @@ def completed(plan, record, release):
     return True
 
 
+def confirmed(repo, plan, release, request=api, read_receipt=receipt):
+    record = read_receipt(repo, release)
+    if not completed(plan, record, release):
+        return False
+    reference = request(["repos/%s/git/ref/tags/%s" % (repo, release["tag_name"])])
+    if reference["object"]["sha"] != record["commit"]:
+        raise ValueError("the completed release receipt and tag disagree; resolve the moved tag first")
+    return True
+
+
 def validate(plan):
     if set(plan) != {"version", "prerelease", "source", "base_tag", "base_ref", "release_id"}:
         raise ValueError("invalid release plan fields")
@@ -127,14 +137,14 @@ def notes(changelog, version):
     return match.group().strip()
 
 
-def pending(repo, published, root=REPO):
+def pending(repo, published, root=REPO, request=api):
     path = root / PLAN
     if not path.exists():
         return False
     plan = json.loads(path.read_text())
     validate(plan)
     found = [item for item in published if item["tag_name"] == "v" + plan["version"]]
-    if len(found) == 1 and not found[0]["draft"] and completed(plan, receipt(repo, found[0]), found[0]):
+    if len(found) == 1 and not found[0]["draft"] and confirmed(repo, plan, found[0], request, receipt):
         return False
     print("The merged release plan is not complete; rerun Mod release for its merge commit.")
     return True

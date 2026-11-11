@@ -16,14 +16,21 @@ def proposal(published, git=run):
     baseline, version, prerelease = choose(published)
     source = git(["git", "rev-parse", "HEAD"])
     base = git(["git", "rev-parse", baseline["tag_name"] + "^{commit}"])
-    git(["git", "merge-base", base, source])
+    common = git(["git", "merge-base", base, source])
     # Older manual releases were tagged on a release branch, then squash
     # merged. Their note commit need not be an ancestor of main. Do not,
     # however, discard mod changes which still live only on that branch.
     unpublished = git(["git", "log", "--cherry-pick", "--right-only", "--format=%H",
                        source + "..." + base, "--", ".", ":(exclude)CHANGELOG.md", ":(exclude)" + PLAN])
     if unpublished:
-        raise ValueError("merge the published release's source changes into main before refreshing it")
+        # Several published commits may have landed as one squash, whose
+        # patch ID matches none of them. An identical source snapshot in main
+        # proves they landed, while later reviewed fixes/reverts remain valid.
+        history = [common] + git(["git", "rev-list", "--first-parent", common + ".." + source]).splitlines()
+        integrated = any(not git(["git", "diff", "--name-only", base, candidate, "--", ".",
+                                   ":(exclude)CHANGELOG.md", ":(exclude)" + PLAN]) for candidate in history)
+        if not integrated:
+            raise ValueError("merge the published release's source changes into main before refreshing it")
     if not git(["git", "diff", "--name-only", base, source]):
         return None
     if not prerelease and any(item["tag_name"] == "v" + version for item in published):
