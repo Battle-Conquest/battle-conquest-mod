@@ -30,6 +30,8 @@
 .BattleConquestGarage_settings { flex-shrink: 0; }
 .BattleConquestGarage_settings svg { display: block; width: 16rem; height: 16rem; pointer-events: none; }
 .BattleConquestGarage_content { min-height: 0; overflow-y: auto; flex: 1 1 auto; }
+.BattleConquestGarage__scrollCard { overflow-x: hidden; overflow-y: auto; }
+.BattleConquestGarage__scrollCard .BattleConquestGarage_content { flex: 0 0 auto; overflow: visible; }
 .BattleConquestGarage_content p { margin: 4rem 0; }
 .BattleConquestGarage_picker { position: relative; margin-bottom: 8rem; }
 .BattleConquestGarage_choose { width: 100%; }

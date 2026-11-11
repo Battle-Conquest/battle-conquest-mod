@@ -42,8 +42,12 @@ Not affiliated with Wargaming.net. Derived from
 
 ### Integrated garage card (#1047)
 
-The garage card appears beneath the game's mission cards, before visible Unicum
-widgets. It offers **Link my account** before linking, then your own objectives,
+The garage card appears beneath the game's mission cards and any visible Unicum
+widgets in the same column, without moving those widgets. With Unicum absent or
+hidden, the card keeps its usual position. Its content scrolls to fit the screen;
+when space is too short for pinned controls, the whole card scrolls, including
+its buttons, while staying in the same column.
+It offers **Link my account** before linking, then your own objectives,
 official progress and available mod estimates. Missing or incomplete values stay
 explicitly unknown. A dropdown selects the shared tracked quest; **Details**
 opens and persistently enables the existing comparison window.

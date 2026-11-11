@@ -1,4 +1,4 @@
-// A Gameface card above other mods, driven only by the shared Python snapshot.
+// A Gameface card following visible garage widgets, driven by the shared Python snapshot.
 const { model, report } = api;
 let alive = true, state = null, encoded = null, metricsKey = null, choicesKey = null;
 let lastReady = 0;
@@ -6,8 +6,6 @@ const root = document.createElement('section');
 root.className = 'BattleConquestGarage';
 root.setAttribute('aria-label', 'Battle-Conquest');
 root.style.display = 'none';
-const externalStyle = document.createElement('style');
-document.head.appendChild(externalStyle);
 
 function node(tag, name, parent, text) {
     const item = document.createElement(tag);
@@ -74,7 +72,7 @@ function action(button, callback) {
         if (!button.disabled) callback();
     });
 }
-action(close, () => { hideOptions(); root.style.display = 'none'; externalStyle.textContent = ''; send('close'); });
+action(close, () => { hideOptions(); root.style.display = 'none'; send('close'); });
 action(settings, () => send('settings'));
 action(details, () => send('details'));
 action(reload, () => send('reload'));
@@ -123,7 +121,7 @@ function shown(item) {
 }
 const toRem = (px) => typeof viewEnv !== 'undefined' && viewEnv.pxToRem ? viewEnv.pxToRem(px) : px;
 function placement() {
-    if (root.style.display === 'none') { externalStyle.textContent = ''; return; }
+    if (root.style.display === 'none') return;
     const cards = Array.from(document.querySelectorAll('[class*="QuestCard_base"], [class*="PersonalMissionCard_base"]'))
         .filter((item) => shown(item) && item.getBoundingClientRect().height > 0 && item.getBoundingClientRect().left > window.innerWidth / 2);
     let top = 180;
@@ -133,22 +131,40 @@ function placement() {
         root.style.right = `${Math.round(toRem(window.innerWidth - rect.right))}rem`;
         root.style.width = `${Math.round(toRem(rect.width))}rem`;
         // Borrow geometry only: the game's decor can remove our dark background.
+    } else {
+        root.style.right = '';
+        root.style.width = '';
     }
-    root.style.top = `${Math.round(toRem(top))}rem`;
-    const account = document.querySelector('.UnicumAccountCard');
-    const chat = document.querySelector('.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed)');
-    const accountHeight = account && shown(account) ? account.getBoundingClientRect().height + 8 : 0;
-    const chatHeight = chat && shown(chat) ? chat.getBoundingClientRect().height + 8 : 0;
-    root.style.maxHeight = `${Math.max(120, Math.floor(toRem(window.innerHeight - top - accountHeight - chatHeight - 16)))}rem`;
-    const bottom = Math.round(toRem(root.getBoundingClientRect().bottom)) + 8;
-    // An owned stylesheet overrides the other mod's periodic positioning;
-    // removing it restores its own styles, without writing its saved settings.
-    let css = account && shown(account) ? `.UnicumAccountCard { top: ${bottom}rem !important; }` : '';
-    if (chat && shown(chat) && !chat.classList.contains('UnicumTwitchPanel__dragging')) {
-        const aligned = Math.abs(chat.getBoundingClientRect().right - root.getBoundingClientRect().right) < 8;
-        if (aligned) css += `.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed) { top: ${bottom + toRem(accountHeight)}rem !important; }`;
+    let topRem = Math.round(toRem(top));
+    const column = root.getBoundingClientRect();
+    // Observe the other mod's actual position, including its periodic updates.
+    // Moving only our card avoids competing styles and cumulative offsets.
+    for (const item of document.querySelectorAll('.UnicumAccountCard, .UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed)')) {
+        if (!shown(item)) continue;
+        const rect = item.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0 && rect.right > column.left && rect.left < column.right
+                && rect.bottom > 0 && rect.top < window.innerHeight) {
+            topRem = Math.max(topRem, Math.round(toRem(rect.bottom)) + 8);
+        }
     }
-    if (externalStyle.textContent !== css) externalStyle.textContent = css;
+    root.style.top = `${topRem}rem`;
+    const room = Math.max(0, Math.floor(toRem(window.innerHeight - 16) - topRem));
+    root.style.maxHeight = `${room}rem`;
+    // Keep the usual inner scroller while the controls and a useful content
+    // viewport fit. In a short slot the whole card scrolls, including actions.
+    const style = getComputedStyle(root);
+    let chrome = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+        + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    for (const item of [heading, footer, status]) {
+        const part = getComputedStyle(item);
+        if (part.display !== 'none') chrome += item.getBoundingClientRect().height
+            + parseFloat(part.marginTop) + parseFloat(part.marginBottom);
+    }
+    const scrollCard = room < toRem(chrome) + 80;
+    if (root.classList.contains('BattleConquestGarage__scrollCard') !== scrollCard) {
+        root.classList.toggle('BattleConquestGarage__scrollCard', scrollCard);
+        root.scrollTop = 0;
+    }
 }
 
 function render(data) {
@@ -222,5 +238,4 @@ return { stop() {
     document.removeEventListener('mousedown', outside);
     document.removeEventListener('keydown', keyboardMode, true);
     if (root.parentNode) root.parentNode.removeChild(root);
-    if (externalStyle.parentNode) externalStyle.parentNode.removeChild(externalStyle);
 } };
