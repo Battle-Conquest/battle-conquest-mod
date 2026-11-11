@@ -10,7 +10,7 @@
 .BattleConquestGarage_brand { color: #eac56e; margin-right: 8rem; }
 .BattleConquestGarage_title { flex: 1; min-width: 0; font-size: 16rem; }
 .BattleConquestGarage button {
-    color: inherit; font: inherit; cursor: pointer; padding: 4rem 7rem;
+    color: #e6e2d8; font: inherit; cursor: pointer; padding: 4rem 7rem;
     background: #24231f; border: 1rem solid rgba(255, 255, 255, .2);
     text-align: left; white-space: normal; outline: none;
 }
@@ -29,7 +29,7 @@
 .BattleConquestGarage_options { max-height: 160rem; overflow-y: auto; background: #24231f; }
 .BattleConquestGarage_options button { display: block; width: 100%; }
 .BattleConquestGarage_metric { padding: 6rem 0; border-top: 1rem solid rgba(255, 255, 255, .12); }
-.BattleConquestGarage_metric strong { display: block; }
+.BattleConquestGarage_metric strong { display: block; font-weight: normal; }
 .BattleConquestGarage_official { color: #a6d7ae; }
 .BattleConquestGarage_estimate { color: #b9d6eb; }
 .BattleConquestGarage_muted, .BattleConquestGarage_status { color: #c0bbb1; }

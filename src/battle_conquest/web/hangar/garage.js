@@ -27,7 +27,8 @@ gear.setAttribute('aria-hidden', 'true');
 gear.setAttribute('focusable', 'false');
 const gearShape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 gearShape.setAttribute('d', 'M9 2h6l1 4 3-1 3 5-3 2 3 2-3 5-3-1-1 4H9l-1-4-3 1-3-5 3-2-3-2 3-5 3 1z M16 12a4 4 0 1 0-8 0 4 4 0 1 0 8 0');
-gearShape.setAttribute('fill', 'currentColor');
+// Use a literal fill: Gameface can render inherited control colours as black.
+gearShape.setAttribute('fill', '#e6e2d8');
 gearShape.setAttribute('fill-rule', 'evenodd');
 gear.appendChild(gearShape);
 settings.appendChild(gear);
