@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {checkPlacement} from './garage_card_placement.mjs';
+import {checkFloor} from './garage_card_floor.mjs';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
 const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
@@ -194,5 +195,6 @@ try {
     assert.equal(await page.evaluate(() => commands.length), count, 'a stopped card cannot acknowledge rendering');
     await page.close();
     const placementScenarios = await checkPlacement(browser, script, css);
+    await checkFloor(browser, script, css);
     console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios, ${placementScenarios} placement scenarios plus placement-failure heartbeat passed`);
 } finally { await browser.close(); }

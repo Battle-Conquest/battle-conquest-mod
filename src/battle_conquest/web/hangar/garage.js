@@ -120,6 +120,14 @@ function shown(item) {
     return true;
 }
 const toRem = (px) => typeof viewEnv !== 'undefined' && viewEnv.pxToRem ? viewEnv.pxToRem(px) : px;
+function columnFloor() {
+    const carousel = document.querySelector('[class*="Page_carousel"]');
+    if (carousel && shown(carousel)) {
+        const rect = carousel.getBoundingClientRect();
+        if (rect.height > 0 && rect.top > 0) return Math.min(window.innerHeight, rect.top);
+    }
+    return window.innerHeight;
+}
 function placement() {
     if (root.style.display === 'none') return;
     const cards = Array.from(document.querySelectorAll('[class*="QuestCard_base"], [class*="PersonalMissionCard_base"]'))
@@ -148,7 +156,7 @@ function placement() {
         }
     }
     root.style.top = `${topRem}rem`;
-    const room = Math.max(0, Math.floor(toRem(window.innerHeight - 16) - topRem));
+    const room = Math.max(0, Math.floor(toRem(columnFloor() - 16) - topRem));
     root.style.maxHeight = `${room}rem`;
     // Keep the usual inner scroller while the controls and a useful content
     // viewport fit. In a short slot the whole card scrolls, including actions.

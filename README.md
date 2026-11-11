@@ -44,7 +44,8 @@ Not affiliated with Wargaming.net. Derived from
 
 The garage card appears beneath the game's mission cards and any visible Unicum
 widgets in the same column, without moving those widgets. With Unicum absent or
-hidden, the card keeps its usual position. Its content scrolls to fit the screen;
+hidden, the card keeps its usual position. Its content scrolls to fit above the
+tank carousel, or the screen bottom when no carousel is visible;
 when space is too short for pinned controls, the whole card scrolls, including
 its buttons, while staying in the same column.
 It offers **Link my account** before linking, then your own objectives,
