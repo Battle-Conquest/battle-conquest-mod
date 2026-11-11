@@ -19,6 +19,8 @@ try {
             .UnicumAccountCard {position:absolute;top:208px;right:46px;width:319px;height:55px}
             .UnicumTwitchPanel {position:absolute;top:271px;right:46px;width:319px;height:140px}
             .Card_ab12 {background:transparent;font-weight:bold}
+            /* Reproduce native control text staying black despite button CSS. */
+            button {color:black !important}
             ${css}</style>${native ? '<div class="QuestCard_base_a Card_ab12"><div class="Card_border_ab12"></div></div>' : ''}
             <div class="UnicumAccountCard">Unicum</div><div class="UnicumTwitchPanel">Chat</div>`);
         await page.evaluate(({script, language}) => {
@@ -62,7 +64,8 @@ try {
         assert.deepEqual(await card.locator('.BattleConquestGarage_metric strong').evaluateAll(items =>
             items.map(el => getComputedStyle(el).fontWeight)), Array(6).fill('400'));
         for (const button of await card.getByRole('button').all()) {
-            if (await button.isVisible()) assert.equal(await button.evaluate(el => getComputedStyle(el).color), titleColor);
+            if (await button.isVisible()) assert.equal(await button.locator('.BattleConquestGarage_buttonText')
+                .evaluate(el => getComputedStyle(el).color), titleColor);
         }
         await page.waitForTimeout(550);
         const positions = await page.evaluate(() => {
@@ -76,7 +79,8 @@ try {
             assert.equal(await card.locator('.BattleConquestGarage_content').evaluate(el => el.scrollHeight > el.clientHeight), true);
         }
         await card.locator('.BattleConquestGarage_choose').click();
-        assert.deepEqual(await card.getByRole('option').evaluateAll(items => items.map(el => getComputedStyle(el).color)),
+        assert.deepEqual(await card.getByRole('option').locator('.BattleConquestGarage_buttonText')
+            .evaluateAll(items => items.map(el => getComputedStyle(el).color)),
             Array(3).fill(titleColor));
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('ArrowDown');
@@ -87,13 +91,13 @@ try {
             const button = card.getByRole('button', {name, exact: true});
             await button.hover();
             const hovered = await button.evaluate(el => getComputedStyle(el).backgroundColor);
-            assert.equal(await button.evaluate(el => getComputedStyle(el).color), titleColor);
+            assert.equal(await button.locator('.BattleConquestGarage_buttonText').evaluate(el => getComputedStyle(el).color), titleColor);
             assert.equal(hovered, 'rgb(57, 56, 50)');
             const before = await page.evaluate(action => commands.filter(item => item.action === action).length, action);
             for (let click = 0; click < 2; click++) {
                 await page.mouse.down();
                 assert.equal(await button.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(81, 75, 59)');
-                assert.equal(await button.evaluate(el => getComputedStyle(el).color), titleColor);
+                assert.equal(await button.locator('.BattleConquestGarage_buttonText').evaluate(el => getComputedStyle(el).color), titleColor);
                 await page.mouse.up();
                 assert.equal(await button.evaluate(el => getComputedStyle(el).backgroundColor), hovered);
             }
@@ -114,7 +118,7 @@ try {
             assert.equal(await page.evaluate(() => commands.filter(item => item.action === 'reload').length), before + 1);
             assert.equal(await reload.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(36, 35, 31)');
         }
-        if (native && language === 'fr' && height === 720) await page.screenshot({path: '/tmp/bc-mod-38-card.png'});
+        if (native && language === 'fr' && height === 720) await page.screenshot({path: '/tmp/bc-mod-52-card.png'});
         await page.evaluate(() => update({scope: 'B', automatic: true, status: 'Ready to choose'}));
         await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_status').textContent === 'Ready to choose');
         assert.equal(await card.locator('.BattleConquestGarage_choose').isEnabled(), true, 'a sole active objective must not lock manual choices');
@@ -129,11 +133,14 @@ try {
             await page.evaluate(patch => update(patch), patch);
             await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_choose').disabled);
             assert.equal(await card.locator('.BattleConquestGarage_choose').isDisabled(), true);
-            assert.equal(await card.locator('.BattleConquestGarage_choose').evaluate(el => getComputedStyle(el).color), 'rgb(140, 137, 129)');
+            assert.equal(await card.locator('.BattleConquestGarage_choose .BattleConquestGarage_buttonText')
+                .evaluate(el => getComputedStyle(el).color), 'rgb(140, 137, 129)');
             if (patch.busy) {
                 assert.equal(await reload.isDisabled(), true);
                 const before = await page.evaluate(() => commands.filter(item => item.action === 'reload').length);
                 await reload.evaluate(el => el.click());
+                // Gameface buttons do not provide all native browser behaviour.
+                await reload.dispatchEvent('click');
                 assert.equal(await page.evaluate(() => commands.filter(item => item.action === 'reload').length), before);
             }
         }
@@ -150,5 +157,38 @@ try {
         scenarios++;
         await page.close();
     }
-    console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios passed`);
+    const page = await browser.newPage();
+    await page.setContent(`<style>${css}</style>`);
+    await page.evaluate(script => {
+        window.commands = []; window.reports = []; window.now = 2000;
+        Date.now = () => window.now;
+        window.setInterval = callback => {window.tick = callback; return 1;};
+        window.clearInterval = () => {};
+        const query = document.querySelectorAll.bind(document);
+        document.querySelectorAll = selector => {
+            if (selector.includes('QuestCard_base')) throw new Error('other card layout unavailable');
+            return query(selector);
+        };
+        window.payload = {scope: 'A', shown: true, linked: false, labels: {}, choices: [], criteria: []};
+        window.model = {model: {snapshot: JSON.stringify(payload), onAction: action => commands.push(action)}};
+        window.card = new Function('api', script)({model, report: message => reports.push(message)});
+        for (let i = 0; i < 20; i++) {window.now += 2000; tick();}
+    }, script);
+    assert.equal(await page.locator('.BattleConquestGarage').isVisible(), true);
+    assert.equal(await page.evaluate(() => commands.filter(row => row.action === 'ready').length), 21,
+        'a rendered card keeps acknowledging beyond 30 seconds even when placement fails');
+    assert.equal(await page.evaluate(() => reports.length), 21, 'placement failures stay diagnostic');
+    await page.evaluate(() => {
+        payload.scope = 'B'; model.model.snapshot = JSON.stringify(payload); now += 2000; tick();
+    });
+    assert.equal(await page.evaluate(() => commands.at(-1).scope), 'B');
+    const count = await page.evaluate(() => commands.length);
+    await page.evaluate(() => {
+        payload.shown = false; model.model.snapshot = JSON.stringify(payload); now += 2000; tick();
+    });
+    assert.equal(await page.evaluate(() => commands.length), count, 'a hidden card does not acknowledge rendering');
+    await page.evaluate(() => {card.stop(); now += 2000; tick();});
+    assert.equal(await page.evaluate(() => commands.length), count, 'a stopped card cannot acknowledge rendering');
+    await page.close();
+    console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios plus placement-failure heartbeat passed`);
 } finally { await browser.close(); }

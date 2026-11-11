@@ -10,10 +10,17 @@
 .BattleConquestGarage_brand { color: #eac56e; margin-right: 8rem; }
 .BattleConquestGarage_title { flex: 1; min-width: 0; font-size: 16rem; }
 .BattleConquestGarage button {
-    color: #e6e2d8; font: inherit; cursor: pointer; padding: 4rem 7rem;
+    color: #e6e2d8; font-family: PFDINMax, sans-serif; font-size: 16rem; font-weight: normal;
+    cursor: pointer; padding: 4rem 7rem;
     background: #24231f; border: 1rem solid rgba(255, 255, 255, .2);
     text-align: left; white-space: normal; outline: none;
 }
+/* Style the actual text run: native Gameface button text can remain black. */
+.BattleConquestGarage .BattleConquestGarage_buttonText {
+    color: #e6e2d8; font-family: PFDINMax, sans-serif; font-size: 16rem; font-weight: normal;
+    pointer-events: none; white-space: normal;
+}
+.BattleConquestGarage button:disabled .BattleConquestGarage_buttonText { color: #8c8981; }
 .BattleConquestGarage button:hover { background: #393832; }
 .BattleConquestGarage button:active { background: #514b3b; }
 /* Gameface has no outline support; keep the focus ring inside the button. */

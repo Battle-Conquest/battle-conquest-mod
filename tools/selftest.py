@@ -100,7 +100,8 @@ from checks.settings_window import (check_settings_window, check_settings_window
                                     check_settings_window_pending_pause,
                                     check_settings_window_without_api)
 from checks.garage_display import check_garage_displays, check_garage_auto_selection, check_garage_gameface, check_garage_settings
-from checks.garage_fallback import check_garage_fallback_startup, check_garage_fallback_transitions
+from checks.garage_fallback import (check_garage_fallback_startup, check_garage_fallback_transitions,
+                                   check_garage_fallback_restart, check_garage_fallback_atomic_preferences)
 from checks.garage_card import check_garage_card_settings
 from checks.site_link import (check_site_link_gives_up, check_site_link_needs_an_account,
                               check_site_link_unlinks, check_site_link_url, check_site_link_verifies,
@@ -182,6 +183,8 @@ def main():
         check_garage_displays()
         check_garage_fallback_startup()
         check_garage_fallback_transitions()
+        check_garage_fallback_restart()
+        check_garage_fallback_atomic_preferences()
         check_garage_auto_selection()
         check_garage_gameface()
         check_garage_settings()

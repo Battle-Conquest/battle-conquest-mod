@@ -12,10 +12,14 @@ document.head.appendChild(externalStyle);
 function node(tag, name, parent, text) {
     const item = document.createElement(tag);
     if (name) item.className = name;
-    if (text) item.textContent = text;
+    if (tag === 'button') {
+        item.type = 'button';
+        node('span', 'BattleConquestGarage_buttonText', item, text);
+    } else if (text) item.textContent = text;
     parent.appendChild(item);
     return item;
 }
+function buttonText(button, text) { button.firstChild.textContent = text; }
 const heading = node('div', 'BattleConquestGarage_heading', root);
 node('strong', 'BattleConquestGarage_brand', heading, 'BC');
 const title = node('strong', 'BattleConquestGarage_title', heading, 'Battle-Conquest');
@@ -65,7 +69,10 @@ function hideOptions() {
     choose.setAttribute('aria-expanded', 'false');
 }
 function action(button, callback) {
-    button.addEventListener('click', (event) => { event.stopPropagation(); callback(); });
+    button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (!button.disabled) callback();
+    });
 }
 action(close, () => { hideOptions(); root.style.display = 'none'; externalStyle.textContent = ''; send('close'); });
 action(settings, () => send('settings'));
@@ -151,18 +158,18 @@ function render(data) {
     root.style.display = data.shown ? '' : 'none';
     settings.setAttribute('aria-label', label('Settings')); settings.title = label('Settings');
     close.setAttribute('aria-label', label('Close')); close.title = label('Close');
-    link.textContent = label(data.running ? 'Cancel' : 'Link my account');
+    buttonText(link, label(data.running ? 'Cancel' : 'Link my account'));
     link.style.display = data.linked ? 'none' : '';
     notice.textContent = data.running ? label('Account: confirm in your browser') : '';
     notice.style.display = data.running ? '' : 'none';
-    choose.textContent = data.selected ? data.selected.title : label('Choose a quest');
+    buttonText(choose, data.selected ? data.selected.title : label('Choose a quest'));
     choose.disabled = data.busy || data.blocked;
     choose.setAttribute('aria-label', label('Choose a quest'));
     picker.style.display = data.linked && data.has_data ? '' : 'none';
     selectedStatus.textContent = data.selected ? ((data.choices.find((row) => row.key === data.selected.key) || {}).status || '') : label('No active quest');
     selectedStatus.style.display = data.linked ? '' : 'none';
-    details.textContent = label('Details'); details.style.display = data.linked ? '' : 'none';
-    reload.textContent = label('Reload'); reload.disabled = data.busy;
+    buttonText(details, label('Details')); details.style.display = data.linked ? '' : 'none';
+    buttonText(reload, label('Reload')); reload.disabled = data.busy;
     reload.style.display = data.linked ? '' : 'none';
     const choices = JSON.stringify([data.scope, data.choices, data.selected && data.selected.key, data.labels]);
     if (choices !== choicesKey) {
@@ -194,16 +201,19 @@ function render(data) {
     incomplete.textContent = data.incomplete ? data.incomplete_label : '';
     incomplete.style.display = data.incomplete && data.linked ? '' : 'none';
     status.textContent = data.status;
-    placement();
 }
 function poll() {
     if (!alive) return;
     try {
         const json = model.model && model.model.snapshot;
         if (json && json !== encoded) { render(JSON.parse(json)); encoded = json; }
-        placement();
-        if (state && Date.now() - lastReady > 1500) { send('ready'); lastReady = Date.now(); }
+        // Positioning beside another mod can fail independently of rendering.
+        // Keep a live card's acknowledgement independent of that layout work.
+        if (state && state.shown && root.style.display !== 'none' && Date.now() - lastReady > 1500) {
+            send('ready'); lastReady = Date.now();
+        }
     } catch (error) { report(`garage card: ${error}`); }
+    try { placement(); } catch (error) { report(`garage card placement: ${error}`); }
 }
 const timer = setInterval(poll, 250);
 poll();

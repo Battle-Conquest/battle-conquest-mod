@@ -40,7 +40,6 @@ class Displays(object):
         self.allowed = False
         self.notified = set()
         self.restore_scopes = set()
-        self.dismissed_fallbacks = set()
         self.panel.dismiss = self.dismiss_details
 
     def account_id(self):
@@ -53,21 +52,22 @@ class Displays(object):
     def switches(self):
         return self.preferences.get(self.account_id())
 
-    def switch(self, name, value):
+    def switch(self, name, value, dismiss_fallback=False):
         previous = self.switches().get(name)
+        dismissed = None
         if name == 'widget' and value != previous:
             self.started = None
-        if name == 'details' and value is False and previous is True:
-            self.dismissed_fallbacks.add(self.scope_key)
+        if name == 'details' and value is False and (previous is True or dismiss_fallback):
+            dismissed = True
         elif name == 'widget' and value is True and previous is False:
-            self.dismissed_fallbacks.discard(self.scope_key)
-        self.preferences.set(self.account_id(), name, value)
+            dismissed = False
+        self.preferences.set(self.account_id(), name, value, fallback_dismissed=dismissed)
         if self.garage is not None:
             self.garage.tick()
 
     def dismiss_details(self):
-        self.dismissed_fallbacks.add(self.scope_key)
-        self.switch('details', False)
+        # A fallback must not override an explicit closure on the next launch.
+        self.switch('details', False, dismiss_fallback=True)
 
     def visible(self, visible, preserve_draft=False):
         self.allowed = visible
@@ -78,7 +78,7 @@ class Displays(object):
         self.scope_key = None
 
     def fallback(self, ready):
-        if not ready or not self.switches()['widget'] or self.scope_key in self.dismissed_fallbacks:
+        if not ready or not self.switches()['widget'] or self.preferences.fallback_dismissed(self.account_id()):
             self.started = None
             return False
         if self.started is None:
@@ -102,6 +102,9 @@ class Displays(object):
         fallback = self.fallback(ready)
         if fallback and key not in self.notified:
             self.notified.add(key)
+            _logger.warning('garage fallback: installed=%s, acknowledged=%s',
+                            bool(self.bridge and self.bridge.installed),
+                            bool(self.bridge and self.bridge.last_scope == self.scope))
             from battle_conquest.notices import push
             push(tr('Battle-Conquest: integrated card unavailable; using the detailed window.'), warning=True)
         self.panel.visible(self.allowed and (self.switches()['details'] or fallback),
