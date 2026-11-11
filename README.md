@@ -26,6 +26,12 @@ Not affiliated with Wargaming.net. Derived from
    that shared dependency path and restart the client. GitHub may be ahead
    while Wargaming reviews the WGMods submission; the site shows both versions
    when they are available.
+   After a WoT update, the ZIP may still name an older game folder. With the
+   game closed, move `eu.battle-conquest_<version>.wotmod` and its `net.openwg/`
+   dependency into the current `mods/<game version>/` folder, preserving their
+   relative paths and keeping only one Battle-Conquest package there. Leave
+   `mods/configs/battle_conquest/` in place. A folder change alone does not need
+   a new mod release; changes to the game's APIs may still require a mod fix.
 3. Start the game. Once in the garage, a notification says the game is not
    linked yet: click **Link my account** in it. Your browser opens on the site,
    you confirm, and the mod writes its configuration itself. Nothing to type.
@@ -179,7 +185,7 @@ python tools/install_dev.py --game "C:/Games/World_of_Tanks_EU"   # once per cli
 python2.7 tools/selftest.py                                       # before every commit
 python tools/build_release.py --version x.y.z                     # dist/
 python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
-python tools/release.py                                           # tag, build, draft release
+python tools/release_pr.py --dry-run                              # preview the next release PR
 ```
 
 `install_dev.py` installs a small bootstrap that loads `src/` and reloads it

@@ -1,136 +1,160 @@
-# Générer et publier une release du mod
+# Releases du mod
 
-Ces commandes s'exécutent dans le dépôt **battle-conquest-mod**. Partir de
-`main` avec les changements du mod à distribuer. La version du jeu et le
-changelog sont livrés ensemble dans une seule PR de release.
+Les changements intégrés sur `main` alimentent une seule PR automatique,
+`release/next`. **Sa fusion reste manuelle** et déclenche la construction,
+les contrôles puis la publication GitHub.
 
-Avec Codex sur le serveur Linux, demander « crée une release du mod » ou invoquer
-[`$release-mod`](.codex/skills/release-mod/SKILL.md). Le skill demande la version
-du jeu pour chaque release, prépare les notes en anglais, crée le brouillon et
-la PR du changelog. Le test en jeu et la publication restent manuels.
+- Une prérelease active est actualisée **avec le même numéro et le même statut**,
+  en remplaçant ses fichiers et en déplaçant uniquement son tag sur le commit
+  fusionné. Une prérelease active porte un numéro supérieur à la dernière stable.
+- Sans prérelease active, la version stable la plus élevée reçoit un incrément
+  **patch**, même si les changements comprennent des fonctionnalités.
+- Les releases stables et leurs tags ne sont jamais remplacés. Plusieurs
+  préreleases actives, une version ambiguë ou un brouillon manuel occupant le
+  numéro prévu bloquent la proposition, sans choisir une autre version.
 
-## 1. Préparer l'environnement et la branche
+Le dossier WoT du ZIP reste celui de `GAME_VERSION` dans `tools/build_release.py`.
+Il ne sert pas à déterminer la version du mod. Il n'y a plus de surveillance
+quotidienne ni d'issue demandant une release pour un changement de dossier WoT.
+Après une mise à jour du jeu, le joueur déplace le `.wotmod` du mod et le dossier
+partagé `net.openwg/` dans le dossier `mods/<version courante>/`, jeu fermé,
+en conservant les chemins relatifs. Il laisse `mods/configs/battle_conquest/`
+en place et ne conserve qu'un paquet Battle-Conquest. Ce déplacement ne garantit
+pas la compatibilité avec une éventuelle modification des API du jeu.
 
-Il faut Git, **Python 3.10+**, **Python 2.7** (pour compiler le mod et le tester),
-GitHub CLI (`gh`) authentifié avec les droits de push et de création de release,
-et un éditeur disponible (`nano` sous Linux, `notepad` sous Windows par défaut).
+## Activer l'automatisation
 
-```bash
-gh auth status
-git status --short
-git fetch origin main --tags
-git worktree add -b release/mod-next ../battle-conquest-mod-release origin/main
-cd ../battle-conquest-mod-release
-```
+La politique de l'organisation doit d'abord autoriser la création de PR par
+Actions : un administrateur l'active dans **Organization settings → Actions →
+General → Workflow permissions → Allow GitHub Actions to create and approve
+pull requests**. Tant que cette politique l'interdit, l'API du dépôt répond
+`409 Conflict` et aucun réglage local au dépôt ne peut la contourner. La
+modification par API de cette politique nécessite notamment le scope
+`admin:org` avec un jeton classique ; sinon, utiliser l'interface GitHub.
 
-Utiliser un nom de branche et un dossier libres pour chaque release. Ne pas
-travailler directement sur `main`. Vérifier que le nouveau worktree est propre.
-Sous Windows, remplacer `python3` par la commande de votre Python 3 si nécessaire.
-
-Vérifier que `GAME_VERSION` dans [tools/build_release.py](tools/build_release.py)
-correspond au dossier `mods/<version du jeu>/` du client ciblé. Si cette valeur
-doit changer, la modifier sur cette branche, puis l'indexer :
-
-```bash
-git add -- tools/build_release.py
-git diff --cached
-```
-
-Vérifier que seuls les changements de la release sont indexés. Le script les
-committera avec le changelog après les tests ; aucune fusion préalable n'est
-nécessaire pour construire le `.wotmod` et le ZIP depuis cette branche.
-
-## 2. Prévisualiser la version
+Dans **Settings → Actions → General → Workflow permissions**, activer
+**Allow GitHub Actions to create and approve pull requests**. Les workflows
+demandent explicitement `contents: write`, `pull-requests: write` pour la
+proposition et `actions: write` pour relancer la proposition après publication.
+Aucun PAT ni secret supplémentaire n'est nécessaire.
+La permission peut également être configurée avec :
 
 ```bash
-python3 tools/release.py --dry-run
+gh api repos/Battle-Conquest/battle-conquest-mod/actions/permissions/workflow \
+  --method PUT -F can_approve_pull_request_reviews=true
 ```
 
-Aucun fichier n'est modifié. La version est calculée depuis le dernier tag
-`vX.Y.Z` : un commit `feat` augmente la mineure, sinon le correctif augmente.
-Pour forcer le niveau, ajouter `--patch`, `--minor` ou `--major` **à la
-prévisualisation et à la commande de génération**. Si le script indique
-`nothing since ...`, aucun nouveau commit n'est disponible depuis le tag.
-
-## 3. Générer les fichiers et le brouillon GitHub
-
-Remplacer le chemin ci-dessous par celui de l'exécutable Python **2.7** installé
-(par exemple `C:/Python27/python.exe` sous Windows).
+Après fusion du changement installant les workflows, **Mod release proposal**
+réagit aux pushes sur `main`. Pour reprendre une proposition manuellement :
 
 ```bash
-python3 tools/release.py --python27 "/chemin/vers/python2.7"
+gh workflow run release-pr.yml --repo Battle-Conquest/battle-conquest-mod --ref main
 ```
 
-Relire les notes proposées dans l'éditeur, les adapter en anglais, enregistrer
-et fermer. Vider le fichier permet d'annuler avant la génération.
+La création ou l'actualisation d'une PR par `GITHUB_TOKEN` peut demander une
+approbation manuelle des workflows selon la politique GitHub. La publication
+exécute de toute façon ses propres tests avant toute modification des fichiers
+distribués. Voir les [règles GitHub de déclenchement](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+Les deux workflows sont désactivés sur les forks.
 
-Le script met à jour `CHANGELOG.md`, construit les fichiers, exécute
-`selftest.py` et `release_check.py`, puis committe le changelog, crée le tag,
-pousse la branche et le tag, et crée une release GitHub **en brouillon** avec :
+## Relire, tester et fusionner
+
+La PR contient `.github/release-plan.json` et `CHANGELOG.md`. Le plan fige la
+version, le statut de test, les sources et la release de départ. Le bot ne
+fusionne aucune PR. Les changements suivants de `main` actualisent la même PR.
+Sa description conserve les notes et cases utilisateur hors de la section
+marquée ; les notes du changelog sont régénérées depuis `main`, donc les retouches
+propres à la branche de release doivent être faites juste avant la fusion.
+
+Pour une version stable, effectuer la recette utile avec les sources à publier
+avant de fusionner : liaison, panneau du garage, bataille prise en charge et
+réception unique sur le site. La publication automatique vérifie le paquet
+compilé mais ne remplace pas ce test en jeu.
+
+Une prérelease représente un test en cours. Chaque actualisation impose de
+**télécharger de nouveau le ZIP**, même si son numéro est identique ; les alertes
+du mod fondées sur les numéros ne distinguent pas ces reconstructions. Refaire
+la recette pertinente sur ce ZIP. Après acceptation, promouvoir manuellement :
+
+```bash
+gh release edit vX.Y.Z --repo Battle-Conquest/battle-conquest-mod --prerelease=false --latest
+```
+
+Une promotion intervenue pendant la revue bloque une ancienne proposition qui
+aurait remplacé cette prérelease : la stable validée reste protégée. Relancer
+la proposition pour recalculer la suite.
+
+## Construction et reprise après échec
+
+**Mod release** démarre après la fusion manuelle de `release/next`. Il extrait
+le commit fusionné, vérifie qu'il appartient à `main` et que les sources n'ont
+pas changé depuis la proposition, puis lance les tests Python 3, les selftests
+Python 2.7, la construction et le contrôle du `.wotmod` compilé. Python 2.7.18
+s'exécute dans un conteneur sans réseau, avec les sources en lecture seule.
+
+Les deux fichiers distribués sont :
 
 ```text
-dist/eu.battle-conquest_X.Y.Z.wotmod
-dist/battle-conquest-mod_X.Y.Z.zip
+eu.battle-conquest_X.Y.Z.wotmod
+battle-conquest-mod_X.Y.Z.zip
 ```
 
-Le ZIP contient `mods/<version du jeu>/eu.battle-conquest_X.Y.Z.wotmod`.
-Les archives GitHub « Source code » ne remplacent pas ce ZIP compilé.
+Un reçu `release-build.json` consigne le plan, le commit, le dossier WoT et les
+SHA-256 des fichiers. Il est joint après les autres fichiers ; une nouvelle
+stable reste en brouillon jusqu'à la fin des envois. Une prérelease peut être
+momentanément incomplète pendant le remplacement de ses fichiers.
 
-En cas d'échec, lire l'erreur et vérifier l'état des fichiers, du tag et du
-brouillon avant de relancer : le script n'annule pas les étapes déjà effectuées.
+Après publication, une nouvelle proposition est demandée sur `main` pour
+reprendre les changements éventuellement arrivés pendant les envois. Une
+reprise d'un plan déjà terminé redemande également cette proposition sans
+reconstruire ni remplacer les fichiers. Le reçu ne vaut validation que si son
+commit correspond encore au tag ; un déplacement ultérieur du tag bloque
+l'automatisation au lieu de masquer une incohérence entre sources et fichiers.
 
-## 4. Intégrer le changelog, tester et publier
-
-Remplacer `X.Y.Z` par la version affichée par le script. Ouvrir une PR pour
-conserver le changelog et l'éventuelle mise à jour de la version du jeu sur `main` :
+Une publication incomplète bloque la prochaine proposition. Ne pas incrémenter
+le numéro pour masquer cet échec : relancer **Mod release** pour le **même commit
+de fusion**, depuis la branche `main` :
 
 ```bash
-gh pr create --base main --head release/mod-next --title "chore(release): X.Y.Z" --body "Intègre le changelog de la release X.Y.Z."
+gh workflow run release.yml --repo Battle-Conquest/battle-conquest-mod --ref main \
+  -f commit=<SHA_COMPLET_DU_COMMIT_DE_FUSION>
 ```
 
-Décompresser le ZIP dans le dossier World of Tanks, sans ancienne version du
-mod ni bootstrap de développement actif. Démarrer le jeu, vérifier la liaison,
-jouer une bataille prise en charge et confirmer son arrivée sur le site.
-Après validation, publier le brouillon :
+La reprise complète la même version et ne publie pas une seconde fois un plan
+déjà terminé. Un tag déplacé hors de cette opération, une release promue ou une
+PR fusionnée avec des sources devenues différentes font échouer la publication
+avant remplacement des fichiers. Résoudre cet état explicitement ; ne pas forcer
+un tag stable ni supprimer le plan fusionné pour débloquer le bot.
+
+Si les sources ont changé pendant la revue ou si la prérelease a été promue,
+la publication n'a pas commencé. Préparer un nouveau plan à relire et fusionner
+manuellement avec :
 
 ```bash
-gh release edit vX.Y.Z --draft=false
+gh workflow run release-pr.yml --repo Battle-Conquest/battle-conquest-mod --ref main \
+  -f replace_pending=true
 ```
 
-Le ZIP devient téléchargeable depuis la
-[dernière release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest).
-Pour soumettre aussi le `.wotmod` à WGMods, suivre les
-[consignes WGMods](CONTRIBUTING.md#versions-and-releases) ; la publication GitHub
-ne vaut pas approbation par Wargaming.
+Cette option refuse de remplacer un plan dont la publication a déjà déplacé le
+tag ; reprendre alors la publication d'origine. Un brouillon occupant le numéro
+prévu doit également être terminé avec son plan d'origine.
 
-## Surveillance des mises à jour WoT
+## Vérifications locales et procédure manuelle
 
-Le workflow **WoT client watch** vérifie chaque jour à **7 h UTC** les versions
-publiées par WGMods et le miroir EU de `paths.xml`. Il retient la plus récente,
-signale tout désaccord ou source indisponible et compare cette version au dossier
-`mods/<version>/` du ZIP de la dernière release stable GitHub. Les brouillons et
-préversions sont exclus. Le numéro de version du mod et la cible inscrite dans
-les sources ne remplacent pas le contrôle du paquet réellement distribué.
-
-Si le paquet est en retard, une issue opérationnelle est créée **dans ce dépôt**,
-avec une checklist de release. Cette exception au suivi habituel dans le dépôt
-du site permet d'utiliser uniquement `github.token`, sans secret supplémentaire.
-Une seule issue est conservée par version WoT : le bot actualise uniquement sa
-section marquée, préserve les notes et cases utilisateur et ne publie aucun
-commentaire quotidien. Une issue fermée est rouverte si le paquet reste en retard.
-Après publication, fermer l'issue manuellement. Le bot ne génère ni ne publie de
-release ; les étapes de recette ci-dessus restent nécessaires.
-
-Une source suffit à comparer ; si les deux échouent, le contrôle échoue sans
-conclure que le paquet est à jour. Une release ou un ZIP absent, incorrect ou
-ambigu fait également échouer le contrôle. Le résumé de l'exécution expose le
-diagnostic. Le workflow peut être lancé manuellement depuis Actions ; il est
-désactivé sur les forks et utilise un runner Linux standard, sans artefact ni
-cache persistant.
-
-Vérification locale, en lecture seule (Python 3 et `gh` authentifié) :
+Python 3.10+, Python 2.7 et `gh` authentifié sont nécessaires hors Actions :
 
 ```bash
-python3 -B tools/client_watch.py --dry-run
-python3 -B -m unittest discover -s tools -p 'test_client_*.py'
+git fetch origin main --tags
+python3 -B tools/release_pr.py --dry-run
+python3 -B -m unittest discover -s tools -p 'test_*.py'
+python2.7 -B tools/selftest.py
+python3 tools/build_release.py --version X.Y.Z --python27 /chemin/vers/python2.7
+python2.7 -B tools/release_check.py dist/eu.battle-conquest_X.Y.Z.wotmod
 ```
+
+La prévisualisation ne modifie aucun fichier ni GitHub. Le script historique
+`tools/release.py` reste disponible comme procédure interactive exceptionnelle
+avec brouillon ; il conserve son ancien calcul (`feat` → mineure, sinon patch).
+Ne pas l'utiliser pendant une livraison automatisée. La soumission à WGMods
+reste manuelle ; suivre [CONTRIBUTING.md](CONTRIBUTING.md#versions-and-releases).
+Une publication GitHub ne vaut pas approbation par Wargaming.
