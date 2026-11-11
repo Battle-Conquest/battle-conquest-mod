@@ -24,6 +24,14 @@ pas la compatibilité avec une éventuelle modification des API du jeu.
 
 ## Activer l'automatisation
 
+La politique de l'organisation doit d'abord autoriser la création de PR par
+Actions : un administrateur l'active dans **Organization settings → Actions →
+General → Workflow permissions → Allow GitHub Actions to create and approve
+pull requests**. Tant que cette politique l'interdit, l'API du dépôt répond
+`409 Conflict` et aucun réglage local au dépôt ne peut la contourner. La
+modification par API de cette politique nécessite notamment le scope
+`admin:org` avec un jeton classique ; sinon, utiliser l'interface GitHub.
+
 Dans **Settings → Actions → General → Workflow permissions**, activer
 **Allow GitHub Actions to create and approve pull requests**. Les workflows
 demandent explicitement `contents: write` et, pour la proposition uniquement,
