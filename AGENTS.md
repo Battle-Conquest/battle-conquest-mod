@@ -27,7 +27,14 @@ Derived from unicum.gg-mod (AGPL-3.0, see `NOTICE`), reduced to its battle captu
 | `python2.7 tools/selftest.py` | The test suite, Python 2.7, against fake client modules. Offline. |
 | `python tools/build_release.py --version x.y.z` | Builds `dist/eu.battle-conquest_<version>.wotmod` (the package compiled with Python 2.7, `res/`) and `dist/battle-conquest-mod_<version>.zip` (it, laid out as the game folder). |
 | `python2.7 tools/release_check.py dist/eu.battle-conquest_<version>.wotmod` | Loads the built package the way the client does, and checks nothing in it is named after unicum.gg-mod. |
-| `python tools/release.py` | Version and changelog from the commits since the last tag, build, checks, tag, and a **draft** GitHub release, published by hand after an in-game test. |
+| `python3 -B tools/release_pr.py --dry-run` | Preview the release PR, without changing files or GitHub. Refreshes the active prerelease or proposes the next patch. |
+| `python3 -B -m unittest discover -s tools -p 'test_*.py'` | Offline Python 3 tests for release automation and packaging. |
+
+Changes on `main` update one `release/next` PR. Its manual merge builds and
+publishes the reviewed plan: an existing prerelease keeps its version and
+status; otherwise the latest stable version receives a patch increment.
+WoT folder changes do not trigger releases; players adapt the ZIP's folder.
+See `RELEASING.md` for setup, testing and interrupted-publication recovery.
 
 Logs go to `game.log` in the game directory (not `python.log`), under loggers named `battle_conquest.*`. Read it after every change: a reload that failed says so there and nowhere else.
 

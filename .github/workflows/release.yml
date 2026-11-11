@@ -1,0 +1,61 @@
+name: Mod release
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Merge commit of the release PR to resume (40-character SHA)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mod-release-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.repository == 'Battle-Conquest/battle-conquest-mod' &&
+      ((github.event_name == 'pull_request' && github.event.pull_request.merged == true &&
+        github.event.pull_request.head.ref == 'release/next' &&
+        github.event.pull_request.head.repo.full_name == github.repository) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare the client's isolated Python 2.7 interpreter
+        run: |
+          docker pull python:2.7.18-slim
+          cat > "$RUNNER_TEMP/python27" <<'SH'
+          #!/bin/sh
+          exec docker run --rm --network none \
+            --volume "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" \
+            --volume "$RUNNER_TEMP:$RUNNER_TEMP" \
+            --workdir "$GITHUB_WORKSPACE" \
+            python:2.7.18-slim python -B "$@"
+          SH
+          chmod +x "$RUNNER_TEMP/python27"
+          echo "PYTHON27=$RUNNER_TEMP/python27" >> "$GITHUB_ENV"
+
+      - name: Run offline tooling and mod checks
+        run: |
+          python3 -B -m unittest discover -s tools -p 'test_*.py'
+          "$PYTHON27" tools/selftest.py
+
+      - name: Build, check and publish the approved plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TMPDIR: ${{ runner.temp }}
+        run: python3 -B tools/release_publish.py --python27 "$PYTHON27"

@@ -1,0 +1,49 @@
+name: Mod release proposal
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      replace_pending:
+        description: 'Replace a stale merged plan which has not started publishing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# The merged-plan receipt blocks proposals during publication. Separate locks
+# keep a newer proposal from cancelling a queued publication.
+concurrency:
+  group: mod-release-proposal
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: github.repository == 'Battle-Conquest/battle-conquest-mod'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure the bot identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Propose or refresh the release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REPLACE_PENDING: ${{ inputs.replace_pending }}
+        run: |
+          if [ "$REPLACE_PENDING" = 'true' ]; then
+            python3 -B tools/release_pr.py --replace-pending
+          else
+            python3 -B tools/release_pr.py
+          fi

@@ -22,9 +22,8 @@ with one on the server (the `/api/mod/battles` contract, storage, quest proof).
 What the mod needs is described in the issue's "Côté mod" section. Those issues
 are written in French, like the rest of that repository.
 
-Operational client-watch alerts are the exception: the workflow opens them in
-this repository using its built-in GitHub token. See
-[RELEASING.md](RELEASING.md#surveillance-des-mises-à-jour-wot).
+Standalone mod issues may also live in this repository. Link the actual issue
+in commits and PRs; do not substitute a similarly numbered site issue.
 
 ## Setup
 
@@ -40,8 +39,8 @@ Follow the Development section of [`README.md`](./README.md): run
 
 ## Commits
 
-Format: `<type>(#<num>): <description>`, where `<num>` is the issue's number in
-Battle-Conquest/Battle-Conquest.
+Format: `<type>(#<num>): <description>`, where `<num>` is the linked issue's
+number, in Battle-Conquest/Battle-Conquest or in this repository.
 
 ```text
 feat(#813): add the tank played to each battle report
@@ -56,10 +55,9 @@ chore(#819): adopt Battle-Conquest's contribution conventions
   distinct.
 - Without an issue (rare): `<type>: <description>`.
 
-`tools/release.py` reads these subjects: `feat` bumps the minor version,
-anything else the patch version, and `feat` / `perf` / `fix` make the changelog.
-A subject that does not follow the format still counts, but stays out of the
-changelog.
+Release proposals read these subjects for their `feat` / `perf` / `fix` notes.
+Automation refreshes the active prerelease without changing its number;
+otherwise it always increments the patch, including for `feat` commits.
 
 ## Checks (before every commit)
 
@@ -72,9 +70,9 @@ on every pull request and push to `main`. It can also be started manually.
 The source is mounted read-only in the test container, with networking disabled.
 
 - The suite must pass: every change comes with a check in `tools/checks/`.
-- Client-watch automation runs with Python 3 on the Actions runner, outside
-  the game. Its offline tests live in `tools/test_client_*.py` and run with
-  `python3 -B -m unittest discover -s tools -p 'test_client_*.py'` in `Mod CI`.
+- Release automation runs with Python 3 on the Actions runner, outside the
+  game. Its offline tests and packaging checks run with
+  `python3 -B -m unittest discover -s tools -p 'test_*.py'` in `Mod CI`.
 - Once a change has reloaded in the client, read `game.log`.
 - When packaging is touched (`tools/build_release.py`, `res/`, the entry
   points), build the package and check it:
@@ -88,8 +86,8 @@ python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
 
 - Title in the commit format: `<type>(#<num>): <description>`.
 - The description holds:
-  - `Closes Battle-Conquest/Battle-Conquest#<num>` (the issue lives in the other
-    repository);
+  - `Closes #<num>` for a mod issue, or `Closes Battle-Conquest/Battle-Conquest#<num>`
+    for an issue tracked on the site;
   - a summary of the changes;
   - the **actual results** of the checks (selftest, and build + release check when
     relevant), not a generic promise;
@@ -100,12 +98,22 @@ python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
 
 ## Versions and releases
 
-- Pull requests do **not** bump the version. `tools/release.py` derives it from
-  the commits since the last `vX.Y.Z` tag, drafts the changelog (opened in an
-  editor to be read over), builds, tags, and creates the GitHub release as a
-  **draft**.
-- A release is published only once it has captured a battle in a real client:
-  `gh release edit vX.Y.Z --draft=false`.
+- Feature and fix PRs do **not** bump the version. Changes on `main` maintain
+  one `release/next` PR containing a release plan and changelog. Merging it
+  manually builds, tests and publishes the approved version.
+- An active prerelease is refreshed in place, retaining its version, release
+  identity and testing status. Without one, the latest stable version gets a
+  patch increment. Stable releases are never replaced. Multiple active
+  prereleases block automation until a maintainer selects one.
+- Review notes and perform the relevant in-game acceptance before merging a
+  stable release. A prerelease stays in testing until manually promoted.
+  Same-version refreshes need a new download; version-based update warnings
+  cannot distinguish them.
+- WoT folder changes alone do not create releases. Players move the mod and
+  shared Gameface dependency into their current `mods/<game version>/` folder.
+- See [RELEASING.md](RELEASING.md) for setup and recovery. The old interactive
+  `tools/release.py` remains a manual fallback; do not run it alongside an
+  active automated release plan.
 - After publishing the GitHub release, submit
   `dist/eu.battle-conquest_X.Y.Z.wotmod` to WGMods for review. GitHub remains
   the source for the latest release while WGMods carries the approved version.
