@@ -52,22 +52,22 @@ class Displays(object):
     def switches(self):
         return self.preferences.get(self.account_id())
 
-    def switch(self, name, value):
+    def switch(self, name, value, dismiss_fallback=False):
         previous = self.switches().get(name)
+        dismissed = None
         if name == 'widget' and value != previous:
             self.started = None
-        if name == 'details' and value is False and previous is True:
-            self.preferences.set(self.account_id(), 'fallback_dismissed', True)
+        if name == 'details' and value is False and (previous is True or dismiss_fallback):
+            dismissed = True
         elif name == 'widget' and value is True and previous is False:
-            self.preferences.set(self.account_id(), 'fallback_dismissed', False)
-        self.preferences.set(self.account_id(), name, value)
+            dismissed = False
+        self.preferences.set(self.account_id(), name, value, fallback_dismissed=dismissed)
         if self.garage is not None:
             self.garage.tick()
 
     def dismiss_details(self):
         # A fallback must not override an explicit closure on the next launch.
-        self.preferences.set(self.account_id(), 'fallback_dismissed', True)
-        self.switch('details', False)
+        self.switch('details', False, dismiss_fallback=True)
 
     def visible(self, visible, preserve_draft=False):
         self.allowed = visible

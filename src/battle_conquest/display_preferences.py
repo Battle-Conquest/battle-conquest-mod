@@ -29,11 +29,15 @@ class Preferences(object):
         return dict((key, row[key] if isinstance(row.get(key), bool) else default)
                     for key, default in (('widget', True), ('details', False)))
 
-    def set(self, account, name, value):
-        if not account or name not in ('widget', 'details', 'fallback_dismissed') or not isinstance(value, bool):
+    def set(self, account, name, value, fallback_dismissed=None):
+        if (not account or name not in ('widget', 'details') or not isinstance(value, bool)
+                or (fallback_dismissed is not None and not isinstance(fallback_dismissed, bool))):
             return
         row = self.get(account)
-        row['fallback_dismissed'] = self.fallback_dismissed(account)
+        # Save visibility and fallback intent together: a second write can fail
+        # after the first has already committed a contradictory visible state.
+        row['fallback_dismissed'] = (self.fallback_dismissed(account)
+                                     if fallback_dismissed is None else fallback_dismissed)
         row[name] = value
         self.accounts[self.key(account)] = row
         try:

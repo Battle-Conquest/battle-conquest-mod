@@ -248,3 +248,39 @@ def check_garage_fallback_restart():
               not preferences.fallback_dismissed(123))
         client.advance(30)
         check('first-use fallback remains available with older preferences', client.display.panel.shown)
+
+
+def check_garage_fallback_atomic_preferences():
+    from battle_conquest import display_preferences
+
+    for action in ('close', 'disable_details', 'retry_card'):
+        with garage_display() as client:
+            client.command('details')
+            if action == 'retry_card':
+                client.display.panel.dismiss()
+                client.display.switch('widget', False)
+            original = display_preferences.save_json
+            writes = []
+
+            def first_write_only(path, payload):
+                writes.append(payload)
+                if len(writes) > 1:
+                    raise IOError('subsequent writes refused')
+                original(path, payload)
+
+            display_preferences.save_json = first_write_only
+            try:
+                if action == 'close':
+                    client.display.panel.dismiss()
+                elif action == 'disable_details':
+                    client.display.switch('details', False)
+                else:
+                    client.display.switch('widget', True)
+            finally:
+                display_preferences.save_json = original
+            reloaded = display_preferences.Preferences(client.display.preferences.store)
+            expected = {'widget': True, 'details': False}
+            check('%s commits visibility and fallback intent in one consistent file' % action,
+                  reloaded.get(123) == expected
+                  and reloaded.fallback_dismissed(123) == (action != 'retry_card'))
+            check('%s performs one durable write' % action, len(writes) == 1)
