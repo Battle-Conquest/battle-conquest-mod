@@ -43,6 +43,12 @@ This prerelease packages the premium support reviewed in [mod PR #40](https://gi
 
 This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
 
+### Changes in this build
+
+- Corriger les libellés et le secours de la carte du garage
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.1
 
 Battle-Conquest for **World of Tanks EU 2.4.1.1**.
