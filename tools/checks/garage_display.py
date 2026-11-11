@@ -211,6 +211,18 @@ def check_garage_gameface():
         bridge.publish({'scope': 'a', 'shown': True})
         check('view model resource and state indexes agree with its schema',
               len(model.values) == 5 and model.values[1] == bridge.revision and json.loads(model.values[4])['scope'] == 'a')
+        from battle_conquest import garage_display
+        previous_active = garage_display._active
+        received = []
+        try:
+            garage_display._active = type('Display', (object,), {
+                'command': lambda self, payload: received.append(payload)})()
+            for callback in model.onAction.handlers:
+                callback({'scope': 'a', 'action': 'ready', 'selection': ''})
+            check('the native model command forwards the complete rendering acknowledgement',
+                  received == [{'scope': 'a', 'action': 'ready', 'selection': ''}])
+        finally:
+            garage_display._active = previous_active
         bridge.received('a')
         check('only the current display scope acknowledges rendering', bridge.healthy('a') and not bridge.healthy('b'))
         from battle_conquest import hangar_inject

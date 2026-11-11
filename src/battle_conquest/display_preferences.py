@@ -30,12 +30,17 @@ class Preferences(object):
                     for key, default in (('widget', True), ('details', False)))
 
     def set(self, account, name, value):
-        if not account or name not in ('widget', 'details') or not isinstance(value, bool):
+        if not account or name not in ('widget', 'details', 'fallback_dismissed') or not isinstance(value, bool):
             return
         row = self.get(account)
+        row['fallback_dismissed'] = self.fallback_dismissed(account)
         row[name] = value
         self.accounts[self.key(account)] = row
         try:
             save_json(self.store, {'schema': 1, 'accounts': self.accounts})
         except (IOError, OSError):
             _logger.exception('could not save display preferences')
+
+    def fallback_dismissed(self, account):
+        row = self.accounts.get(self.key(account), {})
+        return isinstance(row, dict) and row.get('fallback_dismissed') is True

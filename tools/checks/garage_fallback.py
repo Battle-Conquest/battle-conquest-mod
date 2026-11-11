@@ -42,6 +42,15 @@ def garage_display():
         def command(self, action, scope=None):
             self.display.command({'scope': scope or self.display.scope, 'action': action})
 
+        def restart(self):
+            self.display = module.Displays(session, self.account, self.places, site, Panel(),
+                                            Preferences(preferences.store), now=lambda: self.time)
+            self.display.bridge = Bridge(session, now=lambda: self.time)
+            self.display.bridge.installed = True
+            self.garage.view = self.display
+            self.garage.key = None
+            self.draw()
+
     client = Client()
     session = _Session()
     session.alive = True
@@ -174,3 +183,68 @@ def check_garage_fallback_transitions():
         client.advance(5)
         check('reenabling retains fallback for a card that never responds',
               len(client.warnings) == 1 and client.display.panel.shown)
+
+
+def check_garage_fallback_restart():
+    from battle_conquest import config
+
+    with garage_display() as client:
+        client.advance(30)
+        client.display.panel.dismiss()
+        client.account.account = None
+        client.draw()
+        client.account.account = '123'
+        client.draw()
+        client.advance(31)
+        check('closing details survives a logout and login without a fallback warning',
+              not client.display.panel.shown and len(client.warnings) == 1)
+        client.restart()
+        client.advance(31)
+        check('closing fallback details survives a full restart with no new warning',
+              not client.display.panel.shown and len(client.warnings) == 1)
+        client.command('details')
+        client.draw()
+        check('Details still explicitly reopens a persistently dismissed fallback', client.display.panel.shown)
+        client.display.panel.dismiss()
+        client.display.switch('widget', False)
+        client.display.switch('widget', True)
+        client.advance(30)
+        check('explicitly reenabling the card retries fallback after a persisted dismissal',
+              client.display.panel.shown)
+
+    with garage_display() as client:
+        client.command('details')
+        client.display.switch('details', False)
+        client.display.switch('widget', False)
+        client.restart()
+        client.display.switch('widget', True)
+        client.command('ready')
+        client.advance(1)
+        check('an acknowledged visible card after restart never resurrects hidden details',
+              not client.display.panel.shown and not client.warnings)
+        client.display.panel.dismiss()
+        client.restart()
+        client.account.account = '456'
+        client.draw()
+        client.advance(30)
+        check('another account still gets its own genuine-failure fallback', client.display.panel.shown)
+        preferences = client.display.preferences
+        check('fallback dismissal is isolated by account',
+              preferences.fallback_dismissed(123) and not preferences.fallback_dismissed(456))
+        previous = config.SITE, config.REGION
+        try:
+            config.REGION = 'other'
+            check('fallback dismissal is isolated by region', not preferences.fallback_dismissed(123))
+            config.SITE = previous[0] + '/other'
+            config.REGION = previous[1]
+            check('fallback dismissal is isolated by site', not preferences.fallback_dismissed(123))
+        finally:
+            config.SITE, config.REGION = previous
+
+    with garage_display() as client:
+        preferences = client.display.preferences
+        preferences.accounts[preferences.key(123)] = {'widget': True, 'details': False}
+        check('existing preferences without dismissal retain genuine-failure fallback',
+              not preferences.fallback_dismissed(123))
+        client.advance(30)
+        check('first-use fallback remains available with older preferences', client.display.panel.shown)

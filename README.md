@@ -64,7 +64,12 @@ changing those preferences. An installed integration gets 30 seconds to load
 after the garage is ready, including after returning from battle or reenabling
 the card. A missing Gameface dependency still triggers the fallback immediately.
 When the card recovers, only automatically opened details close; explicitly
-enabled details stay open. Display switches never pause sending battles.
+enabled details stay open. Closing details also persists dismissal of the
+automatic fallback across logins and full game restarts. **Details** or the
+garage notification still restores the window explicitly; turning the card
+off and on retries its automatic fallback. Existing display preferences keep
+their switches; missing dismissal information defaults to allowing fallback.
+Display switches never pause sending battles.
 
 The site and mod automatically choose a sole active individual quest or a sole
 running challenge you participate in only when the saved choice is empty or no
