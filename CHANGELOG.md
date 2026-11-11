@@ -35,6 +35,14 @@ This prerelease packages the premium support reviewed in [mod PR #40](https://gi
 
 **Acceptance of the refreshed 1.2.2 binary in a real client remains pending.** Check manual quest selection, card readability and repeated button presses, keyboard focus, settings with and without optional menus, and return from battle. Existing numerical observations came from 1.2.1 diagnostics. This is not a WGMods-approved release.
 
+### Changes in this build
+
+- Allow the garage card to finish loading before fallback
+- Make integrated card controls readable
+- Automatiser les releases après les changements du mod
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.1
 
 Battle-Conquest for **World of Tanks EU 2.4.1.1**.
