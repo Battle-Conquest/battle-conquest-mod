@@ -1,84 +1,86 @@
 ---
 name: release-mod
-description: "Créer une release du mod Battle-Conquest sur Linux : ZIP, .wotmod, brouillon GitHub et PR du changelog. Pour une demande de release du mod ou $release-mod, pas pour une release du site."
+description: "Préparer ou reprendre la PR de release automatisée du mod Battle-Conquest. Pour une demande de release du mod ou $release-mod, pas pour une release du site."
 ---
 
 # Release du mod Battle-Conquest
 
-Cible : `Battle-Conquest/battle-conquest-mod`. Livrer un **brouillon**, ses deux
-fichiers et la PR du changelog vers `main`. Ne pas publier, merger, soumettre à
-WGMods ou modifier le site. Échanges et PR en français ; notes et commits en anglais.
+Cible : `Battle-Conquest/battle-conquest-mod`. Suivre
+[RELEASING.md](../../../RELEASING.md), les workflows et les scripts actuels.
+La voie normale est l'unique PR **`release/next`**, avec plan et changelog.
+Sa fusion manuelle déclenche construction, contrôles et publication ; elle
+ne crée pas simplement un brouillon à publier plus tard.
 
-## Préparer
+## Préparer la proposition
 
-1. **À chaque nouvelle release**, demander la version exacte de World of Tanks
-   EU ciblée (`mods/<version>/`), sauf si fournie pour cette release. Attendre
-   avant tout build, commit de release ou tag ; préparer les lectures et le
-   worktree pendant l'attente. Ne pas déduire la version actuelle du jeu de
-   `GAME_VERSION` ni réutiliser une réponse d'une ancienne release.
-2. Vérifier le dépôt, récupérer `origin/main` et les tags, créer un worktree
-   propre et une branche `release/mod-<version>` depuis `origin/main`.
-   Préserver les autres worktrees et les changements non fusionnés. Chercher
-   un brouillon et une PR existants : pour la même livraison, reprendre ou
-   rendre leurs liens plutôt que créer une autre version.
-3. Vérifier `gh auth status`, Python 3.10+ et Python 2.7. Sur ce serveur,
-   essayer `~/.local/bin/python2.7`, puis `command -v python2.7` ; vérifier sa
-   version et conserver le chemin absolu dans `python27`.
-4. Comparer la version du jeu confirmée à `GAME_VERSION` dans
-   `tools/build_release.py`. Si différente, la modifier dans cette branche et
-   indexer uniquement ce fichier. Le script de release committe les fichiers
-   indexés avec le changelog après les contrôles : livrer le tout dans **une
-   seule PR**, sans fusion préalable. Vérifier l'index pour exclure tout fichier
-   étranger. Ne pas contourner le décalage en renommant le ZIP.
+1. Lire `AGENTS.md`, vérifier le dépôt et récupérer `origin/main` et les tags.
+   Utiliser un worktree propre basé sur `origin/main`, sans changer le checkout
+   principal. Vérifier `gh auth status` et Python 3.10+.
+2. Examiner les releases publiées et brouillons, l'éventuelle PR `release/next`
+   et `.github/release-plan.json`. Réutiliser la proposition existante.
+   Un plan fusionné non terminé relève de la reprise ci-dessous.
+3. Depuis ce worktree, prévisualiser sans mutation :
 
-## Générer
+   ```bash
+   rtk proxy python3 -B tools/release_pr.py --dry-run
+   ```
 
-Depuis le worktree, calculer une fois la version avec RTK :
+   Une prérelease active garde **le même numéro et le même statut**. Sinon,
+   la plus haute stable reçoit un incrément **patch**, même avec des `feat`.
+   Plusieurs préreleases actives, une version ambiguë ou un brouillon occupant
+   le numéro bloquent la proposition : expliquer le blocage, sans choisir un
+   autre numéro ni écraser un tag. Sans changement, rendre le constat sans release.
+4. La demande de préparer une release autorise sa proposition, pas sa fusion.
+   Créer ou actualiser la PR avec le script courant :
 
-```bash
-rtk proxy python3 -B tools/release.py --dry-run
-```
+   ```bash
+   rtk proxy python3 -B tools/release_pr.py
+   ```
 
-Accepter le calcul (`feat` → mineure, sinon correctif), sauf instruction contraire.
-Appliquer le même `--patch`, `--minor` ou `--major` aux deux exécutions si demandé.
-Si un numéro imposé est impossible avec ces options, signaler la limite avant
-de taguer, sans substituer un numéro. Sans nouveau commit, terminer sans release.
-Ajuster le nom de branche après le calcul si besoin.
+   Le script committe le plan et le changelog, pousse `release/next` avec une
+   garde sur sa révision et crée ou actualise la PR. Ne pas créer une seconde
+   branche de release ni modifier manuellement le plan pour forcer une version.
+5. Relire les notes pour les joueurs, en anglais. Les notes sont régénérées à
+   partir de `main` à chaque proposition ; les retouches propres à la branche
+   se font juste avant la fusion. Préserver les notes et cases utilisateur
+   hors de la section gérée de la description. PR et échanges en français.
 
-Écrire les notes anglaises pour les joueurs depuis la prévisualisation dans un
-fichier temporaire **hors du dépôt**, chemin absolu `notes_file`. Commencer par
-`## X.Y.Z` correspondant au calcul. Traduire/corriger les sujets et retirer les
-commentaires internes ; lire seulement les diffs nécessaires si ambigus.
-Ne pas demander de validation supplémentaire des notes ou de la version.
+Le dossier du ZIP vient de `GAME_VERSION` dans `tools/build_release.py`.
+Un changement WoT seul ne justifie ni release ni question systématique sur la
+version du jeu : le joueur adapte les chemins. Pour une recette ou une soumission
+WGMods demandée, confirmer le client effectivement ciblé si cette information
+manque, sans prétendre que renommer le dossier démontre la compatibilité.
 
-L'éditeur fourni injecte ces notes sans interaction dans le script existant :
+## Vérifier et livrer
 
-```bash
-rtk proxy env EDITOR="$PWD/.codex/skills/release-mod/scripts/notes_editor.py" \
-  RELEASE_MOD_NOTES="$notes_file" \
-  python3 -B tools/release.py --python27 "$python27"
-```
+- Lancer les contrôles locaux adaptés de `RELEASING.md` avant de livrer des
+  changements. Ne pas répéter les contrôles déjà réussis sans raison.
+  Pour construire localement, utiliser Python 2.7, disponible sur ce serveur
+  à `~/.local/bin/python2.7`, puis vérifier le `.wotmod` **et le ZIP complet**.
+- Le ZIP public contient le mod, Gameface 1.2.2 au chemin partagé
+  `mods/<version>/net.openwg/` et sa licence. Le `.wotmod` autonome ne suffit
+  pas pour la carte intégrée. Le test de recette en jeu reste distinct.
+- Ne pas fusionner, promouvoir une prérelease, soumettre à WGMods ou modifier
+  le site sans demande explicite correspondante. Une stable et son tag ne
+  sont jamais remplacés.
+- **Ne jamais consulter, surveiller ou attendre la CI**, y compris après un
+  lancement manuel de workflow. Terminer avec le lien de la PR, la version,
+  son statut prévu et les résultats ou limites des contrôles locaux.
+  L'utilisateur vérifie la CI et décide de la fusion.
 
-Le script construit depuis la branche avec la version du jeu mise à jour,
-lance `selftest.py` et `release_check.py`, committe,
-tague, pousse et crée le brouillon. Ne pas refaire les contrôles réussis.
-Conserver le log hors du dépôt ; lire le résultat ou l'extrait utile en cas
-d'échec. Ne pas réécrire le script de release ni son calcul de version.
+## Reprise ou secours exceptionnel
 
-## Livrer
+Lire la section de reprise de `RELEASING.md` avant toute action. Une publication
+incomplète se reprend par `release.yml` avec **le même commit de fusion**.
+Un plan périmé dont la publication n'a pas commencé peut être remplacé via
+`release-pr.yml` avec `replace_pending=true`. Ne pas incrémenter le numéro,
+déplacer un tag ou supprimer un plan pour masquer un échec. Une demande de
+reprise de publication autorise cette reprise précise, pas une autre release.
 
-- Contrôler localement que le ZIP contient le seul fichier
-  `mods/<version confirmée>/eu.battle-conquest_X.Y.Z.wotmod`. Vérifier une fois
-  `gh release view vX.Y.Z --json isDraft,url,assets` : brouillon et deux assets.
-- Ouvrir/réutiliser l'unique PR de release (changelog et version du jeu) vers `main`, description française
-  concise via `--body-file` : versions mod/jeu, lien du brouillon, résultats
-  locaux réels et test en jeu restant. Ne pas inventer d'issue associée.
-  **Ne jamais consulter, surveiller ou attendre la CI.**
-- Terminer avec les liens brouillon/PR, versions et résultats. Rappeler que le
-  test en jeu précède la publication manuelle ; ne pas attendre sa réalisation.
-
-En cas d'échec partiel, examiner seulement les fichiers, commit, tag et brouillon
-concernés. Ne pas relancer intégralement, remplacer un tag, écraser des assets
-ou incrémenter pour masquer l'échec. Reprendre les étapes manquantes sans
-écrasement ; si l'état est ambigu, exposer le point à résoudre. Lire la
-[procédure humaine](../../../RELEASING.md) seulement si nécessaire.
+`tools/release.py` reste réservé à un secours manuel **explicitement demandé**,
+hors livraison automatisée active. Il utilise l'ancien calcul (`feat` → mineure,
+sinon patch), construit, committe, tague, pousse et crée un brouillon : ne pas
+le substituer silencieusement au plan automatique. Son éditeur facultatif
+`scripts/notes_editor.py` lit les notes préparées depuis `RELEASE_MOD_NOTES`
+et s'utilise via `EDITOR` ; son test est `scripts/test_notes_editor.py`.
+Ce chemin exceptionnel ne dispense pas de vérifier le ZIP complet.

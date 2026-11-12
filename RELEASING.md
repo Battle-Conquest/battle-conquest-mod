@@ -4,6 +4,12 @@ Les changements intégrés sur `main` alimentent une seule PR automatique,
 `release/next`. **Sa fusion reste manuelle** et déclenche la construction,
 les contrôles puis la publication GitHub.
 
+Les sources de cette procédure sont `.github/workflows/release-pr.yml`,
+`.github/workflows/release.yml` et `tools/release_{pr,publish,state}.py`.
+Le [skill `release-mod`](.codex/skills/release-mod/SKILL.md) prépare ou reprend
+cette proposition ; l'ancienne procédure avec `tools/release.py` reste un
+secours explicite, pas la voie normale.
+
 - Une prérelease active est actualisée **avec le même numéro et le même statut**,
   en remplaçant ses fichiers et en déplaçant uniquement son tag sur le commit
   fusionné. Une prérelease active porte un numéro supérieur à la dernière stable.
@@ -149,7 +155,12 @@ prévu doit également être terminé avec son plan d'origine.
 
 ## Vérifications locales et procédure manuelle
 
-Python 3.10+, Python 2.7 et `gh` authentifié sont nécessaires hors Actions :
+Python 3.10+, Python 2.7 et `gh` authentifié sont nécessaires hors Actions.
+
+Prévisualiser depuis un worktree propre des sources `origin/main` à proposer,
+après récupération des tags. Le `--dry-run` lit l'état GitHub ; il ne lance
+ni construction ni publication. Sur ce serveur, l'interpréteur Python 2.7 est
+disponible à `~/.local/bin/python2.7`.
 
 ```bash
 git fetch origin main --tags
@@ -167,6 +178,11 @@ avec brouillon ; il conserve son ancien calcul (`feat` → mineure, sinon patch)
 Ne pas l'utiliser pendant une livraison automatisée. La soumission à WGMods
 reste manuelle ; suivre [CONTRIBUTING.md](CONTRIBUTING.md#versions-and-releases).
 Une publication GitHub ne vaut pas approbation par Wargaming.
+
+Après un push ou une mise à jour de PR, ne pas consulter ni attendre la CI :
+le mainteneur la vérifie manuellement. Les tests locaux et leurs limites doivent
+être indiqués dans la PR. Cette règle n'empêche pas les workflows de lancer
+leurs propres contrôles à la publication.
 
 ## WGMods submission
 

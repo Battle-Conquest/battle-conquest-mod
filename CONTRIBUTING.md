@@ -9,16 +9,18 @@ for a safe change, above all how hot reload stays safe.
 
 ## Language
 
-Everything in this repository is in **English**: code, comments, commits, pull
-requests, release notes, and everything the player sees in the client (the
-settings page, the garage messages). The mod has no i18n.
+Code, comments, commits and release notes are in **English**. Issues and pull
+requests are in **French**, as are internal agent instructions. The client
+supports French and English through `i18n.tr()` and `translations_fr.py`, using
+the authenticated site account's language and English as the fallback. New
+player-facing text must follow that translation path.
 
 ## Issues
 
-The mod's issues are tracked in
+Changes involving the server are tracked in
 [Battle-Conquest/Battle-Conquest](https://github.com/Battle-Conquest/Battle-Conquest/issues)
-under the **Mod Battle-Conquest** label: a change to the mod nearly always goes
-with one on the server (the `/api/mod/battles` contract, storage, quest proof).
+under the **Mod Battle-Conquest** label (the `/api/mod/battles` contract,
+storage, quest proof).
 What the mod needs is described in the issue's "Côté mod" section. Those issues
 are written in French, like the rest of that repository.
 
@@ -29,12 +31,15 @@ in commits and PRs; do not substitute a similarly numbered site issue.
 
 Follow the Development section of [`README.md`](./README.md): run
 `tools/install_dev.py`, start the client once. After that, saving a file under
-`src/` reloads the mod in place, without restarting the game.
+`src/` reloads the mod in place, without restarting the game. Changes to the
+bootstrap or client-indexed resources require reinstalling them and restarting.
 
 ## Branches
 
 - Never work on `main`; never delete `main`.
-- One branch per issue, created from `main`, named after it:
+- Use a separate worktree based on `origin/main`; preserve the main checkout
+  and other contributors' work. Verify the branch's base before editing.
+- One branch per issue, named after it:
   `feat/<num>-<slug>`, `fix/<num>-<slug>`, `chore/<num>-<slug>`.
 
 ## Commits
@@ -54,6 +59,8 @@ chore(#819): adopt Battle-Conquest's contribution conventions
 - One commit per logical change; several commits per PR when the steps are
   distinct.
 - Without an issue (rare): `<type>: <description>`.
+- Stage explicit paths, never `git add .` or `git add -A`. Commit the task's
+  verified changes before handing them over.
 
 Release proposals read these subjects for their `feat` / `perf` / `fix` notes.
 Automation refreshes the active prerelease without changing its number;
@@ -69,7 +76,9 @@ The `Mod CI` GitHub Actions workflow runs the same suite with Python 2.7.18
 on every pull request and push to `main`. It can also be started manually.
 The source is mounted read-only in the test container, with networking disabled.
 
-- The suite must pass: every change comes with a check in `tools/checks/`.
+- The suite must pass. Functional changes come with a meaningful behavior
+  check in `tools/checks/`; tools use the Python 3 tests. Documentation-only
+  edits do not need tests that assert their wording.
 - Release automation runs with Python 3 on the Actions runner, outside the
   game. Its offline tests and packaging checks run with
   `python3 -B -m unittest discover -s tools -p 'test_*.py'` in `Mod CI`.
@@ -86,6 +95,8 @@ python3 tools/bundle_check.py dist/battle-conquest-mod_x.y.z.zip dist/eu.battle-
 ## Pull requests
 
 - Title in the commit format: `<type>(#<num>): <description>`.
+- Write the title and description in French; open ready for review unless a
+  draft was explicitly requested.
 - The description holds:
   - `Closes #<num>` for a mod issue, or `Closes Battle-Conquest/Battle-Conquest#<num>`
     for an issue tracked on the site;
@@ -94,6 +105,10 @@ python3 tools/bundle_check.py dist/battle-conquest-mod_x.y.z.zip dist/eu.battle-
     relevant), not a generic promise;
   - what is left to test in game, if anything.
 - Merged with **squash**: the PR title becomes the commit on `main`.
+- Never inspect, watch or wait for CI after a push or PR update. Report the
+  local checks and PR URL; the maintainer checks CI manually.
+- Preserve all acceptance checkbox states on Battle-Conquest's map initiative
+  #817 and its sub-issues; their validation belongs to the maintainer.
 - A change to the API contract lands on the server first (Battle-Conquest,
   `docs/mod-battles-api.md`), then here.
 
