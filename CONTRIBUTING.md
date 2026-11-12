@@ -80,6 +80,7 @@ The source is mounted read-only in the test container, with networking disabled.
 ```bash
 python tools/build_release.py --version x.y.z
 python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
+python3 tools/bundle_check.py dist/battle-conquest-mod_x.y.z.zip dist/eu.battle-conquest_x.y.z.wotmod --game-version 2.4.1.1
 ```
 
 ## Pull requests
@@ -114,9 +115,12 @@ python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
 - See [RELEASING.md](RELEASING.md) for setup and recovery. The old interactive
   `tools/release.py` remains a manual fallback; do not run it alongside an
   active automated release plan.
-- After publishing the GitHub release, submit
-  `dist/eu.battle-conquest_X.Y.Z.wotmod` to WGMods for review. GitHub remains
-  the source for the latest release while WGMods carries the approved version.
+- After publishing the GitHub release, submit the tested complete
+  `dist/battle-conquest-mod_X.Y.Z.zip` to WGMods for review, with its SHA-256 and
+  installation instructions. The standalone Battle-Conquest `.wotmod` does not
+  contain OpenWG's Python module or JavaScript libraries. Follow the
+  [submission checklist](RELEASING.md#wgmods-submission); GitHub publication
+  does not mean Wargaming approval.
 - Configure the site's `MOD_WGMODS_URL` with the exact WGMods listing URL.
   The site discovers the highest published, visible version automatically.
   `MOD_WGMODS_VERSION=X.Y.Z` is the fallback when WGMods cannot be reached:

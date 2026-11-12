@@ -133,10 +133,12 @@ function placement() {
         root.style.right = `${Math.round(toRem(window.innerWidth - rect.right))}rem`;
         root.style.width = `${Math.round(toRem(rect.width))}rem`;
         // Borrow geometry only: the game's decor can remove our dark background.
+    } else {
+        root.style.right = ''; root.style.width = '';
     }
     root.style.top = `${Math.round(toRem(top))}rem`;
     const account = document.querySelector('.UnicumAccountCard');
-    const chat = document.querySelector('.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed)');
+    const chat = document.querySelector('.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed):not(.UnicumTwitchPanel__dragging)');
     const accountHeight = account && shown(account) ? account.getBoundingClientRect().height + 8 : 0;
     const chatHeight = chat && shown(chat) ? chat.getBoundingClientRect().height + 8 : 0;
     root.style.maxHeight = `${Math.max(120, Math.floor(toRem(window.innerHeight - top - accountHeight - chatHeight - 16)))}rem`;
@@ -146,7 +148,7 @@ function placement() {
     let css = account && shown(account) ? `.UnicumAccountCard { top: ${bottom}rem !important; }` : '';
     if (chat && shown(chat) && !chat.classList.contains('UnicumTwitchPanel__dragging')) {
         const aligned = Math.abs(chat.getBoundingClientRect().right - root.getBoundingClientRect().right) < 8;
-        if (aligned) css += `.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed) { top: ${bottom + toRem(accountHeight)}rem !important; }`;
+        if (aligned) css += `.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed):not(.UnicumTwitchPanel__dragging) { top: ${bottom + toRem(accountHeight)}rem !important; }`;
     }
     if (externalStyle.textContent !== css) externalStyle.textContent = css;
 }
@@ -213,7 +215,11 @@ function poll() {
             send('ready'); lastReady = Date.now();
         }
     } catch (error) { report(`garage card: ${error}`); }
-    try { placement(); } catch (error) { report(`garage card placement: ${error}`); }
+    try { placement(); } catch (error) {
+        // A previous layout must never keep another mod displaced after a failure.
+        externalStyle.textContent = '';
+        report(`garage card placement: ${error}`);
+    }
 }
 const timer = setInterval(poll, 250);
 poll();
