@@ -1,6 +1,24 @@
-"""Settings opening has one outcome and cannot outlive its garage context."""
-from checks.common import check
+"""Card coexistence and settings commands preserve their ownership boundaries."""
+import os
+import re
+
+from checks.common import REPO, check
 from checks.engine import FakeBigWorld
+
+
+def check_garage_card_ownership():
+    directory = os.path.join(REPO, 'src', 'battle_conquest', 'web', 'hangar')
+    with open(os.path.join(directory, 'garage.js')) as handle:
+        script = handle.read()
+    with open(os.path.join(directory, 'garage.css')) as handle:
+        style = handle.read()
+    # Temporary overrides must disappear when the owned column is removed.
+    selectors = [selector.strip() for block in re.findall(r'([^{}]+)\{', re.sub(r'/\*.*?\*/', '', style, flags=re.S))
+                 for selector in block.split(',') if '.Unicum' in selector]
+    check('Unicum layout overrides are confined to the owned column',
+          bool(selectors) and all(selector.startswith('.BattleConquestGarage_column > .Unicum') for selector in selectors))
+    check('the card cannot inject a global competing stylesheet into the garage',
+          not re.search(r'createElement\([\'"]style[\'"]\)', script))
 
 
 def check_garage_card_settings():

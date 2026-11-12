@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
+import {checkPlacement} from './garage_card_placement.mjs';
+import {checkFloor} from './garage_card_floor.mjs';
+import {checkUnicum} from './garage_card_unicum.mjs';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
 const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
@@ -74,7 +77,8 @@ try {
         });
         assert.ok(positions[0].bottom + 7 <= positions[1].top, JSON.stringify(positions));
         assert.ok(positions[1].bottom + 7 <= positions[2].top, JSON.stringify(positions));
-        assert.ok(positions[2].bottom <= height, JSON.stringify(positions));
+        assert.ok(positions[0].bottom <= height, JSON.stringify(positions));
+        assert.equal(positions[0].top, native ? 208 : 180, 'Battle-Conquest stays directly below the missions');
         if (height === 720) {
             assert.equal(await card.locator('.BattleConquestGarage_content').evaluate(el => el.scrollHeight > el.clientHeight), true);
         }
@@ -118,7 +122,7 @@ try {
             assert.equal(await page.evaluate(() => commands.filter(item => item.action === 'reload').length), before + 1);
             assert.equal(await reload.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(36, 35, 31)');
         }
-        if (native && language === 'fr' && height === 720) await page.screenshot({path: '/tmp/bc-mod-52-card.png'});
+        if (native && language === 'fr' && height === 720) await page.screenshot({path: '/tmp/bc-mod-55-card.png'});
         await page.evaluate(() => update({scope: 'B', automatic: true, status: 'Ready to choose'}));
         await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_status').textContent === 'Ready to choose');
         assert.equal(await card.locator('.BattleConquestGarage_choose').isEnabled(), true, 'a sole active objective must not lock manual choices');
@@ -190,5 +194,8 @@ try {
     await page.evaluate(() => {card.stop(); now += 2000; tick();});
     assert.equal(await page.evaluate(() => commands.length), count, 'a stopped card cannot acknowledge rendering');
     await page.close();
-    console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios plus placement-failure heartbeat passed`);
+    const placementScenarios = await checkPlacement(browser, script, css);
+    await checkFloor(browser, script, css);
+    if (process.env.BC_UNICUM_SOURCE) await checkUnicum(browser, script, css, process.env.BC_UNICUM_SOURCE);
+    console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios, ${placementScenarios} coexistence scenarios plus carousel, no-room recovery and placement-failure heartbeat passed`);
 } finally { await browser.close(); }

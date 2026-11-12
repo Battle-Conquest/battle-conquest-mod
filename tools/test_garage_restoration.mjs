@@ -19,7 +19,7 @@ try {
             ${css}</style>
             ${native ? '<div class="QuestCard_base_test"></div>' : ''}
             <div class="UnicumAccountCard" style="top:208rem">Account</div>
-            <div class="UnicumTwitchPanel" style="top:271rem">Twitch</div>`);
+            <div class="UnicumTwitchPanel" style="top:271rem"><div class="UnicumTwitchPanel_header">Twitch</div></div>`);
         await page.evaluate(({script, css, loader}) => {
             window.commands = []; window.reports = [];
             console.warn = message => reports.push(message);
@@ -44,20 +44,29 @@ try {
         assert.ok(displaced[0] > 208 && displaced[1] > 271);
         assert.deepEqual(await page.evaluate(() => saved()), originalStyles);
 
-        // The selector releases Twitch immediately when Unicum changes mode,
-        // before Battle-Conquest has had another polling opportunity.
+        // A header press releases Twitch before its own drag handlers run.
+        // Windowed panels are released on the next layout tick.
         for (const mode of ['windowed', 'dragging']) {
-            await page.evaluate(mode => document.querySelector('.UnicumTwitchPanel').classList.add('UnicumTwitchPanel__' + mode), mode);
+            await page.evaluate(mode => {
+                const chat = document.querySelector('.UnicumTwitchPanel');
+                if (mode === 'dragging') chat.querySelector('.UnicumTwitchPanel_header')
+                    .dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
+                chat.classList.add('UnicumTwitchPanel__' + mode);
+                if (mode === 'windowed') tick();
+            }, mode);
             assert.equal((await page.evaluate(() => positions()))[1], 271);
             await page.evaluate(() => tick());
             assert.equal((await page.evaluate(() => positions()))[1], 271);
-            await page.evaluate(mode => {document.querySelector('.UnicumTwitchPanel').classList.remove('UnicumTwitchPanel__' + mode); tick();}, mode);
+            await page.evaluate(mode => {
+                document.querySelector('.UnicumTwitchPanel').classList.remove('UnicumTwitchPanel__' + mode);
+                document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true})); tick();
+            }, mode);
             assert.deepEqual(await page.evaluate(() => positions()), displaced);
         }
         // A docked panel moved to a different column keeps its own position.
-        await page.evaluate(() => {document.querySelector('.UnicumTwitchPanel').style.right = '600rem'; tick();});
+        await page.evaluate(() => {document.querySelector('.UnicumTwitchPanel').style.left = '20rem'; tick();});
         assert.equal((await page.evaluate(() => positions()))[1], 271);
-        await page.evaluate(() => {document.querySelector('.UnicumTwitchPanel').style.right = ''; tick();});
+        await page.evaluate(() => {document.querySelector('.UnicumTwitchPanel').style.left = ''; tick();});
 
         // Visibility, close and reloading must restore both widgets every time.
         for (let pass = 0; pass < 3; pass++) {
@@ -96,7 +105,10 @@ try {
 
         if (native) {
             await page.evaluate(() => {document.querySelector('.QuestCard_base_test').remove(); tick();});
-            assert.deepEqual(await card.evaluate(el => [el.getBoundingClientRect().width, el.style.right]), [319, '']);
+            assert.deepEqual(await card.evaluate(el => {
+                const rect = el.getBoundingClientRect();
+                return [rect.width, innerWidth - rect.right];
+            }), [319, 46]);
         }
         await page.evaluate(() => {model.model.revision = 0; reload();});
         assert.deepEqual(await page.evaluate(() => positions()), [208, 271]);
