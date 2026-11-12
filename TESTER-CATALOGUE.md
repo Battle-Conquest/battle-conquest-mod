@@ -8,7 +8,7 @@ outside `src/`, and only the separate builder adds them to a staged package.
 ## Build and install
 
 ```bash
-rtk proxy python3 tools/build_catalog_tester.py --version 1.2.0 --game-version 2.4.1.0
+rtk proxy python3 tools/build_catalog_tester.py --version X.Y.Z --game-version A.B.C.D
 ```
 
 Choose the source revision's mod version and the installed game's version.
@@ -22,6 +22,9 @@ Close the game. Remove the standard Battle-Conquest `.wotmod`, then unzip the
 private tester archive into the game folder. **Do not install both together:**
 they share their Python entry point. Existing account linking remains usable.
 The settings page explicitly says **Battle-Conquest TESTER**.
+Unlike the public installation ZIP, this private archive does not bundle
+OpenWG. Keep an existing shared Gameface 1.2.2 installation if the integrated
+garage card is needed; without it, the detailed window remains available.
 
 ## Manual collection
 
@@ -69,7 +72,7 @@ No inventory restriction, guessed paths, clone pairing or reskin inference is us
 ```bash
 rtk proxy python2.7 tools/selftest.py
 rtk proxy python3 tools/test_catalog_packaging.py
-rtk proxy python2.7 tools/release_check.py dist/eu.battle-conquest-catalog-tester_1.2.0.wotmod
+rtk proxy python2.7 tools/release_check.py dist/eu.battle-conquest-catalog-tester_X.Y.Z.wotmod
 ```
 
 Also build and run `release_check.py` on the standard package. The packaging test

@@ -1,5 +1,9 @@
 # Isolation des comptes — #964
 
+Ce guide reste la référence pour les anciennes installations, les fichiers
+locaux au schéma 2 et un éventuel retour arrière. L'isolation fait partie du
+mod standard ; aucun paquet de diagnostic distinct n'est requis.
+
 Le serveur doit inclure Battle-Conquest/Battle-Conquest#1012 avant ce mod.
 Aucune nouvelle migration DB, variable d’environnement ou option de diagnostic
 n’est nécessaire. La protection du propriétaire est toujours active.
@@ -8,16 +12,19 @@ n’est nécessaire. La protection du propriétaire est toujours active.
 
 1. Fermer le jeu et sauvegarder `mods/configs/battle_conquest/` en lieu sûr.
    Ce dossier contient des secrets : ne jamais le joindre à une issue.
-2. Construire un paquet de recette distinct de la première étape diagnostic :
+2. Télécharger le ZIP complet de la version voulue, selon [README.md](README.md#install),
+   ou construire un paquet de recette depuis les sources :
 
    ```bash
-   python3 tools/build_release.py --version 0.0.965 --python27 /chemin/vers/python2.7
-   python2.7 tools/release_check.py dist/eu.battle-conquest_0.0.965.wotmod
+   python3 tools/build_release.py --version X.Y.Z --python27 /chemin/vers/python2.7
+   python2.7 tools/release_check.py dist/eu.battle-conquest_X.Y.Z.wotmod
    ```
 
 3. Retirer l’ancien paquet Battle-Conquest du dossier `mods/<version du jeu>/`
    et installer le ZIP généré. Conserver un seul `.wotmod` Battle-Conquest.
-   Le ZIP cible la version de jeu déclarée dans `tools/GAME_VERSION`.
+   Le ZIP cible `GAME_VERSION` dans `tools/build_release.py` et contient aussi
+   la dépendance partagée OpenWG. Après une mise à jour WoT, adapter le dossier
+   comme indiqué dans le guide d'installation.
 4. Laisser `diagnostics.json` à `{"enabled":false,"identity_enabled":false}`.
    Au garage, l’ancien secret est interrogé uniquement sur son site d’origine
    via `/api/mod/me`. L’identifiant WG et la région retournés déterminent son

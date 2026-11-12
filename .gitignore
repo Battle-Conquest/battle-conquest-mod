@@ -18,3 +18,7 @@ src/battle_conquest/local_settings.py
 
 # Local workspace configuration; never part of the mod package.
 /.env.local
+
+# Retired assistant configuration; project instructions live in AGENTS.md.
+/CLAUDE.md
+/.claude/

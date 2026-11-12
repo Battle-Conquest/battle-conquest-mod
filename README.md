@@ -163,8 +163,9 @@ requires the identity metadata delivered by Battle-Conquest#1012.
   your own counters (damage, kills, spotting, XP...). Nothing about the other
   players.
 - The battles of the account logged in only, proven by a key the mod draws
-  itself. Only its SHA-256 ever reaches the site, so a site that is breached
-  leaks nothing that can send battles in your name.
+  itself. The browser link contains only its SHA-256; authenticated API calls
+  send the secret in an HTTPS header to that same site. The server stores its
+  hash rather than the secret.
 
 The contract is described in Battle-Conquest's
 [`docs/mod-battles-api.md`](https://github.com/Battle-Conquest/Battle-Conquest/blob/main/docs/mod-battles-api.md),
@@ -218,6 +219,8 @@ battle by player and arena). Nothing is counted twice.
 
 For the release commands, ZIP contents and publication steps, see the
 [release guide (French)](./RELEASING.md).
+For the separate private catalogue collection build, see
+[TESTER-CATALOGUE.md](TESTER-CATALOGUE.md); it is never part of public releases.
 
 Python 2.7 in `src/`, as the client runs it. Read [`AGENTS.md`](./AGENTS.md)
 before changing anything, above all how hot reload stays safe.
