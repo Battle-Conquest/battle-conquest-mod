@@ -11,6 +11,7 @@ export async function checkFloor(browser, script, css) {
             ${css}</style><div class="QuestCard_base_test"></div><div class="UnicumAccountCard"></div>
             <div class="UnicumTwitchPanel"></div><div class="Page_carousel_test"></div>`);
         await page.evaluate(script => {
+            window.now = 2000; Date.now = () => now;
             window.setInterval = fn => {window.tick = fn; return 1;};
             window.clearInterval = () => {};
             window.commands = [];
@@ -21,7 +22,7 @@ export async function checkFloor(browser, script, css) {
             window.card = new Function('api', script)({model, report: message => {throw new Error(message);}});
         }, script);
         const card = page.locator('.BattleConquestGarage');
-        assert.equal(await card.evaluate(el => el.getBoundingClientRect().top), 419);
+        assert.equal(await card.evaluate(el => el.getBoundingClientRect().top), 208);
         assert.ok(await card.evaluate(el => el.getBoundingClientRect().bottom <= 544), 'the carousel is outside the usable column');
         const reload = card.getByRole('button', {name: 'Reload', exact: true});
         await reload.scrollIntoViewIfNeeded();
@@ -32,7 +33,22 @@ export async function checkFloor(browser, script, css) {
         await reload.click();
         assert.equal(await page.evaluate(() => commands.at(-1).action), 'reload');
         await page.evaluate(() => {document.querySelector('.Page_carousel_test').style.display = 'none'; tick();});
-        assert.ok(await card.evaluate(el => el.getBoundingClientRect().bottom > 544), 'a hidden carousel reserves no space');
+        assert.ok(await page.locator('.BattleConquestGarage_column').evaluate(el => el.getBoundingClientRect().bottom > 544),
+            'a hidden carousel reserves no space');
+        await page.evaluate(() => {
+            now += 2000;
+            document.querySelector('.Page_carousel_test').style.display = '';
+            document.querySelector('.QuestCard_base_test').style.height = '500px';
+            tick(); now += 2000; tick();
+        });
+        assert.equal(await card.isVisible(), false, 'native missions leaving no header room cannot leave a false healthy card');
+        const count = await page.evaluate(() => commands.filter(row => row.action === 'ready').length);
+        await page.evaluate(() => {for (let i = 0; i < 20; i++) {now += 2000; tick();}});
+        assert.equal(await page.evaluate(() => commands.filter(row => row.action === 'ready').length), count,
+            'a measured lack of space lets the existing fallback activate');
+        await page.evaluate(() => {document.querySelector('.QuestCard_base_test').style.height = '160px'; tick();});
+        assert.equal(await card.isVisible(), true);
+        assert.equal(await page.evaluate(() => commands.filter(row => row.action === 'ready').length), count + 1);
         await page.evaluate(() => card.stop());
     } finally { await page.close(); }
 }

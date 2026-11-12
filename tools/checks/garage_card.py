@@ -12,12 +12,12 @@ def check_garage_card_ownership():
         script = handle.read()
     with open(os.path.join(directory, 'garage.css')) as handle:
         style = handle.read()
-    # Unicum's DOM classes are observation points, never styling targets.
-    # Browser tests cover geometry; this also guards the packaged resources
-    # when the Python-only client suite runs without a browser.
-    check('garage CSS never takes ownership of Unicum widgets',
-          not re.search(r'\.Unicum[^\n{}\'\"]*\{', script + style))
-    check('the card cannot inject a competing stylesheet into the garage',
+    # Temporary overrides must disappear when the owned column is removed.
+    selectors = [selector.strip() for block in re.findall(r'([^{}]+)\{', re.sub(r'/\*.*?\*/', '', style, flags=re.S))
+                 for selector in block.split(',') if '.Unicum' in selector]
+    check('Unicum layout overrides are confined to the owned column',
+          bool(selectors) and all(selector.startswith('.BattleConquestGarage_column > .Unicum') for selector in selectors))
+    check('the card cannot inject a global competing stylesheet into the garage',
           not re.search(r'createElement\([\'"]style[\'"]\)', script))
 
 

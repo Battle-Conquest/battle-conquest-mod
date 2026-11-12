@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {checkPlacement} from './garage_card_placement.mjs';
 import {checkFloor} from './garage_card_floor.mjs';
+import {checkUnicum} from './garage_card_unicum.mjs';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
 const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
@@ -74,11 +75,10 @@ try {
             const rect = selector => {const r = document.querySelector(selector).getBoundingClientRect(); return {top: r.top, bottom: r.bottom};};
             return [rect('.BattleConquestGarage'), rect('.UnicumAccountCard'), rect('.UnicumTwitchPanel')];
         });
+        assert.ok(positions[0].bottom + 7 <= positions[1].top, JSON.stringify(positions));
         assert.ok(positions[1].bottom + 7 <= positions[2].top, JSON.stringify(positions));
-        assert.ok(positions[2].bottom + 7 <= positions[0].top, JSON.stringify(positions));
         assert.ok(positions[0].bottom <= height, JSON.stringify(positions));
-        assert.equal(positions[1].top, 208, 'Unicum keeps its own account-card placement');
-        assert.equal(positions[2].top, 271, 'Unicum keeps its own chat placement');
+        assert.equal(positions[0].top, native ? 208 : 180, 'Battle-Conquest stays directly below the missions');
         if (height === 720) {
             assert.equal(await card.locator('.BattleConquestGarage_content').evaluate(el => el.scrollHeight > el.clientHeight), true);
         }
@@ -196,5 +196,6 @@ try {
     await page.close();
     const placementScenarios = await checkPlacement(browser, script, css);
     await checkFloor(browser, script, css);
-    console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios, ${placementScenarios} placement scenarios plus placement-failure heartbeat passed`);
+    if (process.env.BC_UNICUM_SOURCE) await checkUnicum(browser, script, css, process.env.BC_UNICUM_SOURCE);
+    console.log(`Garage card: ${scenarios} FR/EN and viewport scenarios, ${placementScenarios} coexistence scenarios plus carousel, no-room recovery and placement-failure heartbeat passed`);
 } finally { await browser.close(); }
