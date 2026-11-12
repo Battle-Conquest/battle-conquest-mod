@@ -51,6 +51,13 @@ This refresh keeps the same version and prerelease status. Download the ZIP agai
 
 This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
 
+### Changes in this build
+
+- Afficher Battle-Conquest au-dessus d’Unicum
+- Validate complete WGMods bundles and restore Unicum panels
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.1
 
 Battle-Conquest for **World of Tanks EU 2.4.1.1**.
