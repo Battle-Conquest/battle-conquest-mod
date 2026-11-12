@@ -6,6 +6,17 @@
     color: #e6e2d8; font-family: PFDINMax, sans-serif; font-size: 16rem; font-weight: normal;
 }
 .BattleConquestGarage > * { position: relative; z-index: 2; }
+.BattleConquestGarage_column {
+    position: absolute; display: flex; flex-direction: column; align-items: flex-end;
+    overflow-y: auto; overflow-x: hidden; pointer-events: auto;
+}
+.BattleConquestGarage_column > .BattleConquestGarage { position: relative; top: auto; right: auto; flex-shrink: 0; }
+/* Temporary layout only; removing the column restores each mod's own styles. */
+.BattleConquestGarage_column > .UnicumAccountCard,
+.BattleConquestGarage_column > .UnicumTwitchPanel {
+    position: relative !important; top: auto !important; right: auto !important;
+    left: auto !important; bottom: auto !important; flex-shrink: 0; margin-top: 8rem !important;
+}
 .BattleConquestGarage_heading { display: flex; align-items: center; flex-shrink: 0; margin-bottom: 8rem; }
 .BattleConquestGarage_brand { color: #eac56e; margin-right: 8rem; }
 .BattleConquestGarage_title { flex: 1; min-width: 0; font-size: 16rem; }
@@ -30,6 +41,8 @@
 .BattleConquestGarage_settings { flex-shrink: 0; }
 .BattleConquestGarage_settings svg { display: block; width: 16rem; height: 16rem; pointer-events: none; }
 .BattleConquestGarage_content { min-height: 0; overflow-y: auto; flex: 1 1 auto; }
+.BattleConquestGarage__scrollCard { overflow-x: hidden; overflow-y: auto; }
+.BattleConquestGarage__scrollCard .BattleConquestGarage_content { flex: 0 0 auto; overflow: visible; }
 .BattleConquestGarage_content p { margin: 4rem 0; }
 .BattleConquestGarage_picker { position: relative; margin-bottom: 8rem; }
 .BattleConquestGarage_choose { width: 100%; }

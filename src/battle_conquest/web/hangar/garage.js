@@ -1,13 +1,18 @@
-// A Gameface card above other mods, driven only by the shared Python snapshot.
+// A Gameface card above visible Unicum widgets, driven by the shared Python snapshot.
 const { model, report } = api;
 let alive = true, state = null, encoded = null, metricsKey = null, choicesKey = null;
 let lastReady = 0;
+let layoutAvailable = true;
+let heldChat = null;
+const column = document.createElement('div');
+column.className = 'BattleConquestGarage_column';
+const parked = new Map();
+column.addEventListener('mousedown', detachChat, true);
+document.addEventListener('mouseup', releaseChat, true);
 const root = document.createElement('section');
 root.className = 'BattleConquestGarage';
 root.setAttribute('aria-label', 'Battle-Conquest');
 root.style.display = 'none';
-const externalStyle = document.createElement('style');
-document.head.appendChild(externalStyle);
 
 function node(tag, name, parent, text) {
     const item = document.createElement(tag);
@@ -74,7 +79,7 @@ function action(button, callback) {
         if (!button.disabled) callback();
     });
 }
-action(close, () => { hideOptions(); root.style.display = 'none'; externalStyle.textContent = ''; send('close'); });
+action(close, () => { hideOptions(); root.style.display = 'none'; releaseColumn(); send('close'); });
 action(settings, () => send('settings'));
 action(details, () => send('details'));
 action(reload, () => send('reload'));
@@ -122,33 +127,120 @@ function shown(item) {
     return true;
 }
 const toRem = (px) => typeof viewEnv !== 'undefined' && viewEnv.pxToRem ? viewEnv.pxToRem(px) : px;
+function move(item, parent, before = null) {
+    // Moving a live input can drop focus; keep Unicum's draft and keyboard use.
+    const focused = item.contains(document.activeElement) ? document.activeElement : null;
+    parent.insertBefore(item, before);
+    if (focused && document.activeElement !== focused) focused.focus();
+}
+function restore(item) {
+    const anchor = parked.get(item);
+    if (item.parentNode === column && anchor.parentNode) move(item, anchor.parentNode, anchor);
+    if (anchor.parentNode) anchor.parentNode.removeChild(anchor);
+    parked.delete(item);
+}
+function detachChat(event) {
+    // Unicum reads its viewport rectangle at mouse-down and commits the final
+    // rectangle at mouse-up. Release before that sequence, even for a quick drag.
+    for (const item of parked.keys()) {
+        if (!item.classList.contains('UnicumTwitchPanel')) continue;
+        for (const selector of ['.UnicumTwitchPanel_header', '.UnicumTwitchPanel_grip']) {
+            const handle = item.querySelector(selector);
+            if (handle && handle.contains(event.target)) { heldChat = item; restore(item); return; }
+        }
+    }
+}
+function releaseChat() { heldChat = null; }
+function releaseColumn() {
+    for (const item of Array.from(parked.keys())) restore(item);
+    if (root.parentNode === column) move(root, document.body);
+    if (column.parentNode) column.parentNode.removeChild(column);
+}
+function shareColumn(items, top, right, width, room) {
+    for (const item of Array.from(parked.keys())) {
+        if (!items.includes(item)) restore(item);
+    }
+    column.style.top = `${top}rem`;
+    column.style.right = `${right}rem`;
+    column.style.width = `${Math.max(width, ...items.map(item => toRem(item.getBoundingClientRect().width)))}rem`;
+    column.style.maxHeight = `${room}rem`;
+    if (!column.parentNode) document.body.appendChild(column);
+    if (root.parentNode !== column) move(root, column, column.firstChild);
+    items.forEach((item, index) => {
+        if (!parked.has(item)) {
+            const anchor = document.createComment('Battle-Conquest: original widget position');
+            item.parentNode.insertBefore(anchor, item);
+            parked.set(item, anchor);
+        }
+        const before = column.children[index + 1] || null;
+        if (before !== item) move(item, column, before);
+    });
+}
+function columnFloor() {
+    const carousel = document.querySelector('[class*="Page_carousel"]');
+    if (carousel && shown(carousel)) {
+        const rect = carousel.getBoundingClientRect();
+        if (rect.height > 0 && rect.top > 0) return Math.min(window.innerHeight, rect.top);
+    }
+    return window.innerHeight;
+}
 function placement() {
-    if (root.style.display === 'none') { externalStyle.textContent = ''; return; }
+    if (root.style.display === 'none') { releaseColumn(); return; }
     const cards = Array.from(document.querySelectorAll('[class*="QuestCard_base"], [class*="PersonalMissionCard_base"]'))
         .filter((item) => shown(item) && item.getBoundingClientRect().height > 0 && item.getBoundingClientRect().left > window.innerWidth / 2);
-    let top = 180;
+    let top = 180, right = 46, width = 319;
     if (cards.length) {
         top = Math.max(...cards.map((item) => item.getBoundingClientRect().bottom)) + 8;
         const rect = cards[0].getBoundingClientRect();
-        root.style.right = `${Math.round(toRem(window.innerWidth - rect.right))}rem`;
-        root.style.width = `${Math.round(toRem(rect.width))}rem`;
+        right = Math.round(toRem(window.innerWidth - rect.right));
+        width = Math.round(toRem(rect.width));
         // Borrow geometry only: the game's decor can remove our dark background.
     }
-    root.style.top = `${Math.round(toRem(top))}rem`;
-    const account = document.querySelector('.UnicumAccountCard');
-    const chat = document.querySelector('.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed)');
-    const accountHeight = account && shown(account) ? account.getBoundingClientRect().height + 8 : 0;
-    const chatHeight = chat && shown(chat) ? chat.getBoundingClientRect().height + 8 : 0;
-    root.style.maxHeight = `${Math.max(120, Math.floor(toRem(window.innerHeight - top - accountHeight - chatHeight - 16)))}rem`;
-    const bottom = Math.round(toRem(root.getBoundingClientRect().bottom)) + 8;
-    // An owned stylesheet overrides the other mod's periodic positioning;
-    // removing it restores its own styles, without writing its saved settings.
-    let css = account && shown(account) ? `.UnicumAccountCard { top: ${bottom}rem !important; }` : '';
-    if (chat && shown(chat) && !chat.classList.contains('UnicumTwitchPanel__dragging')) {
-        const aligned = Math.abs(chat.getBoundingClientRect().right - root.getBoundingClientRect().right) < 8;
-        if (aligned) css += `.UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed) { top: ${bottom + toRem(accountHeight)}rem !important; }`;
+    const topRem = Math.round(toRem(top));
+    const room = Math.max(0, Math.floor(toRem(columnFloor() - 16) - topRem));
+    // Only the shared column overrides geometry. Never write another mod's
+    // inline styles or preferences; its own periodic layout keeps running.
+    const items = Array.from(document.querySelectorAll('.UnicumAccountCard, .UnicumTwitchPanel:not(.UnicumTwitchPanel__windowed)')).filter(item => {
+        if (!shown(item) || item === heldChat) return false;
+        if (item.classList.contains('UnicumTwitchPanel')
+                && (item.classList.contains('UnicumTwitchPanel__dragging') || (item.style.left && item.style.left !== 'auto'))) return false;
+        const rect = item.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && toRem(rect.right) > toRem(window.innerWidth) - right - width
+            && toRem(rect.left) < toRem(window.innerWidth) - right
+            && (parked.has(item) || (rect.bottom > 0 && rect.top < window.innerHeight));
+    }).sort((a, b) => Number(b.classList.contains('UnicumAccountCard')) - Number(a.classList.contains('UnicumAccountCard')));
+    root.style.width = `${width}rem`;
+    const style = getComputedStyle(root);
+    const box = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+        + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+    layoutAvailable = room >= toRem(box + heading.getBoundingClientRect().height);
+    root.style.visibility = layoutAvailable ? '' : 'hidden';
+    if (items.length && layoutAvailable) {
+        shareColumn(items, topRem, right, width, room);
+        root.style.top = root.style.right = '';
+    } else {
+        releaseColumn();
+        root.style.top = `${topRem}rem`;
+        root.style.right = `${right}rem`;
     }
-    if (externalStyle.textContent !== css) externalStyle.textContent = css;
+    const reserved = items.reduce((height, item) => height + toRem(item.getBoundingClientRect().height) + 8, 0);
+    // When the cards cannot fit together, scroll the shared column rather
+    // than pushing Unicum behind the carousel or out of the screen.
+    const cardRoom = items.length ? Math.max(160, room - reserved) : room;
+    root.style.maxHeight = `${cardRoom}rem`;
+    // Keep the usual inner scroller while the controls and a useful content
+    // viewport fit. In a short slot the whole card scrolls, including actions.
+    let chrome = box;
+    for (const item of [heading, footer, status]) {
+        const part = getComputedStyle(item);
+        if (part.display !== 'none') chrome += item.getBoundingClientRect().height
+            + parseFloat(part.marginTop) + parseFloat(part.marginBottom);
+    }
+    const scrollCard = cardRoom < toRem(chrome) + 80;
+    if (root.classList.contains('BattleConquestGarage__scrollCard') !== scrollCard) {
+        root.classList.toggle('BattleConquestGarage__scrollCard', scrollCard);
+        root.scrollTop = 0;
+    }
 }
 
 function render(data) {
@@ -207,13 +299,15 @@ function poll() {
     try {
         const json = model.model && model.model.snapshot;
         if (json && json !== encoded) { render(JSON.parse(json)); encoded = json; }
-        // Positioning beside another mod can fail independently of rendering.
-        // Keep a live card's acknowledgement independent of that layout work.
-        if (state && state.shown && root.style.display !== 'none' && Date.now() - lastReady > 1500) {
+    } catch (error) { report(`garage card: ${error}`); }
+    try { placement(); } catch (error) { report(`garage card placement: ${error}`); }
+    // A layout exception alone does not invalidate an otherwise live card.
+    // A measured lack of room does: let the existing detailed fallback open.
+    try {
+        if (state && state.shown && layoutAvailable && root.style.display !== 'none' && Date.now() - lastReady > 1500) {
             send('ready'); lastReady = Date.now();
         }
     } catch (error) { report(`garage card: ${error}`); }
-    try { placement(); } catch (error) { report(`garage card placement: ${error}`); }
 }
 const timer = setInterval(poll, 250);
 poll();
@@ -221,6 +315,9 @@ return { stop() {
     alive = false; clearInterval(timer);
     document.removeEventListener('mousedown', outside);
     document.removeEventListener('keydown', keyboardMode, true);
+    releaseColumn();
+    column.removeEventListener('mousedown', detachChat, true);
+    document.removeEventListener('mouseup', releaseChat, true);
+    heldChat = null;
     if (root.parentNode) root.parentNode.removeChild(root);
-    if (externalStyle.parentNode) externalStyle.parentNode.removeChild(externalStyle);
 } };

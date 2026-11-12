@@ -42,8 +42,15 @@ Not affiliated with Wargaming.net. Derived from
 
 ### Integrated garage card (#1047)
 
-The garage card appears beneath the game's mission cards, before visible Unicum
-widgets. It offers **Link my account** before linking, then your own objectives,
+The garage card appears beneath the game's mission cards, above visible Unicum
+widgets in the same column. The cards share a scrolling column when their total
+height exceeds the space above the tank carousel. Unicum's saved preferences
+stay unchanged: closing or disabling Battle-Conquest restores the widgets to
+their original parent and normal layout. Independently moved or windowed Twitch
+panels stay separate. With Unicum absent or hidden, Battle-Conquest keeps its
+usual position and its own scrolling content. If even its header cannot fit,
+the existing detailed-window fallback applies until space becomes available.
+It offers **Link my account** before linking, then your own objectives,
 official progress and available mod estimates. Missing or incomplete values stay
 explicitly unknown. A dropdown selects the shared tracked quest; **Details**
 opens and persistently enables the existing comparison window.
@@ -83,6 +90,9 @@ no schema migration is needed.
 Local verification: `python2.7 tools/selftest.py`, then build and release check
 as below. `tools/test_garage_card.mjs` tests the real card scripts in Playwright
 (Node 20+, `BC_PLAYWRIGHT_MODULE` and `PLAYWRIGHT_BROWSERS_PATH` when needed).
+Set `BC_UNICUM_SOURCE` to a separate unicum.gg-mod checkout to also exercise
+its account/chat scripts with independent timers, input drafts and rapid dragging.
+This optional check reads local sources and never downloads or vendors that mod.
 Real WoT rendering, Gameface input, Unicum coexistence and return from battle
 still require in-game acceptance; browser and Python fakes do not replace it.
 
