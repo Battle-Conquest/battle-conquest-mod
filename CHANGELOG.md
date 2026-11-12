@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+### Changes in this build
+
+- Maintenance updates to the mod and its release tooling.
+
 ## 1.2.2
 
 Testing prerelease for **World of Tanks EU 2.4.1.1**. The target game version is unchanged.
