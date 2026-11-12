@@ -300,7 +300,11 @@ function poll() {
         const json = model.model && model.model.snapshot;
         if (json && json !== encoded) { render(JSON.parse(json)); encoded = json; }
     } catch (error) { report(`garage card: ${error}`); }
-    try { placement(); } catch (error) { report(`garage card placement: ${error}`); }
+    try { placement(); } catch (error) {
+        // A previous layout must never keep another mod displaced after a failure.
+        releaseColumn();
+        report(`garage card placement: ${error}`);
+    }
     // A layout exception alone does not invalidate an otherwise live card.
     // A measured lack of room does: let the existing detailed fallback open.
     try {

@@ -99,6 +99,14 @@ eu.battle-conquest_X.Y.Z.wotmod
 battle-conquest-mod_X.Y.Z.zip
 ```
 
+Le ZIP est l'installation complète et le fichier à soumettre à WGMods.
+Le `.wotmod` autonome ne contient pas OpenWG : sans cette dépendance, la carte
+intégrée est indisponible et la fenêtre détaillée sert de secours. La construction
+et les deux voies de publication vérifient le ZIP : paquet du mod identique au
+fichier autonome, OpenWG Gameface 1.2.2 épinglé par SHA-256, module Python,
+bibliothèques JavaScript, imports de la carte et licence. Un contrôle en échec
+bloque la publication avant toute modification des tags ou des releases.
+
 Un reçu `release-build.json` consigne le plan, le commit, le dossier WoT et les
 SHA-256 des fichiers. Il est joint après les autres fichiers ; une nouvelle
 stable reste en brouillon jusqu'à la fin des envois. Une prérelease peut être
@@ -150,6 +158,7 @@ python3 -B -m unittest discover -s tools -p 'test_*.py'
 python2.7 -B tools/selftest.py
 python3 tools/build_release.py --version X.Y.Z --python27 /chemin/vers/python2.7
 python2.7 -B tools/release_check.py dist/eu.battle-conquest_X.Y.Z.wotmod
+python3 -B tools/bundle_check.py dist/battle-conquest-mod_X.Y.Z.zip dist/eu.battle-conquest_X.Y.Z.wotmod --game-version 2.4.1.1
 ```
 
 La prévisualisation ne modifie aucun fichier ni GitHub. Le script historique
@@ -158,3 +167,34 @@ avec brouillon ; il conserve son ancien calcul (`feat` → mineure, sinon patch)
 Ne pas l'utiliser pendant une livraison automatisée. La soumission à WGMods
 reste manuelle ; suivre [CONTRIBUTING.md](CONTRIBUTING.md#versions-and-releases).
 Une publication GitHub ne vaut pas approbation par Wargaming.
+
+## WGMods submission
+
+La soumission reste manuelle et utilise **le ZIP complet testé**, pas le seul
+`.wotmod`. Le dossier indiqué ci-dessous doit correspondre à `GAME_VERSION` et
+au client de recette ; après un changement WoT, refaire la recette du ZIP destiné
+à la soumission avec les chemins adaptés.
+
+```text
+battle-conquest-mod_X.Y.Z.zip
+├── mods/2.4.1.1/eu.battle-conquest_X.Y.Z.wotmod
+├── mods/2.4.1.1/net.openwg/net.openwg.gameface_1.2.2.wotmod
+└── LICENSE-openwg-gameface.txt
+```
+
+1. Exécuter `bundle_check.py` avec la commande ci-dessus et conserver son SHA-256.
+   Installer ce ZIP sur un client propre, sans OpenWG préalable : vérifier la
+   carte, ses actions, la liaison et la réception unique d'une bataille.
+2. Tester une mise à jour avec OpenWG 1.2.2 déjà installé au chemin partagé :
+   une seule copie de chaque paquet, liaison et configuration conservées dans
+   `mods/configs/battle_conquest/`. Pour une autre version OpenWG, vérifier les
+   exigences des autres mods avant remplacement ; ne pas activer deux versions.
+3. Vérifier le secours sans dépendance et la restauration des panneaux compte
+   et Twitch d'Unicum après masquage, réaffichage et retrait du mod, aux trois
+   résolutions de l'[issue #56](https://github.com/Battle-Conquest/battle-conquest-mod/issues/56).
+4. Joindre le ZIP dont l'empreinte correspond au fichier testé. La description,
+   le changelog et le [guide d'installation](README.md#install) accessibles depuis
+   la soumission doivent annoncer OpenWG **inclus dans le ZIP**, préciser ces
+   chemins, le redémarrage et la conservation de la configuration lors d'une mise à jour.
+5. Attendre la décision de Wargaming avant de modifier la version approuvée
+   affichée sur le site. Ne pas remplacer une release stable pour cette correction.

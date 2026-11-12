@@ -7,6 +7,8 @@ dist/battle-conquest-mod_<version>.zip laid out as the game folder, which is
 what is published:
 
   mods/<game version>/eu.battle-conquest_<version>.wotmod
+  mods/<game version>/net.openwg/net.openwg.gameface_1.2.2.wotmod
+  LICENSE-openwg-gameface.txt
 
 modsSettingsApi and modsListApi, which the settings page uses when they are
 installed, are not shipped: they are other authors' work, and the garage's
@@ -34,6 +36,7 @@ import zipfile
 from pathlib import Path
 
 from install_dev import PYTHON27_CANDIDATES, RES
+from bundle_check import check_bundle
 
 REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / 'src' / 'battle_conquest'
@@ -151,7 +154,9 @@ def bundle(package: Path, version: str) -> None:
         archive.write(package, f'mods/{GAME_VERSION}/{package.name}')
         archive.write(dependencies[0], f'mods/{GAME_VERSION}/net.openwg/{dependencies[0].name}')
         archive.write(GAMEFACE / 'LICENSE-gameface', 'LICENSE-openwg-gameface.txt')
+    checksum = check_bundle(target, package, GAME_VERSION)
     print(f'wrote {target} ({target.stat().st_size / 1024:.0f} KB)')
+    print(f'complete installation verified; WGMods submission ZIP SHA-256: {checksum}')
 
 
 if __name__ == '__main__':

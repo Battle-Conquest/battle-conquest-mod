@@ -9,7 +9,9 @@ from unittest.mock import patch
 
 import release_publish as publisher
 import release_state as shared
+import release as manual
 from test_release_plan import BASE, COMMIT, planned, released
+from test_garage_packaging import write_bundle
 
 
 class GitHub:
@@ -76,10 +78,23 @@ class ReleasePublicationTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.files = [self.root / name for name in
-                      ("eu.battle-conquest_1.2.2.wotmod", "battle-conquest-mod_1.2.2.zip")]
+        self.files = list(write_bundle(self.root))
+
+    def test_invalid_bundle_blocks_automatic_and_manual_publication_before_writes(self):
+        self.files[0].write_bytes(b'an unchecked replacement package')
+        hub = GitHub(True)
+        with self.assertRaisesRegex(ValueError, 'differ'):
+            self.publish(hub, True)
+        self.assertFalse(hub.writes)
+        self.assertFalse(hub.uploads)
+        dist = self.root / 'dist'
+        dist.mkdir()
         for path in self.files:
-            path.write_bytes(b"checked build fixture")
+            (dist / path.name).write_bytes(path.read_bytes())
+        with patch.object(manual, 'REPO', str(self.root)), patch.object(manual, 'run') as command:
+            with self.assertRaisesRegex(ValueError, 'differ'):
+                manual.publish('1.2.2', 'Reviewed notes')
+        command.assert_not_called()
 
     def publish(self, hub, testing=False):
         publisher.publish("owner/repo", planned(testing), COMMIT, "## 1.2.2\n\nReviewed notes.",

@@ -15,9 +15,12 @@ Not affiliated with Wargaming.net. Derived from
 1. Link your Wargaming account on [battle-conquest.eu](https://battle-conquest.eu)
    first: until it is, every battle the mod sends is refused.
 2. Prefer the **Wargaming-approved version on WGMods**, linked from the
-   [Battle-Conquest mod page](https://battle-conquest.eu/my-mod). Place its
-   `.wotmod` file in `mods/<game version>/` inside your World of Tanks folder,
-   or use the WGMods application.
+   [Battle-Conquest mod page](https://battle-conquest.eu/my-mod). Extract its
+   complete installation archive into your World of Tanks folder,
+   or use the WGMods application with all supplied dependencies. For versions
+   **1.2.1 and later**, the integrated card requires the shared OpenWG Gameface
+   package described below; installing only the Battle-Conquest `.wotmod` does
+   not provide it. Older approved versions can have different requirements.
    For the very latest version, download `battle-conquest-mod_<version>.zip`
    from the [latest GitHub release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
    and unzip the complete archive into your World of Tanks folder. It contains
@@ -37,6 +40,28 @@ Not affiliated with Wargaming.net. Derived from
    you confirm, and the mod writes its configuration itself. Nothing to type.
 4. Play. Battles leave from the garage shortly after they end, including those
    whose results screen you never opened.
+
+### Updating an existing installation
+
+Fully close the game. Back up `mods/configs/battle_conquest/` privately and leave
+it in place: it contains the account link, queues and display preferences.
+Remove only the previous Battle-Conquest `.wotmod` and disable any development
+bootstrap, then extract the complete ZIP. Keep one Battle-Conquest package in
+the current game folder. The shared dependency is exactly
+`mods/<game version>/net.openwg/net.openwg.gameface_1.2.2.wotmod` (MIT); both its
+Python module and JavaScript libraries are inside that file. It is included in
+the **ZIP**, not inside `eu.battle-conquest_<version>.wotmod`.
+
+If another mod already installed the same OpenWG version at this path, keep
+one copy there; do not also install it at the root of the version folder.
+If a different version is installed, check the other mod's requirements before
+replacing it; this release pins and tests 1.2.2, not arbitrary OpenWG versions.
+Do not leave multiple active versions of the shared dependency. Restart, check
+the card and account link, then verify that a battle reaches the site once.
+Without OpenWG, battle capture still works and the detailed window is the fallback.
+
+Maintainers: submit the complete tested ZIP to WGMods, with its installation
+instructions and SHA-256; see [the submission checklist](RELEASING.md#wgmods-submission).
 
 ## The settings page
 
@@ -90,6 +115,8 @@ no schema migration is needed.
 Local verification: `python2.7 tools/selftest.py`, then build and release check
 as below. `tools/test_garage_card.mjs` tests the real card scripts in Playwright
 (Node 20+, `BC_PLAYWRIGHT_MODULE` and `PLAYWRIGHT_BROWSERS_PATH` when needed).
+`tools/test_garage_restoration.mjs` also checks both Unicum panels through
+hide/show, Twitch dragging/windowed modes, placement failures and loader teardown.
 Set `BC_UNICUM_SOURCE` to a separate unicum.gg-mod checkout to also exercise
 its account/chat scripts with independent timers, input drafts and rapid dragging.
 This optional check reads local sources and never downloads or vendors that mod.

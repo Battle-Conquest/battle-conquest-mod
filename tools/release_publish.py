@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 
 from build_release import GAME_VERSION
+from bundle_check import check_bundle
 from release_state import (PLAN, RECEIPT, REPO, REPOSITORY, api, choose,
                            confirmed, digest, notes, receipt, releases, run, validate)
 
@@ -73,6 +74,8 @@ def publish(repo, plan, commit, text, files, request=api, command=run, read_rece
     if done:
         print("This release plan was already published.")
         return
+    # Recheck the exact upload files before any tag or release mutation.
+    check_bundle(files[1], files[0], GAME_VERSION)
     tag = "v" + plan["version"]
     marker = "<!-- release-plan:%s -->" % digest(plan)
     body = text.strip() + "\n\n" + marker

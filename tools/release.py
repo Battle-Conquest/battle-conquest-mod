@@ -186,6 +186,9 @@ def publish(version, notes):
     A draft: a build is only published once it has captured a battle in a real
     client, which no check here can stand in for.
     """
+    from build_release import GAME_VERSION
+    from bundle_check import check_bundle
+    check_bundle(os.path.join(REPO, ARCHIVE % version), os.path.join(REPO, WOTMOD % version), GAME_VERSION)
     run(['git', 'add', '--', 'CHANGELOG.md'])
     run(['git', 'commit', '-m', 'chore(release): %s' % version])
     run(['git', 'tag', '-a', 'v%s' % version, '-m', version])
@@ -204,6 +207,7 @@ def hand_over(version):
     print('\n  %s and %s are built, and attached to a draft release.' % (WOTMOD % version, ARCHIVE % version))
     print('  Install the archive in a client, play a battle, check it arrives on the')
     print('  site, then publish the draft: gh release edit v%s --draft=false\n' % version)
+    print('  Submit the tested complete ZIP to WGMods, keeping its SHA-256 for review.')
 
 
 def main():

@@ -12,6 +12,8 @@ Testing prerelease for **World of Tanks EU 2.4.1.1**. The target game version is
 
 ### Fixed
 
+- Validate the complete installation ZIP before publication and require that tested ZIP for WGMods submission. OpenWG Gameface 1.2.2, its Python module and JavaScript libraries are included in the ZIP; the standalone Battle-Conquest file still requires that shared dependency. Installation and update instructions now distinguish both downloads.
+- Restore Unicum account/Twitch positioning after a garage-layout failure, including with the shared scrolling column introduced by #55. Other mods' saved positions are preserved.
 - Keep manual quest selection available when a sole active objective exists, including the latest finished result and its statistics. A valid saved choice survives refreshes and restarts.
 - Improve garage-card readability with a 95% dark background, larger regular body text and opaque buttons. Pressed feedback ends on release; keyboard focus remains visible with Gameface-compatible styling.
 - Replace the settings glyph with a vector gear and show the fallback notification only when no compatible settings menu opens. Discard delayed opening requests after an account, link or garage-context change or when the mod stops.
