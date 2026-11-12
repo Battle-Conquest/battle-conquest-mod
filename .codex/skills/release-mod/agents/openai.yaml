@@ -1,6 +1,0 @@
-interface:
-  display_name: "Release du mod Battle-Conquest"
-  short_description: "Préparer la PR de release automatisée du mod"
-  default_prompt: "Utilise $release-mod pour préparer ou reprendre la PR de release du mod Battle-Conquest."
-policy:
-  allow_implicit_invocation: true

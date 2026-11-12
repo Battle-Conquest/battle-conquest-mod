@@ -6,9 +6,9 @@ les contrôles puis la publication GitHub.
 
 Les sources de cette procédure sont `.github/workflows/release-pr.yml`,
 `.github/workflows/release.yml` et `tools/release_{pr,publish,state}.py`.
-Le [skill `release-mod`](.codex/skills/release-mod/SKILL.md) prépare ou reprend
-cette proposition ; l'ancienne procédure avec `tools/release.py` reste un
-secours explicite, pas la voie normale.
+GitHub Actions gère la proposition et la publication ; aucun skill local
+n'est nécessaire. L'ancienne procédure avec `tools/release.py` reste un secours
+explicite, pas la voie normale.
 
 - Une prérelease active est actualisée **avec le même numéro et le même statut**,
   en remplaçant ses fichiers et en déplaçant uniquement son tag sur le commit

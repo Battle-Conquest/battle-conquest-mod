@@ -165,7 +165,7 @@ indiquer cette limite sans prétendre avoir validé les logs ou le rendu.
   remplacer une stable. Relire `RELEASING.md` pour les reprises et la promotion.
 - `tools/release.py` est un secours manuel exceptionnel, avec un autre calcul
   de version ; ne pas l'utiliser en parallèle de l'automatisation.
-  Le skill local `release-mod` suit la procédure courante de `RELEASING.md`.
+  La release est gérée par GitHub Actions ; aucun skill local n'est nécessaire.
 - Un changement de dossier WoT seul ne déclenche pas de release ; ne pas
   confondre version du mod et version du client. La soumission à WGMods reste
   manuelle, avec le ZIP complet testé et sa dépendance OpenWG.
