@@ -77,7 +77,7 @@ usual position and its own scrolling content. If even its header cannot fit,
 the existing detailed-window fallback applies until space becomes available.
 It offers **Link my account** before linking, then your own objectives,
 official progress and available mod estimates. Missing or incomplete values stay
-explicitly unknown. A dropdown selects the shared tracked quest; **Details**
+explicitly unknown. A grouped, scrollable dropdown selects the shared tracked objective; **Details**
 opens and persistently enables the existing comparison window.
 
 Install the complete ZIP: it includes the pinned MIT-licensed
@@ -485,3 +485,27 @@ The identical fixture in both repositories preserves the received economic field
 without the arena ID. The client envelope reconstructed in tests uses synthetic
 identity and team metadata; it is not a raw client capture. Synthetic variants
 check defensive behaviour, not additional live economic correspondences.
+
+### Tournament tracking (issue #63)
+
+The garage selector groups Quests, Challenges, Battle FFA, Tournaments and Map.
+It lists every actual tournament participation that is waiting or ongoing, without
+a dashboard display limit. An event keeps one selection through qualification
+and bracket rounds. The official summary shows your score, rank and battle
+requirements, current opponent or map tile and role where applicable. Unknown
+values stay unavailable; these figures are never computed by the client.
+Map owners who have not entered a tournament are not listed as participants.
+
+A valid saved selection remains selected. With no valid saved selection, a single
+ongoing objective across all categories can be selected automatically; waiting
+and eliminated participations are excluded. Tournament choices disappear after
+closure or withdrawal. Existing quest/challenge history behavior is unchanged.
+The detailed native window can cycle through every category using Change quest.
+
+Deploy the compatible site's garage API before this mod. Older snapshots without
+`tracking` remain supported. The server no longer uses the development access
+flags for challenges and garage tracking; normal authentication and private
+content permissions still apply. GitHub builds the packages after merge.
+Run `tools/test_garage_tournaments.mjs` with the same Playwright environment as
+`tools/test_garage_card.mjs`. In-game rendering and actual mode captures remain
+separate acceptance checks.

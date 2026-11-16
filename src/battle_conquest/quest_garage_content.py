@@ -133,7 +133,7 @@ class Content(object):
             self.node.visible = visible
 
     def render(self, data, width):
-        shown = dict((name, (data or {}).get(name)) for name in ('selected', 'criteria', 'players', 'language', 'battle_feedback'))
+        shown = dict((name, (data or {}).get(name)) for name in ('selected', 'criteria', 'players', 'language', 'battle_feedback', 'tracking'))
         key = (json.dumps(shown, sort_keys=True), width, locale())
         if key == self.key:
             return False
@@ -145,14 +145,21 @@ class Content(object):
         selected = data.get('selected') if data else None
         card.text(clean(selected['title']) if selected else tr(u'No quest selected'), 'accent', translate=False)
         if selected and selected.get('status'):
-            status = selected['status']
+            from battle_conquest.tournament_tracking import choice_status
+            status = choice_status(selected)
             status = {'receiving': u'Closed - receiving final results', 'settled': u'Closed - final results', 'cancelled': u'Cancelled'}.get(status, status)
             card.text(status, 'muted')
         if not selected:
             card.text(u'Click Change quest, or choose one on the website.', 'muted')
         y += card.finish()
         y += battle_card(self.node, width, y, data or {})
-        if data:
+        if data and data.get('tracking'):
+            from battle_conquest.tournament_tracking import lines
+            card = Card(self.node, 'tournament', width, y, 'official')
+            for line in lines(data['tracking']):
+                card.text(line, translate=False)
+            y += card.finish()
+        if data and not data.get('tracking'):
             for index, player in enumerate(data.get('players', [])[:5]):
                 card = Card(self.node, 'player%s' % index, width, y)
                 card.text(clean(player['username'], 30), translate=False)

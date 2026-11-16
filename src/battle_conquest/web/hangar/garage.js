@@ -53,6 +53,7 @@ choose.setAttribute('aria-expanded', 'false');
 const options = node('div', 'BattleConquestGarage_options', picker);
 options.setAttribute('role', 'listbox');
 options.style.display = 'none';
+const tournament = node('div', 'BattleConquestGarage_tournament', content);
 const metrics = node('div', 'BattleConquestGarage_metrics', content);
 const incomplete = node('p', 'BattleConquestGarage_muted', content);
 const footer = node('div', 'BattleConquestGarage_footer', root);
@@ -104,11 +105,14 @@ function keyboard(event) {
         hideOptions(); choose.focus(); event.preventDefault();
     } else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.keyCode === 38 || event.keyCode === 40)
             && picker.contains(event.target)) {
-        const items = Array.from(options.children);
+        const items = Array.from(options.querySelectorAll('[role="option"]'));
         let index = items.indexOf(document.activeElement);
         index = (index + ((event.key === 'ArrowUp' || event.keyCode === 38) ? -1 : 1) + items.length) % items.length;
         if (items[index]) {
             options.style.display = ''; choose.setAttribute('aria-expanded', 'true'); items[index].focus();
+            const rect = items[index].getBoundingClientRect(), viewport = options.getBoundingClientRect();
+            if (rect.top < viewport.top) options.scrollTop -= viewport.top - rect.top;
+            else if (rect.bottom > viewport.bottom) options.scrollTop += rect.bottom - viewport.bottom;
         }
         event.preventDefault();
     }
@@ -228,6 +232,7 @@ function placement() {
     // than pushing Unicum behind the carousel or out of the screen.
     const cardRoom = items.length ? Math.max(160, room - reserved) : room;
     root.style.maxHeight = `${cardRoom}rem`;
+    options.style.maxHeight = `${Math.max(80, Math.min(320, cardRoom - 100))}rem`;
     // Keep the usual inner scroller while the controls and a useful content
     // viewport fit. In a short slot the whole card scrolls, including actions.
     let chrome = box;
@@ -254,9 +259,9 @@ function render(data) {
     link.style.display = data.linked ? 'none' : '';
     notice.textContent = data.running ? label('Account: confirm in your browser') : '';
     notice.style.display = data.running ? '' : 'none';
-    buttonText(choose, data.selected ? data.selected.title : label('Choose a quest'));
+    buttonText(choose, data.selected ? data.selected.title : label('Choose an objective'));
     choose.disabled = data.busy || data.blocked;
-    choose.setAttribute('aria-label', label('Choose a quest'));
+    choose.setAttribute('aria-label', label('Choose an objective'));
     picker.style.display = data.linked && data.has_data ? '' : 'none';
     selectedStatus.textContent = data.selected ? ((data.choices.find((row) => row.key === data.selected.key) || {}).status || '') : label('No active quest');
     selectedStatus.style.display = data.linked ? '' : 'none';
@@ -267,15 +272,29 @@ function render(data) {
     if (choices !== choicesKey) {
         const wasOpen = options.style.display !== 'none';
         while (options.firstChild) options.removeChild(options.firstChild);
-        for (const row of [{key: '', title: label('Choose a quest')}].concat(data.choices)) {
-            const button = node('button', '', options, row.title + (row.status ? ` — ${row.status}` : ''));
+        function option(row, parent) {
+            const title = row.title + (row.game_mode ? ` [${label(row.game_mode)}]` : '') + (row.status ? ` — ${row.status}` : '');
+            const button = node('button', '', parent, title);
             button.setAttribute('role', 'option');
             button.setAttribute('aria-selected', String(Boolean(data.selected && row.key === data.selected.key)));
             action(button, () => { hideOptions(); choose.focus(); send('select', row.key); });
         }
+        option({key: '', title: label('Choose an objective')}, options);
+        const categories = [['individual', 'Quests'], ['session', 'Challenges'], ['bffa', 'Battle FFA'], ['event', 'Tournaments'], ['tile', 'Map']];
+        for (const [kind, title] of categories) {
+            const rows = data.choices.filter(row => (row.category || row.kind || row.key.split(':')[0]) === kind);
+            if (!rows.length) continue;
+            const group = node('div', 'BattleConquestGarage_group', options);
+            group.setAttribute('role', 'group'); group.setAttribute('aria-label', label(title));
+            node('strong', 'BattleConquestGarage_groupTitle', group, label(title));
+            for (const row of rows) option(row, group);
+        }
         if (wasOpen) hideOptions();
         choicesKey = choices;
     }
+    tournament.textContent = '';
+    for (const line of data.tracking || []) node('p', '', tournament, line);
+    tournament.style.display = data.linked && data.tracking && data.tracking.length ? '' : 'none';
     const metricKey = JSON.stringify([data.criteria, data.labels]);
     if (metricKey !== metricsKey) {
         while (metrics.firstChild) metrics.removeChild(metrics.firstChild);

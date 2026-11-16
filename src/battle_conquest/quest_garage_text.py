@@ -20,6 +20,12 @@ def status_line(garage):
                     timestamps.append(calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S')))
                 except ValueError:
                     pass
+    stamp = ((garage.data or {}).get('tracking') or {}).get('updated_at')
+    if stamp:
+        try:
+            timestamps.append(calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S')))
+        except ValueError:
+            pass
     age = max(0, int(garage.now() - min(timestamps))) if timestamps else None
     return tr(u'%s | Data age: %s') % (tr(u'Offline' if garage.offline else u'Online'),
                                      duration(age) if age is not None else tr(u'unknown'))

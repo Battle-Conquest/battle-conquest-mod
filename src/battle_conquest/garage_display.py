@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 
-from battle_conquest import config
+from battle_conquest import config, tournament_tracking
 from battle_conquest.display_preferences import Preferences
 from battle_conquest.garage_ready import garage_ready
 from battle_conquest.i18n import locale, tr
@@ -16,6 +16,8 @@ CARD_LOADING_GRACE = 30.0
 
 LABELS = ('Link my account', 'Account: confirm in your browser', 'Cancel', 'Details',
           'Settings', 'Close', 'No active quest', 'Choose a quest', 'OFFICIAL', 'MOD ESTIMATE',
+          'random', 'ranked', 'stronghold', 'onslaught', 'frontline', 'training', 'other',
+          'Quests', 'Challenges', 'Battle FFA', 'Tournaments', 'Map', 'Choose an objective',
           'Unavailable', 'Reload', 'Sending: paused', 'Quest tracking unavailable',
           'Configuration conflict - Reload', 'Link suspended: link this account again. Reports retained.')
 
@@ -137,8 +139,9 @@ class Displays(object):
         return {'scope': self.scope, 'language': locale(), 'shown': ready and self.switches()['widget'],
                 'linked': linked, 'running': self.site.running, 'busy': garage.busy is not None,
                 'labels': dict((label, tr(label)) for label in LABELS),
-                'selected': data.get('selected'), 'choices': [dict(row, status=tr(row['status'])) for row in data.get('choices', [])],
+                'selected': data.get('selected'), 'choices': [dict(row, status=tournament_tracking.choice_status(row)) for row in tournament_tracking.ordered(data.get('choices', []))],
                 'automatic': data.get('automatic_selection') is not None,
+                'tracking': tournament_tracking.lines(data.get('tracking')),
                 'criteria': criteria, 'status': tr(notice) if notice else status_line(garage),
                 'blocked': garage.conflict, 'has_data': garage.data is not None,
                 'incomplete': any((player.get(source) or {}).get('incomplete') for source in ('official', 'estimate')),

@@ -46,7 +46,7 @@
 .BattleConquestGarage_content p { margin: 4rem 0; }
 .BattleConquestGarage_picker { position: relative; margin-bottom: 8rem; }
 .BattleConquestGarage_choose { width: 100%; }
-.BattleConquestGarage_options { max-height: 160rem; overflow-y: auto; background: #24231f; }
+.BattleConquestGarage_options { max-height: 320rem; overflow-y: auto; background: #24231f; }
 .BattleConquestGarage_options button { display: block; width: 100%; }
 .BattleConquestGarage_metric { padding: 6rem 0; border-top: 1rem solid rgba(255, 255, 255, .12); }
 .BattleConquestGarage_metric strong { display: block; font-weight: normal; }
@@ -56,3 +56,6 @@
 .BattleConquestGarage_footer { display: flex; flex-shrink: 0; margin-top: 8rem; }
 .BattleConquestGarage_footer button { margin-right: 8rem; }
 .BattleConquestGarage_status { flex-shrink: 0; margin: 6rem 0 0; overflow-wrap: break-word; }
+
+.BattleConquestGarage_groupTitle { display: block; padding: 8rem 7rem 3rem; color: #eac56e; font-weight: normal; }
+.BattleConquestGarage_tournament { padding: 6rem 0; border-top: 1rem solid rgba(255, 255, 255, .12); }

@@ -4,6 +4,7 @@ import time
 from urllib import quote
 
 from battle_conquest import config, i18n
+from battle_conquest import tournament_tracking
 from battle_conquest.destinations import battles_url
 from battle_conquest.garage_ready import garage_ready
 from battle_conquest.report_sender import at_garage, account_number, answer
@@ -29,6 +30,8 @@ def is_snapshot(data):
         return False
     if data.get('automatic_selection') is not None and not isinstance(data['automatic_selection'], basestring):
         return False
+    if not tournament_tracking.valid(data.get('tracking')):
+        return False
     settings = data.get('config')
     if (not isinstance(settings, dict) or not isinstance(settings.get('version'), (int, long))
             or isinstance(settings['version'], bool) or settings['version'] < 0
@@ -44,7 +47,9 @@ def is_snapshot(data):
                        and isinstance(row.get('username'), basestring) for row in manual)):
         return False
     if (not isinstance(choices, list) or not isinstance(players, list) or len(players) > 5
-            or not all(isinstance(choice, dict) and all(key in choice for key in ('key', 'title', 'status')) for choice in choices)
+            or not all(isinstance(choice, dict) and all(isinstance(choice.get(key), basestring) for key in ('key', 'title', 'status'))
+                       and all(choice.get(key) is None or isinstance(choice[key], basestring)
+                               for key in ('kind', 'category', 'game_mode')) for choice in choices)
             or not all(isinstance(player, dict) and all(key in player for key in ('username', 'participant')) for player in players)):
         return False
     selected, period = data.get('selected'), data.get('period')
@@ -193,8 +198,8 @@ class Garage(object):
             if code == 200 and is_snapshot(data):
                 i18n.accept(data, key[0], key[2])
             if code == 404:
-                # The combined quest release is still gated server-side, or
-                # this server predates it. Do not expose an unfinished panel.
+                # Older servers may not expose garage tracking. Keep the last
+                # known unavailable state until a supported response arrives.
                 self.unavailable = True
                 self.offline = False
                 self.view.visible(False)
@@ -319,7 +324,7 @@ class Garage(object):
     def next_quest(self):
         if not self.data:
             return
-        keys = [''] + [choice['key'] for choice in self.data['choices']]
+        keys = [''] + [choice['key'] for choice in tournament_tracking.ordered(self.data['choices'])]
         current = (self.data.get('selected') or {}).get('key', self.data['config']['selection'])
         index = keys.index(current) if current in keys else 0
         self.save(selection=keys[(index + 1) % len(keys)])
