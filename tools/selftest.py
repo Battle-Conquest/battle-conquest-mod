@@ -33,6 +33,7 @@ from checks.recovery import check_recovery, check_receipts
 from checks.client import install_fake_client
 from checks.catalog_tester import check_catalog_tester
 from checks.common import REPO, check, render_stub
+from checks.tournament_tracking import check_tournament_tracking
 from checks.quest_garage import check_quest_garage, check_quest_garage_age, check_quest_garage_panel, check_quest_garage_platoon
 from checks.quest_garage_input import check_quest_garage_input
 from checks.garage_ready import check_garage_ready, check_sender_after_capture
@@ -195,6 +196,7 @@ def main():
         check_garage_finished_selection()
         check_battle_feedback_identity_callbacks()
         check_quest_garage()
+        check_tournament_tracking()
         check_quest_garage_age()
         check_quest_garage_panel()
         check_quest_garage_input()
