@@ -9,18 +9,22 @@ Adapté du skill `fix-issue` du projet frère Battle-Conquest. Invoquer avec
 `$fix-issue 246` ou une URL d'issue. Lire `AGENTS.md` et `CONTRIBUTING.md`.
 Préfixer toutes les commandes shell par `rtk`, conformément à `RTK.md`.
 
-Cible de la PR : `Battle-Conquest/battle-conquest-mod`. Les issues du mod
-vivent généralement dans `Battle-Conquest/Battle-Conquest`, sous le label
-**Mod Battle-Conquest**, mais peuvent aussi vivre dans le dépôt du mod.
+Cible de la PR : `Battle-Conquest/battle-conquest-mod`. Les issues peuvent
+vivre dans ce dépôt ou dans `Battle-Conquest/Battle-Conquest`, notamment sous
+le label **Mod Battle-Conquest**.
 
 ## 1. Identifier l'issue et préparer la branche
 
 1. Respecter le dépôt indiqué par l'URL ou l'utilisateur. Pour un numéro seul,
-   chercher d'abord dans `Battle-Conquest/Battle-Conquest` et vérifier que
-   l'issue concerne le mod (label, section « Côté mod », références). Examiner
-   aussi le dépôt du mod si l'identification reste incertaine ; demander une
-   précision si plusieurs issues plausibles subsistent, avant toute mutation
-   GitHub. Ne jamais substituer une issue de même numéro dans l'autre dépôt.
+   chercher d'abord dans le dépôt Git du dossier courant, identifié par son
+   remote, donc `Battle-Conquest/battle-conquest-mod` dans ce projet.
+   Si l'issue courante correspond à la demande, la retenir sans rechercher
+   le même numéro ailleurs. Consulter le dépôt
+   frère seulement si l'issue est absente ou si les références de la demande
+   le justifient, et vérifier que l'issue concerne le mod (label, section
+   « Côté mod », références). Demander une précision si l'identification reste
+   ambiguë, avant toute mutation GitHub. Ne jamais substituer une issue de
+   même numéro dans l'autre dépôt.
 2. Lire titre, description, labels, commentaires et PR liées. Utiliser le
    connecteur GitHub s'il couvre l'opération, sinon `gh` avec un dépôt explicite :
    ```bash
