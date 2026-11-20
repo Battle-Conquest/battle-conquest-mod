@@ -80,7 +80,7 @@ function createGarageScrolling({root, content, column, options, toRem, shown, pl
         if (!delta) delta = -(Number(event.wheelDelta) || 0);
         if (event.deltaMode === 1 || (typeof engine !== 'undefined' && Math.abs(delta) <= 1)) delta *= pixels(32);
         else if (event.deltaMode === 2) delta *= root.clientHeight;
-        delta *= 2;
+        delta *= 4;
         for (let item = start; item && item !== document.body; item = item.parentElement) {
             if (!sources.includes(item) || !scrollable(item)) continue;
             const before = item.scrollTop;

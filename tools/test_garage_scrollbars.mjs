@@ -56,16 +56,16 @@ try {
 
         await content.dispatchEvent('wheel', {deltaY: gameface ? -120 : 120, cancelable: true});
         assert.equal(await content.evaluate(el => el.scrollTop),
-            await content.evaluate(el => Math.min(240, el.scrollHeight - el.clientHeight)),
-            'inner card text uses the same doubled wheel speed');
+            await content.evaluate(el => Math.min(480, el.scrollHeight - el.clientHeight)),
+            'inner card text uses the same quadrupled wheel speed');
         assert.equal(await column.evaluate(el => el.scrollTop), 0);
         await page.evaluate(() => resetScroll());
 
         // This event originates in the column gap, outside the BC card.
         await column.dispatchEvent('wheel', {deltaY: gameface ? -120 : 120, cancelable: true});
         assert.equal(await column.evaluate(el => el.scrollTop),
-            await column.evaluate(el => Math.min(240, el.scrollHeight - el.clientHeight)),
-            'one wheel movement covers twice its former distance in shared space');
+            await column.evaluate(el => Math.min(480, el.scrollHeight - el.clientHeight)),
+            'one wheel movement covers four times its original distance in shared space');
         assert.equal(await content.evaluate(el => el.scrollTop), 0, 'the shared wheel never moves inner text');
         assert.ok(Number(await outer.getAttribute('aria-valuenow')) > 0);
         await column.dispatchEvent('wheel', {deltaY: gameface ? 120 : -120, cancelable: true});
@@ -76,8 +76,8 @@ try {
         await page.evaluate(() => resetScroll());
         await column.dispatchEvent('wheel', {deltaY: gameface ? -1 : 1, deltaMode: 1, cancelable: true});
         assert.equal(await column.evaluate(el => el.scrollTop),
-            await column.evaluate((el, scale) => Math.min(64 * scale, el.scrollHeight - el.clientHeight), scale),
-            'line-based wheel input is doubled after interface scaling');
+            await column.evaluate((el, scale) => Math.min(128 * scale, el.scrollHeight - el.clientHeight), scale),
+            'line-based wheel input is quadrupled after interface scaling');
         await page.evaluate(() => resetScroll());
 
         await outer.focus();
@@ -121,8 +121,8 @@ try {
         assert.equal(await page.getByRole('scrollbar').count(), 1, 'only the popup scrollbar stays above the open menu');
         await popupBar.dispatchEvent('wheel', {deltaY: gameface ? -120 : 120, cancelable: true});
         assert.equal(await options.evaluate(el => el.scrollTop),
-            await options.evaluate(el => Math.min(240, el.scrollHeight - el.clientHeight)),
-            'the popup uses the same doubled wheel speed');
+            await options.evaluate(el => Math.min(480, el.scrollHeight - el.clientHeight)),
+            'the popup uses the same quadrupled wheel speed');
         assert.equal(await column.evaluate(el => el.scrollTop), 0);
         await popupBar.click({position: {x: 3 * scale, y: 20 * scale}});
         assert.equal(await options.isVisible(), true, 'using the popup scrollbar does not dismiss its menu');
@@ -137,8 +137,8 @@ try {
         assert.equal(await whole.isVisible(), true, 'short slots expose the whole-card scrollbar');
         await card.dispatchEvent('wheel', {deltaY: gameface ? -120 : 120, cancelable: true});
         assert.equal(await card.evaluate(el => el.scrollTop),
-            await card.evaluate(el => Math.min(240, el.scrollHeight - el.clientHeight)),
-            'whole-card scrolling uses the same doubled speed');
+            await card.evaluate(el => Math.min(480, el.scrollHeight - el.clientHeight)),
+            'whole-card scrolling uses the same quadrupled speed');
 
         await page.evaluate(() => {
             document.querySelector('.QuestCard_base_test').style.height = '160px';
