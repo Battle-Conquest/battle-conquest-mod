@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {script, css as cardCss} from './garage_card_sources.mjs';
 import {createRequire} from 'node:module';
 import {checkPlacement} from './garage_card_placement.mjs';
 import {checkFloor} from './garage_card_floor.mjs';
 import {checkUnicum} from './garage_card_unicum.mjs';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
-const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
 // Gameface ignores outline properties; Chromium must not hide that limitation.
-const css = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.css', import.meta.url), 'utf8')
+const css = cardCss
     .replace(/\boutline(?:-[a-z]+)?\s*:[^;}]+;?/g, '');
 const browser = await chromium.launch({headless: true});
 let scenarios = 0;

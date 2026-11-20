@@ -63,3 +63,20 @@
 
 .BattleConquestGarage_groupTitle { display: block; padding: 8rem 7rem 3rem; color: #eac56e; font-weight: normal; }
 .BattleConquestGarage_tournament { padding: 6rem 0; border-top: 1rem solid rgba(255, 255, 255, .12); }
+
+/* Native scrollbar styling is ignored by Gameface; the owned tracks work there too. */
+.BattleConquestGarage, .BattleConquestGarage_content, .BattleConquestGarage_column,
+.BattleConquestGarage_options { scrollbar-width: none; }
+.BattleConquestGarage::-webkit-scrollbar, .BattleConquestGarage_content::-webkit-scrollbar,
+.BattleConquestGarage_column::-webkit-scrollbar, .BattleConquestGarage_options::-webkit-scrollbar { width: 0; height: 0; }
+.BattleConquestGarage_options { padding-right: 8rem; }
+.BattleConquestGarage_scrollbar {
+    position: absolute; z-index: 2147483647; width: 7rem; background: rgba(255, 255, 255, .04);
+    pointer-events: auto; cursor: pointer; outline: none;
+}
+.BattleConquestGarage_scrollThumb {
+    position: absolute; left: 2rem; width: 3rem; background: rgba(192, 187, 177, .45); border-radius: 2rem;
+}
+.BattleConquestGarage_scrollbar:hover .BattleConquestGarage_scrollThumb,
+.BattleConquestGarage_scrollbar:focus .BattleConquestGarage_scrollThumb,
+.BattleConquestGarage_scrollbar__dragging .BattleConquestGarage_scrollThumb { background: rgba(230, 226, 216, .8); }

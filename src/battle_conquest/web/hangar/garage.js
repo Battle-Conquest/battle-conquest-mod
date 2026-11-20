@@ -117,23 +117,6 @@ function pointer(event) {
     for (const item of [root, options]) item.classList.remove('BattleConquestGarage__keyboard');
     stop(event);
 }
-function wheel(event) {
-    stop(event); event.preventDefault();
-    let delta = Number(event.deltaY) || 0;
-    // WoT/Gameface forwards upward wheel ticks as positive, unlike DOM scrolling.
-    if (typeof engine !== 'undefined') delta = -delta;
-    if (!delta) delta = -(Number(event.wheelDelta) || 0);
-    if (event.deltaMode === 1 || (typeof engine !== 'undefined' && Math.abs(delta) <= 1)) delta *= 32;
-    else if (event.deltaMode === 2) delta *= root.clientHeight;
-    for (let item = event.target; item && item !== document.body; item = item.parentElement) {
-        if (![content, root, column, options].includes(item) || getComputedStyle(item).overflowY === 'visible') continue;
-        const before = item.scrollTop;
-        item.scrollTop = Math.max(0, Math.min(item.scrollHeight - item.clientHeight, before + delta));
-        if (item.scrollTop !== before || item === options) break;
-    }
-    placeOptions();
-    if (typeof viewEnv !== 'undefined' && viewEnv.setEventHandled) viewEnv.setEventHandled();
-}
 function keyboard(event) {
     event.stopPropagation();
     if (event.key === 'Escape' || event.keyCode === 27) {
@@ -158,12 +141,13 @@ function keyboard(event) {
 }
 for (const item of [root, options]) {
     item.addEventListener('mousedown', pointer);
-    item.addEventListener('wheel', wheel, {passive: false});
     item.addEventListener('keydown', keyboard);
     item.addEventListener('keyup', stop);
 }
-for (const item of [root, content, column]) item.addEventListener('scroll', placeOptions);
-function outside(event) { if (!root.contains(event.target) && !options.contains(event.target)) hideOptions(); }
+function outside(event) {
+    if (!root.contains(event.target) && !options.contains(event.target)
+            && !(event.target.closest && event.target.closest('.BattleConquestGarage_scrollbar'))) hideOptions();
+}
 document.addEventListener('mousedown', outside);
 
 function shown(item) {
@@ -174,6 +158,8 @@ function shown(item) {
     return true;
 }
 const toRem = (px) => typeof viewEnv !== 'undefined' && viewEnv.pxToRem ? viewEnv.pxToRem(px) : px;
+const scrolling = createGarageScrolling({root, content, column, options, toRem, shown, placeOptions, label,
+    dismissOptions() { hideOptions(); choose.focus(); }});
 function move(item, parent, before = null) {
     // Moving a live input can drop focus; keep Unicum's draft and keyboard use.
     const focused = item.contains(document.activeElement) ? document.activeElement : null;
@@ -363,10 +349,11 @@ function poll() {
         const json = model.model && model.model.snapshot;
         if (json && json !== encoded) { render(JSON.parse(json)); encoded = json; }
     } catch (error) { report(`garage card: ${error}`); }
-    try { placement(); placeOptions(); } catch (error) {
+    try { placement(); placeOptions(); scrolling.refresh(); } catch (error) {
         // A previous layout must never keep another mod displaced after a failure.
         releaseColumn();
         hideOptions();
+        scrolling.refresh();
         report(`garage card placement: ${error}`);
     }
     // A layout exception alone does not invalidate an otherwise live card.
@@ -381,6 +368,7 @@ const timer = setInterval(poll, 250);
 poll();
 return { stop() {
     alive = false; clearInterval(timer);
+    scrolling.stop();
     document.removeEventListener('mousedown', outside);
     document.removeEventListener('keydown', keyboardMode, true);
     releaseColumn();

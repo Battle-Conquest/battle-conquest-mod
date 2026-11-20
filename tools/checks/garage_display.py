@@ -228,6 +228,12 @@ def check_garage_gameface():
         from battle_conquest import hangar_inject
         original_read = hangar_inject.read
         try:
+            previous_revision = bridge.revision
+            hangar_inject.read = lambda name: original_read(name) + ('\n// edited scroll helper' if name.endswith('garage_scroll.js') else '')
+            bridge.refresh()
+            check('editing only the scrolling helper reloads the live card through the existing model',
+                  bridge.revision != previous_revision and model.values[1] == bridge.revision
+                  and model.values[2] == bridge.sources[0])
             def missing(name): raise IOError('resource temporarily replaced by editor')
             hangar_inject.read = missing
             bridge.refresh()

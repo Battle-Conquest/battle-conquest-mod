@@ -20,6 +20,7 @@ CARD_RESOURCES = (
     'res/gui/gen_resources/battle_conquest.json',
     'res/mods/configs/res_map/battle_conquest.json',
     'res/scripts/client/battle_conquest/web/hangar/garage.js',
+    'res/scripts/client/battle_conquest/web/hangar/garage_scroll.js',
     'res/scripts/client/battle_conquest/web/hangar/garage.css',
 )
 GAMEFACE_RESOURCES = (

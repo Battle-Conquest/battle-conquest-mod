@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {script, css} from './garage_card_sources.mjs';
 import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
-const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
-const css = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.css', import.meta.url), 'utf8');
 const browser = await chromium.launch({headless: true});
 try {
     for (const language of ['en', 'fr']) for (const height of [720, 1080]) {

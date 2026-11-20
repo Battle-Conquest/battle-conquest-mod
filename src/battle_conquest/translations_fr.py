@@ -41,6 +41,7 @@ MESSAGES = {
     u'No active quest': u'Aucune quête active',
     u'Close': u'Fermer',
     u'Settings': u'Réglages',
+    u'Scroll': u'Défilement',
     u'Details': u'Détails',
     u'Reports isolated: %d. See game.log.': u'Rapports isolés : %d. Consulter game.log.',
     u'Link suspended: link this account again. Reports retained.': u'Liaison suspendue : relier ce compte. Rapports conservés.',

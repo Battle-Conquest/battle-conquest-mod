@@ -113,6 +113,20 @@ class GaragePackagingTest(unittest.TestCase):
             with patch.object(build_release, 'DIST', root), self.assertRaisesRegex(ValueError, 'unresolved'):
                 build_release.bundle(package, '1.2.2')
 
+    def test_missing_scroll_helper_blocks_build(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / 'eu.battle-conquest_1.2.2.wotmod'
+            write_package(package, '1.2.2')
+            with zipfile.ZipFile(package) as archive:
+                contents = {name: archive.read(name) for name in archive.namelist()
+                            if not name.endswith('/garage_scroll.js')}
+            with zipfile.ZipFile(package, 'w', zipfile.ZIP_STORED) as archive:
+                for name, data in contents.items():
+                    archive.writestr(name, data)
+            with patch.object(build_release, 'DIST', root), self.assertRaisesRegex(ValueError, 'garage_scroll.js'):
+                build_release.bundle(package, '1.2.2')
+
     def test_dev_resources_in_wotmod_shape(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

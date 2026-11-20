@@ -102,7 +102,7 @@ class Bridge(object):
 
     def refresh(self):
         try:
-            script = read('web/hangar/garage.js')
+            script = '\n'.join(read('web/hangar/' + name) for name in ('garage_scroll.js', 'garage.js'))
             style = read('web/hangar/garage.css')
             if (script, style) == self.sources:
                 return
