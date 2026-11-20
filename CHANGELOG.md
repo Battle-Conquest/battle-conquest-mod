@@ -1,5 +1,42 @@
 # Changelog
 
+## 1.3.0
+
+Testing prerelease for World of Tanks EU 2.4.1.1. In-game acceptance remains pending.
+
+### Latest update — PR #66
+
+- Keep the garage tournament selector visible instead of clipping it.
+- Normalize wheel scrolling, expose scrollbars and support the shared garage column, with faster wheel navigation.
+
+Download the ZIP again even if you already installed 1.3.0. The version and prerelease status are unchanged; repeat in-game acceptance.
+
+### Added
+
+- Follow your Battle FFA, event tournament and map tournament participations from the garage, alongside quests and challenges.
+- Browse grouped, scrollable categories in the expanded selector, with keyboard navigation and no client-side limit on choices.
+- View official tournament scores, rankings, battle counts and limits, phases, opponents, map coordinates and roles in the integrated card and detailed window. Missing values remain unavailable; the mod does not calculate official scores.
+- Keep one shared event selection through qualification, matches, waiting phases and third-place matches. Saved selection remains synchronized with the website.
+
+### Installation
+
+1. Deploy the server changes from [Battle-Conquest PR #1127](https://github.com/Battle-Conquest/Battle-Conquest/pull/1127) before testing tournament tracking.
+2. Fully close the game. Preserve `mods/configs/battle_conquest/`, remove the previous Battle-Conquest package and disable any development bootstrap.
+3. Extract the complete `battle-conquest-mod_1.3.0.zip` into the game directory. It includes `mods/2.4.1.1/eu.battle-conquest_1.3.0.wotmod`, OpenWG Gameface 1.2.2 under the shared `mods/2.4.1.1/net.openwg/` folder, and its licence. Keep only one Battle-Conquest package and one copy of the shared dependency.
+4. Restart the game and verify linking, selection synchronization and tournament summaries. For another game folder, move the mod and shared dependency together; compatibility with other client versions has not been validated.
+
+The standalone `.wotmod` requires the shared OpenWG dependency for the integrated card; without it, the detailed window is the fallback.
+
+### Build and validation
+
+Built locally using the documented manual fallback from commit [`15be9a9`](https://github.com/Battle-Conquest/battle-conquest-mod/commit/15be9a968eaca4ad8bd202fcaa825ac16258f2ab), including [mod PR #64](https://github.com/Battle-Conquest/battle-conquest-mod/pull/64). Existing stable releases are unchanged. The release plan now follows the active 1.3.0 prerelease.
+
+Local validation: Python 2.7 selftests, 45 Python 3 tooling tests, compiled-package release check and complete installation ZIP check passed. The embedded mod version is 1.3.0; the ZIP includes the pinned OpenWG dependency.
+
+Real-client testing remains pending: all tournament categories and available modes, score comparison with the site, phase transitions and third-place matches, defender-score confidentiality, account changes, network recovery and return from battle. This prerelease is not a WGMods approval.
+
+ZIP SHA-256: `75972470c3225aa68c8de7d619f361eafd4269d866fffd0200a3c6d10754a5de`.
+
 ## 1.2.3
 
 ### Changes in this build
