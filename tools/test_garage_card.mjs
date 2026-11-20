@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {script, css as cardCss} from './garage_card_sources.mjs';
 import {createRequire} from 'node:module';
 import {checkPlacement} from './garage_card_placement.mjs';
 import {checkFloor} from './garage_card_floor.mjs';
 import {checkUnicum} from './garage_card_unicum.mjs';
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.BC_PLAYWRIGHT_MODULE || 'playwright');
-const script = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.js', import.meta.url), 'utf8');
 // Gameface ignores outline properties; Chromium must not hide that limitation.
-const css = readFileSync(new URL('../src/battle_conquest/web/hangar/garage.css', import.meta.url), 'utf8')
+const css = cardCss
     .replace(/\boutline(?:-[a-z]+)?\s*:[^;}]+;?/g, '');
 const browser = await chromium.launch({headless: true});
 let scenarios = 0;
@@ -83,7 +82,7 @@ try {
             assert.equal(await card.locator('.BattleConquestGarage_content').evaluate(el => el.scrollHeight > el.clientHeight), true);
         }
         await card.locator('.BattleConquestGarage_choose').click();
-        assert.deepEqual(await card.getByRole('option').locator('.BattleConquestGarage_buttonText')
+        assert.deepEqual(await page.getByRole('option').locator('.BattleConquestGarage_buttonText')
             .evaluateAll(items => items.map(el => getComputedStyle(el).color)),
             Array(3).fill(titleColor));
         await page.keyboard.press('ArrowDown');
@@ -127,7 +126,7 @@ try {
         await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_status').textContent === 'Ready to choose');
         assert.equal(await card.locator('.BattleConquestGarage_choose').isEnabled(), true, 'a sole active objective must not lock manual choices');
         await card.locator('.BattleConquestGarage_choose').click();
-        await card.getByRole('option', {name: 'Finished challenge — settled'}).click();
+        await page.getByRole('option', {name: 'Finished challenge — settled'}).click();
         assert.equal(await page.evaluate(() => commands.at(-1).selection), 'session:2');
         await page.evaluate(() => update({selected: {key: 'session:2', title: 'Finished challenge'}, automatic: false,
             criteria: [{label: 'Final damage', target: 100, values: {official: '75', estimate: 'Unavailable'}}]}));

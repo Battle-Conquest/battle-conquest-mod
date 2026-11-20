@@ -50,7 +50,10 @@ const picker = node('div', 'BattleConquestGarage_picker', content);
 const choose = node('button', 'BattleConquestGarage_choose', picker);
 choose.setAttribute('aria-haspopup', 'listbox');
 choose.setAttribute('aria-expanded', 'false');
-const options = node('div', 'BattleConquestGarage_options', picker);
+// A body-level popup escapes both the card and the shared column's clipping.
+const options = node('div', 'BattleConquestGarage_options', document.body);
+options.id = 'BattleConquestGarage_options';
+choose.setAttribute('aria-controls', options.id);
 options.setAttribute('role', 'listbox');
 options.style.display = 'none';
 const tournament = node('div', 'BattleConquestGarage_tournament', content);
@@ -74,6 +77,22 @@ function hideOptions() {
     options.style.display = 'none';
     choose.setAttribute('aria-expanded', 'false');
 }
+function placeOptions() {
+    if (!alive || options.style.display === 'none') return;
+    const rect = choose.getBoundingClientRect(), card = root.getBoundingClientRect();
+    const clip = root.parentNode === column ? column.getBoundingClientRect() : card;
+    if (!layoutAvailable || rect.bottom <= Math.max(0, card.top, clip.top)
+            || rect.top >= Math.min(window.innerHeight, card.bottom, clip.bottom)) { hideOptions(); return; }
+    const edge = 8, gap = 4;
+    const width = Math.min(rect.width, window.innerWidth - edge * 2);
+    options.style.width = `${toRem(width)}rem`;
+    options.style.left = `${toRem(Math.max(edge, Math.min(rect.left, window.innerWidth - width - edge)))}rem`;
+    const below = Math.max(0, window.innerHeight - rect.bottom - gap - edge);
+    const above = Math.max(0, rect.top - gap - edge);
+    const upward = options.scrollHeight > below && above > below;
+    options.style.maxHeight = `${toRem(upward ? above : below)}rem`;
+    options.style.top = `${toRem(upward ? rect.top - gap - options.getBoundingClientRect().height : rect.bottom + gap)}rem`;
+}
 function action(button, callback) {
     button.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -89,38 +108,46 @@ action(choose, () => {
     const open = options.style.display === 'none';
     options.style.display = open ? '' : 'none';
     choose.setAttribute('aria-expanded', String(open));
-    if (open && options.firstChild) options.firstChild.focus();
+    if (open) { options.scrollTop = 0; placeOptions(); if (options.firstChild) options.firstChild.focus(); }
 });
 function stop(event) { event.stopPropagation(); }
-function keyboardMode() { root.classList.add('BattleConquestGarage__keyboard'); }
+function keyboardMode() { for (const item of [root, options]) item.classList.add('BattleConquestGarage__keyboard'); }
 document.addEventListener('keydown', keyboardMode, true);
-root.addEventListener('mousedown', (event) => {
-    root.classList.remove('BattleConquestGarage__keyboard');
+function pointer(event) {
+    for (const item of [root, options]) item.classList.remove('BattleConquestGarage__keyboard');
     stop(event);
-});
-root.addEventListener('wheel', stop);
+}
 function keyboard(event) {
     event.stopPropagation();
     if (event.key === 'Escape' || event.keyCode === 27) {
         hideOptions(); choose.focus(); event.preventDefault();
     } else if ((event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.keyCode === 38 || event.keyCode === 40)
-            && picker.contains(event.target)) {
+            && (picker.contains(event.target) || options.contains(event.target))) {
         const items = Array.from(options.querySelectorAll('[role="option"]'));
         let index = items.indexOf(document.activeElement);
         index = (index + ((event.key === 'ArrowUp' || event.keyCode === 38) ? -1 : 1) + items.length) % items.length;
         if (items[index]) {
-            options.style.display = ''; choose.setAttribute('aria-expanded', 'true'); items[index].focus();
+            options.style.display = ''; choose.setAttribute('aria-expanded', 'true'); placeOptions(); items[index].focus();
             const rect = items[index].getBoundingClientRect(), viewport = options.getBoundingClientRect();
             if (rect.top < viewport.top) options.scrollTop -= viewport.top - rect.top;
             else if (rect.bottom > viewport.bottom) options.scrollTop += rect.bottom - viewport.bottom;
         }
         event.preventDefault();
+    } else if (event.key === 'Tab' || event.keyCode === 9) {
+        if (options.contains(event.target)) choose.focus();
+        hideOptions();
     }
     if (typeof viewEnv !== 'undefined' && viewEnv.setEventHandled) viewEnv.setEventHandled();
 }
-root.addEventListener('keydown', keyboard);
-root.addEventListener('keyup', stop);
-function outside(event) { if (!root.contains(event.target)) hideOptions(); }
+for (const item of [root, options]) {
+    item.addEventListener('mousedown', pointer);
+    item.addEventListener('keydown', keyboard);
+    item.addEventListener('keyup', stop);
+}
+function outside(event) {
+    if (!root.contains(event.target) && !options.contains(event.target)
+            && !(event.target.closest && event.target.closest('.BattleConquestGarage_scrollbar'))) hideOptions();
+}
 document.addEventListener('mousedown', outside);
 
 function shown(item) {
@@ -131,6 +158,8 @@ function shown(item) {
     return true;
 }
 const toRem = (px) => typeof viewEnv !== 'undefined' && viewEnv.pxToRem ? viewEnv.pxToRem(px) : px;
+const scrolling = createGarageScrolling({root, content, column, options, toRem, shown, placeOptions, label,
+    dismissOptions() { hideOptions(); choose.focus(); }});
 function move(item, parent, before = null) {
     // Moving a live input can drop focus; keep Unicum's draft and keyboard use.
     const focused = item.contains(document.activeElement) ? document.activeElement : null;
@@ -227,12 +256,10 @@ function placement() {
         root.style.top = `${topRem}rem`;
         root.style.right = `${right}rem`;
     }
-    const reserved = items.reduce((height, item) => height + toRem(item.getBoundingClientRect().height) + 8, 0);
-    // When the cards cannot fit together, scroll the shared column rather
-    // than pushing Unicum behind the carousel or out of the screen.
-    const cardRoom = items.length ? Math.max(160, room - reserved) : room;
+    // Use all available height before shrinking the content. The shared column
+    // keeps longer Unicum layouts reachable without reserving their full height.
+    const cardRoom = room;
     root.style.maxHeight = `${cardRoom}rem`;
-    options.style.maxHeight = `${Math.max(80, Math.min(320, cardRoom - 100))}rem`;
     // Keep the usual inner scroller while the controls and a useful content
     // viewport fit. In a short slot the whole card scrolls, including actions.
     let chrome = box;
@@ -252,6 +279,7 @@ function render(data) {
     if (state && state.scope !== data.scope) { hideOptions(); metricsKey = choicesKey = null; }
     state = data;
     root.setAttribute('lang', data.language || 'en');
+    options.setAttribute('lang', data.language || 'en');
     root.style.display = data.shown ? '' : 'none';
     settings.setAttribute('aria-label', label('Settings')); settings.title = label('Settings');
     close.setAttribute('aria-label', label('Close')); close.title = label('Close');
@@ -262,7 +290,9 @@ function render(data) {
     buttonText(choose, data.selected ? data.selected.title : label('Choose an objective'));
     choose.disabled = data.busy || data.blocked;
     choose.setAttribute('aria-label', label('Choose an objective'));
+    options.setAttribute('aria-label', label('Choose an objective'));
     picker.style.display = data.linked && data.has_data ? '' : 'none';
+    if (!data.shown || !data.linked || !data.has_data || choose.disabled) hideOptions();
     selectedStatus.textContent = data.selected ? ((data.choices.find((row) => row.key === data.selected.key) || {}).status || '') : label('No active quest');
     selectedStatus.style.display = data.linked ? '' : 'none';
     buttonText(details, label('Details')); details.style.display = data.linked ? '' : 'none';
@@ -319,9 +349,11 @@ function poll() {
         const json = model.model && model.model.snapshot;
         if (json && json !== encoded) { render(JSON.parse(json)); encoded = json; }
     } catch (error) { report(`garage card: ${error}`); }
-    try { placement(); } catch (error) {
+    try { placement(); placeOptions(); scrolling.refresh(); } catch (error) {
         // A previous layout must never keep another mod displaced after a failure.
         releaseColumn();
+        hideOptions();
+        scrolling.refresh();
         report(`garage card placement: ${error}`);
     }
     // A layout exception alone does not invalidate an otherwise live card.
@@ -336,6 +368,7 @@ const timer = setInterval(poll, 250);
 poll();
 return { stop() {
     alive = false; clearInterval(timer);
+    scrolling.stop();
     document.removeEventListener('mousedown', outside);
     document.removeEventListener('keydown', keyboardMode, true);
     releaseColumn();
@@ -343,4 +376,5 @@ return { stop() {
     document.removeEventListener('mouseup', releaseChat, true);
     heldChat = null;
     if (root.parentNode) root.parentNode.removeChild(root);
+    if (options.parentNode) options.parentNode.removeChild(options);
 } };

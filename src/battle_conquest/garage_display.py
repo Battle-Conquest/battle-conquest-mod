@@ -18,7 +18,7 @@ LABELS = ('Link my account', 'Account: confirm in your browser', 'Cancel', 'Deta
           'Settings', 'Close', 'No active quest', 'Choose a quest', 'OFFICIAL', 'MOD ESTIMATE',
           'random', 'ranked', 'stronghold', 'onslaught', 'frontline', 'training', 'other',
           'Quests', 'Challenges', 'Battle FFA', 'Tournaments', 'Map', 'Choose an objective',
-          'Unavailable', 'Reload', 'Sending: paused', 'Quest tracking unavailable',
+          'Unavailable', 'Reload', 'Scroll', 'Sending: paused', 'Quest tracking unavailable',
           'Configuration conflict - Reload', 'Link suspended: link this account again. Reports retained.')
 
 
