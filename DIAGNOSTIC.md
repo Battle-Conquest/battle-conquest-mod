@@ -116,6 +116,20 @@ pas ces fichiers. Aucun inventaire complet du compte ni valeur des autres
 joueurs, clé de liaison ou objet client n’est sérialisé. Les fichiers ne sont
 jamais ajoutés à la file d’envoi ni transmis automatiquement au site.
 
+## Collecter Steel Hunter et Black Signal (#1141)
+
+Activer le diagnostic ci-dessus et noter la version exacte du client WoT.
+Pour chaque événement, jouer une bataille, noter le mode sélectionné et relever
+la ligne du résultat reçu au garage. Ouvrir ensuite le résultat de cette même
+bataille et comparer les observations pour la même arène.
+
+Transmettre pour chaque capture le mode joué, la version du client, `source`,
+`common.bonusType`, `bonus_type_names` et `common.arenaTypeID`. La liste des
+noms comprend les constantes symboliques du client ayant la valeur observée.
+Une liste vide ou une valeur commune aux deux événements demande une nouvelle
+observation. L’identifiant de carte seul ne détermine pas le mode.
+Ces extraits suffisent ; garder les identifiants joueur et arène en local.
+
 ## Recette en jeu
 
 Pour chaque scénario, noter mode, char(s), heure et fuseau d’affichage,
