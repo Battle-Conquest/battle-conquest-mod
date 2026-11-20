@@ -33,15 +33,18 @@ try {
         assert.match(await card.locator('.BattleConquestGarage_tournament').innerText(), /<rival>/);
         const choose = card.locator('.BattleConquestGarage_choose');
         await choose.click();
-        assert.equal(await card.getByRole('group').count(), 5);
-        assert.equal(await card.getByRole('option').count(), 41, 'every participation remains reachable');
-        const options = card.locator('.BattleConquestGarage_options');
+        assert.equal(await page.getByRole('group').count(), 5);
+        assert.equal(await page.getByRole('option').count(), 41, 'every participation remains reachable');
+        const options = page.locator('.BattleConquestGarage_options');
         assert(await options.evaluate(el => el.scrollHeight > el.clientHeight));
-        assert(await options.evaluate(el => el.clientHeight <= 321));
+        assert(await options.evaluate(el => {
+            const rect = el.getBoundingClientRect();
+            return rect.top >= 0 && rect.bottom <= innerHeight;
+        }));
         await page.keyboard.press('ArrowDown');
-        assert.equal(await card.getByRole('option').nth(1).evaluate(el => el === document.activeElement), true);
+        assert.equal(await page.getByRole('option').nth(1).evaluate(el => el === document.activeElement), true);
         for (let index = 0; index < 39; index++) await page.keyboard.press('ArrowDown');
-        assert.equal(await card.getByRole('option').last().evaluate(el => el === document.activeElement), true);
+        assert.equal(await page.getByRole('option').last().evaluate(el => el === document.activeElement), true);
         await page.keyboard.press('Enter');
         assert.equal(await page.evaluate(() => commands.at(-1).selection), 'tile:8');
         assert.equal(await choose.getAttribute('aria-expanded'), 'false');
@@ -54,7 +57,7 @@ try {
         assert.equal(await choose.evaluate(el => el === document.activeElement), true);
         await page.evaluate(() => update({scope: 'account-b', selected: null, choices: [], tracking: [], criteria: []}));
         await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_tournament').style.display === 'none');
-        assert.equal(await card.getByRole('group').count(), 0, 'account change removes previous participations');
+        assert.equal(await page.getByRole('group').count(), 0, 'account change removes previous participations');
         await page.evaluate(() => card.stop());
         assert.equal(await page.locator('.BattleConquestGarage').count(), 0, 'stop removes the owned UI');
         assert.deepEqual(errors, []);

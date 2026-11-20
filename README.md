@@ -73,11 +73,15 @@ height exceeds the space above the tank carousel. Unicum's saved preferences
 stay unchanged: closing or disabling Battle-Conquest restores the widgets to
 their original parent and normal layout. Independently moved or windowed Twitch
 panels stay separate. With Unicum absent or hidden, Battle-Conquest keeps its
-usual position and its own scrolling content. If even its header cannot fit,
+usual position. The card uses the available height before scrolling its content.
+If even its header cannot fit,
 the existing detailed-window fallback applies until space becomes available.
 It offers **Link my account** before linking, then your own objectives,
 official progress and available mod estimates. Missing or incomplete values stay
-explicitly unknown. A grouped, scrollable dropdown selects the shared tracked objective; **Details**
+explicitly unknown. A grouped dropdown selects the shared tracked objective.
+It opens above the garage cards, outside their scrolling areas, and adapts to
+the screen space above or below the selector. Only a list too tall for that
+space needs scrolling; the wheel moves down to reveal lower choices. **Details**
 opens and persistently enables the existing comparison window.
 
 Install the complete ZIP: it includes the pinned MIT-licensed
@@ -115,6 +119,8 @@ no schema migration is needed.
 Local verification: `python2.7 tools/selftest.py`, then build and release check
 as below. `tools/test_garage_card.mjs` tests the real card scripts in Playwright
 (Node 20+, `BC_PLAYWRIGHT_MODULE` and `PLAYWRIGHT_BROWSERS_PATH` when needed).
+`tools/test_garage_picker.mjs` checks popup clipping, wheel input and keyboard
+navigation across resolutions and interface scales, with and without Unicum.
 `tools/test_garage_restoration.mjs` also checks both Unicum panels through
 hide/show, Twitch dragging/windowed modes, placement failures and loader teardown.
 Set `BC_UNICUM_SOURCE` to a separate unicum.gg-mod checkout to also exercise

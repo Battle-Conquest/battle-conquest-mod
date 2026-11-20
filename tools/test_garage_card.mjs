@@ -83,7 +83,7 @@ try {
             assert.equal(await card.locator('.BattleConquestGarage_content').evaluate(el => el.scrollHeight > el.clientHeight), true);
         }
         await card.locator('.BattleConquestGarage_choose').click();
-        assert.deepEqual(await card.getByRole('option').locator('.BattleConquestGarage_buttonText')
+        assert.deepEqual(await page.getByRole('option').locator('.BattleConquestGarage_buttonText')
             .evaluateAll(items => items.map(el => getComputedStyle(el).color)),
             Array(3).fill(titleColor));
         await page.keyboard.press('ArrowDown');
@@ -127,7 +127,7 @@ try {
         await page.waitForFunction(() => document.querySelector('.BattleConquestGarage_status').textContent === 'Ready to choose');
         assert.equal(await card.locator('.BattleConquestGarage_choose').isEnabled(), true, 'a sole active objective must not lock manual choices');
         await card.locator('.BattleConquestGarage_choose').click();
-        await card.getByRole('option', {name: 'Finished challenge — settled'}).click();
+        await page.getByRole('option', {name: 'Finished challenge — settled'}).click();
         assert.equal(await page.evaluate(() => commands.at(-1).selection), 'session:2');
         await page.evaluate(() => update({selected: {key: 'session:2', title: 'Finished challenge'}, automatic: false,
             criteria: [{label: 'Final damage', target: 100, values: {official: '75', estimate: 'Unavailable'}}]}));
