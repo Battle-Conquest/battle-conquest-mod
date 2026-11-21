@@ -74,6 +74,10 @@ def check_diagnostic_projection():
         probe = observation(results(common={'bonusType': kind}), 'test', ACCOUNT, 'test')
         check('diagnostic records raw type and current mapping for ' + label,
               probe['common']['bonusType'] == kind and probe['mode_as_current_mod'] == label)
+    from battle_conquest.results_diagnostic import _bonus_type_names
+    check('diagnostic resolves symbolic constants from the installed client',
+          'REGULAR' in _bonus_type_names(Bonus.REGULAR)
+          and _bonus_type_names(99999) == [] and _bonus_type_names(True) == [])
     no_time = results()
     del no_time['common']['arenaCreateTime']
     del no_time['common']['duration']
