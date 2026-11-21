@@ -74,6 +74,19 @@ def _numeric(value, budget, depth=0):
     return _omitted('unsupported value')
 
 
+def _bonus_type_names(value):
+    if isinstance(value, bool) or not isinstance(value, (int, long)):
+        return []
+    from constants import ARENA_BONUS_TYPE
+    names = []
+    for name in dir(ARENA_BONUS_TYPE):
+        if _name(name) and name.isupper():
+            item = getattr(ARENA_BONUS_TYPE, name, None)
+            if not isinstance(item, bool) and isinstance(item, (int, long)) and item == value:
+                names.append(name)
+    return sorted(names)
+
+
 def _personal(value, budget):
     if not isinstance(value, dict):
         return _omitted('not a personal result')
@@ -116,6 +129,7 @@ def observation(results, source, account, version, now=time.time, allow_unknown_
         'account': str(account) if account else None,
         'region': config.REGION,
         'arena_unique_id': arena,
+        'bonus_type_names': _bonus_type_names(common.get('bonusType')),
         'mode_as_current_mod': modes.mode_of(common.get('bonusType')),
         'common': {key: _numeric(common[key], budget) for key in _COMMON if key in common},
         'vehicles': sorted(vehicles, key=lambda item: item['personal_key'] or ''),
