@@ -43,13 +43,17 @@ def check_premium_economy():
         check('premium %s: total retains reserves' % index, metrics['xp_total'] == case['fields']['xp'])
         check('premium %s: WG comparison excludes reserves' % index,
               metrics['xp_wg'] == case['wg_tank_after']['xp'] - case['wg_tank_before']['xp'])
-        check('event credits remain unverified' if index == 1 else 'observed premium expenses remain signed',
-              'credits_net' not in metrics if index == 1 else metrics['credits_net'] == case['calculated_net'])
+        check('premium credits including initial mission remain signed', metrics['credits_net'] == case['calculated_net'])
         check('normal capture without diagnostics accepts premium result', capture.capture(raw, constants=Bonus))
         sent = wire(queue.all()[-1])
         check('normal queue transports distinct XP units and raw observations',
               sent['quest_details']['metrics'] == metrics and sent['metrics']['xp'] == case['fields']['xp']
               and sent['quest_details']['economy']['subtotalXP'] == metrics['xp_wg'])
+    unidentified = client_results(2)
+    del unidentified['personal']['529']['typeCompDescr']
+    legacy = details_of(unidentified, Bonus)
+    check('missing tank identity keeps the established v1 XP proof',
+          legacy.get('economy_version') is None and legacy['metrics']['xp_wg'] == 729)
     raw = client_results(2)
     for key in ('subtotalXP', 'dailyXPFactor10', 'appliedPremiumXPFactor100', 'isPremium',
                 'originalXP', 'xp', 'boosterXP', 'additionalXPFactor10', 'igrXPFactor10',

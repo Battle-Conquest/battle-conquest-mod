@@ -258,6 +258,10 @@ never presented to another.
 
 ## Additional quest measurements (#954)
 
+The extended premium/Free XP scoring contract is documented in
+[Premium scoring](#premium-scoring-1143) below; earlier observation sections
+retain the scope originally delivered for their respective issues.
+
 Reports now include optional `quest_details`: actual battle start, complete
 vehicle ids when known, distinct base/total XP, direct shot counters and
 conditional gross/net credits. Missing measurements stay absent. The seven
@@ -519,3 +523,40 @@ content permissions still apply. GitHub builds the packages after merge.
 Run `tools/test_garage_tournaments.mjs` with the same Playwright environment as
 `tools/test_garage_card.mjs`. In-game rendering and actual mode captures remain
 separate acceptance checks.
+
+
+## Premium scoring (#1143)
+
+The mod now sends explicit base, premium-applied and initial-total units for
+combat XP, Free XP and credits. Base values exclude first-victory, reserve,
+mission and pet bonuses. Initial totals include the rewards actually received
+at the battle result. Net credits subtract actual credit expenses and may be
+negative. No hypothetical WoT Plus benefit, gold, bonds or inventory replacement
+value is added. Existing standard-account and Frontline proofs remain supported.
+
+This extension covers **single-vehicle random battles**, with explicit applied
+premium factors 100 or 150 and supported modifiers. Other modes and ambiguous
+inputs remain unknown. The three real observations from 21 November 2026 are
+stored without account or arena identities in
+`tools/checks/fixtures/mod_premium_1143.json`, identical to the server fixture.
+They cover premium first victory, XP events, a combat XP +50% reserve, a credit
+mission and signed losses. Credit +50% and Free XP +200% reserves follow the
+user's explicitly accepted assumption and are tested synthetically; capability
+metadata separates them under `assumed_scenarios`.
+
+Rewards applied **after** the battle result, including premium x3, are excluded.
+`additionalXPFactor10=30` is already present before activation, so its presence
+alone never removes an otherwise valid observation. Normalization reads the
+explicit initial components and checks their consistency; it never multiplies
+the total by the available bonus. Synthetic late-result variants are covered,
+but no actual post-x3 diagnostic was emitted during the live tests. An unknown
+field layout stays unsupported rather than producing an estimated score.
+Duplicate delivery and completion preserve already known server values.
+
+Deploy the [matching server change](https://github.com/Battle-Conquest/Battle-Conquest/issues/1143)
+**before** this mod. The HTTP report schema stays 1; the additive
+`quest_details.economy_version=2` lets the server recompute the economic units.
+No migration, configuration or diagnostic activation is required. New economic
+grids require this capability; old clients and old grids keep their behavior.
+Full units, rounding limits, tournament windows and deployment notes are in the
+[server guide](https://github.com/Battle-Conquest/Battle-Conquest/blob/main/docs/mod-economy-scoring.md).
