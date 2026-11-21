@@ -49,6 +49,11 @@ def check_premium_economy():
         check('normal queue transports distinct XP units and raw observations',
               sent['quest_details']['metrics'] == metrics and sent['metrics']['xp'] == case['fields']['xp']
               and sent['quest_details']['economy']['subtotalXP'] == metrics['xp_wg'])
+    unidentified = client_results(2)
+    del unidentified['personal']['529']['typeCompDescr']
+    legacy = details_of(unidentified, Bonus)
+    check('missing tank identity keeps the established v1 XP proof',
+          legacy.get('economy_version') is None and legacy['metrics']['xp_wg'] == 729)
     raw = client_results(2)
     for key in ('subtotalXP', 'dailyXPFactor10', 'appliedPremiumXPFactor100', 'isPremium',
                 'originalXP', 'xp', 'boosterXP', 'additionalXPFactor10', 'igrXPFactor10',

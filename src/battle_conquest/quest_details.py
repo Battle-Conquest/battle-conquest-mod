@@ -189,14 +189,17 @@ def details_of(results, constants=None):
             if integer(net, signed=True):
                 metrics['credits_net'] = net
     metrics.update(premium_credits(vehicle, economy, mode))
-    if mode == 'random' and vehicle.get('appliedPremiumXPFactor100') == 150:
+    # The v2 server requires a complete single-vehicle identity. Keep the
+    # established v1 proof when an old cached result lacks that identity.
+    identified = len(out.get('vehicles', [])) == 1
+    if mode == 'random' and identified and vehicle.get('appliedPremiumXPFactor100') == 150:
         # v2 makes the server recompute the same explicit, pre-deferred units.
         # Unsupported families remain absent rather than keeping old guesses.
         for key in ('xp_base', 'xp_wg', 'xp_total', 'credits_gross', 'credits_net'):
             metrics.pop(key, None)
         metrics.update(economy_metrics(vehicle, mode))
         out['economy_version'] = 2
-    elif mode == 'random':
+    elif mode == 'random' and identified:
         normalized = economy_metrics(vehicle, mode)
         if normalized:
             # Legacy standard XP remains in the canonical v2 helper.
