@@ -559,4 +559,4 @@ Deploy the [matching server change](https://github.com/Battle-Conquest/Battle-Co
 No migration, configuration or diagnostic activation is required. New economic
 grids require this capability; old clients and old grids keep their behavior.
 Full units, rounding limits, tournament windows and deployment notes are in the
-[server guide](https://github.com/Battle-Conquest/Battle-Conquest/blob/feat/1143-premium-scoring/docs/mod-economy-scoring.md).
+[server guide](https://github.com/Battle-Conquest/Battle-Conquest/blob/main/docs/mod-economy-scoring.md).
