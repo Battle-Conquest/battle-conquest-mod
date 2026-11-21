@@ -37,6 +37,13 @@ Real-client testing remains pending: all tournament categories and available mod
 
 ZIP SHA-256: `75972470c3225aa68c8de7d619f361eafd4269d866fffd0200a3c6d10754a5de`.
 
+### Changes in this build
+
+- Record client bonus type names for event identification
+- Distinguer les valeurs premium et l’XP libre
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.3
 
 ### Changes in this build
