@@ -43,8 +43,7 @@ def check_premium_economy():
         check('premium %s: total retains reserves' % index, metrics['xp_total'] == case['fields']['xp'])
         check('premium %s: WG comparison excludes reserves' % index,
               metrics['xp_wg'] == case['wg_tank_after']['xp'] - case['wg_tank_before']['xp'])
-        check('event credits remain unverified' if index == 1 else 'observed premium expenses remain signed',
-              'credits_net' not in metrics if index == 1 else metrics['credits_net'] == case['calculated_net'])
+        check('premium credits including initial mission remain signed', metrics['credits_net'] == case['calculated_net'])
         check('normal capture without diagnostics accepts premium result', capture.capture(raw, constants=Bonus))
         sent = wire(queue.all()[-1])
         check('normal queue transports distinct XP units and raw observations',

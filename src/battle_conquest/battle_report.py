@@ -250,6 +250,8 @@ def report_of(results, mode=None, now=None, constants=None):
         details = details_of(results, constants)
         if details is not None:
             report['quest_details'] = details
+            if details.get('economy_version') == 2 and 'xp_total' in details.get('metrics', {}):
+                report['metrics']['xp'] = details['metrics']['xp_total']
     except Exception:
         logging.getLogger('battle_conquest.battle_report').warning(
             'could not read optional quest details; historical report preserved')

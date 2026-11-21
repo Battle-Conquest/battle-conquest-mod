@@ -9,10 +9,13 @@ import json
 import time
 
 from battle_conquest.quest_economy import integer, premium_credits, xp_metrics
+from battle_conquest.quest_economy_v2 import metrics as economy_metrics
 
 MODES = ('random', 'ranked', 'onslaught', 'stronghold', 'frontline', 'other')
 METRICS = ('xp_base', 'xp_total', 'xp_wg', 'credits_gross', 'credits_net',
-           'shots', 'hits', 'piercings', 'explosion_hits')
+           'shots', 'hits', 'piercings', 'explosion_hits', 'credits_gross_premium',
+           'credits_total', 'credits_net_base', 'credits_net_premium',
+           'free_xp_base', 'free_xp_premium', 'free_xp_total')
 ECONOMY = ('originalCredits', 'subtotalCredits', 'credits', 'factualCredits', 'petSystemCredits',
            'autoLoadCost', 'autoEquipCost', 'autoEquipBoostersCost', 'autoRepairCost',
            'appliedPremiumCreditsFactor100', 'appliedPremiumXPFactor100',
@@ -25,14 +28,20 @@ ECONOMY = ('originalCredits', 'subtotalCredits', 'credits', 'factualCredits', 'p
            'boosterXP', 'boosterXPFactor100', 'orderXP', 'eventXP', 'appliedPremiumTmenXPFactor100',
            'shots', 'directHits', 'piercings', 'explosionHits', 'kills', 'spotted',
            'damageDealt', 'damageReceived', 'damageBlockedByArmor', 'damageAssistedRadio',
-           'damageAssistedTrack', 'damageAssistedStun', 'stunNum', 'deathReason')
+           'damageAssistedTrack', 'damageAssistedStun', 'stunNum', 'deathReason',
+           'isPremium', 'boosterCreditsFactor100', 'originalFreeXP', 'subtotalFreeXP',
+           'freeXP', 'factualFreeXP', 'boosterFreeXP', 'boosterFreeXPFactor100',
+           'eventFreeXP', 'orderFreeXP', 'achievementFreeXP', 'wotPlusFreeXP',
+           'wotPlusProBoostFreeXP')
 
 
 def capabilities():
-    return {'schema': 1, 'fields': ['started_at', 'vehicles', 'economy'] + list(METRICS),
+    return {'schema': 1, 'fields': ['started_at', 'vehicles', 'economy', 'economy_version'] + list(METRICS),
             'modes': list(MODES),
             'verified_scenarios': ['random_single_standard', 'first_win', 'pet_bonus',
-                                   'frontline_multi_standard', 'random_single_premium_150', 'negative_net']}
+                                   'frontline_multi_standard', 'random_single_premium_150', 'negative_net',
+                                   'random_single_premium_bonuses'],
+            'assumed_scenarios': ['credit_reserve_50', 'free_xp_reserve_200']}
 
 
 def header():
@@ -73,7 +82,10 @@ def observations(vehicle):
     costs = {'autoLoadCost': 2, 'autoEquipCost': 3, 'autoEquipBoostersCost': 3}
     for key in ECONOMY:
         value = vehicle.get(key)
-        if key in costs:
+        if key == 'isPremium':
+            if isinstance(value, bool):
+                economy[key] = value
+        elif key in costs:
             if isinstance(value, (list, tuple)) and len(value) == costs[key] and all(integer(v) for v in value):
                 economy[key] = list(value)
         elif integer(value, signed=True):
@@ -177,6 +189,19 @@ def details_of(results, constants=None):
             if integer(net, signed=True):
                 metrics['credits_net'] = net
     metrics.update(premium_credits(vehicle, economy, mode))
+    if mode == 'random' and vehicle.get('appliedPremiumXPFactor100') == 150:
+        # v2 makes the server recompute the same explicit, pre-deferred units.
+        # Unsupported families remain absent rather than keeping old guesses.
+        for key in ('xp_base', 'xp_wg', 'xp_total', 'credits_gross', 'credits_net'):
+            metrics.pop(key, None)
+        metrics.update(economy_metrics(vehicle, mode))
+        out['economy_version'] = 2
+    elif mode == 'random':
+        normalized = economy_metrics(vehicle, mode)
+        if normalized:
+            # Legacy standard XP remains in the canonical v2 helper.
+            metrics.update(normalized)
+            out['economy_version'] = 2
     if metrics:
         out['metrics'] = metrics
     return out
