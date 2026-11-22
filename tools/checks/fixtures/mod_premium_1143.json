@@ -1,8 +1,7 @@
 {
   "source": "Real random single-vehicle Tiger I observations, 2026-11-21; account and arena identities omitted",
   "assumptions_not_observed": [
-    "credit_reserve_50",
-    "free_xp_reserve_200"
+    "credit_reserve_50"
   ],
   "cases": [
     {

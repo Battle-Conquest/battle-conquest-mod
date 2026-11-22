@@ -1,6 +1,7 @@
 """Explicit random-battle economies; delayed premium rewards never score.
 
-Credit +50% and free-XP +200% reserves follow the user's stated hypothesis.
+Credit +50% reserves follow the user's stated hypothesis. Free-XP +200%
+and clan credits were observed together in the 2026-11-22 result.
 The numerical gains are read from results, never reconstructed from a factor.
 """
 
@@ -66,11 +67,11 @@ def free_xp_values(values):
 
 
 def credit_values(values):
-    zeros = ('orderCredits', 'achievementCredits', 'premSquadCredits', 'referral20Credits',
+    zeros = ('achievementCredits', 'premSquadCredits', 'referral20Credits',
              'wotPlusCredits', 'wotPlusProBoostCredits',
              'creditsContributionIn', 'creditsContributionOut', 'creditsPenalty')
     keys = ('originalCredits', 'subtotalCredits', 'credits', 'factualCredits',
-            'petSystemCredits', 'boosterCredits', 'eventCredits')
+            'petSystemCredits', 'boosterCredits', 'orderCredits', 'eventCredits')
     if (not known_zero(values, zeros)
             or not all(integer(values.get(key)) for key in keys)):
         return {}
@@ -80,7 +81,8 @@ def credit_values(values):
     if ((reserve is not None and (not integer(reserve) or reserve not in (0, 50)))
             or (values['boosterCredits'] != 0 and reserve != 50)):
         return {}
-    earned = values['subtotalCredits'] + values['petSystemCredits'] + values['boosterCredits'] + values['eventCredits']
+    earned = (values['subtotalCredits'] + values['petSystemCredits'] + values['boosterCredits']
+              + values['orderCredits'] + values['eventCredits'])
     if (not integer(earned) or values['credits'] != earned
             or values['factualCredits'] not in (earned, earned - values['eventCredits'])):
         return {}
