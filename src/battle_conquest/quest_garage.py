@@ -3,7 +3,7 @@ import json
 import time
 from urllib import quote
 
-from battle_conquest import config, i18n
+from battle_conquest import config, garage_history, i18n
 from battle_conquest import tournament_tracking
 from battle_conquest.destinations import battles_url
 from battle_conquest.garage_ready import garage_ready
@@ -95,6 +95,7 @@ class Garage(object):
         self.busy = None
         self.last_poll = 0
         self.last_received = None
+        self.history_clock = None
         self.last_sent = None
         self.search_ticket = None
         self.feedback = None
@@ -105,6 +106,13 @@ class Garage(object):
         data = dict(self.data or {})
         data['battle_feedback'] = self.feedback.snapshot() if self.feedback is not None else None
         return data
+
+    def expire_history(self):
+        if self.data is not None and self.history_clock is not None:
+            server_time, received_at, deadlines = self.history_clock
+            self.data = garage_history.expire(self.data, deadlines, server_time + max(0, self.now() - received_at))
+            if not deadlines:
+                self.history_clock = None
 
     def refresh_after_delivery(self):
         self.refresh_serial += 1
@@ -145,6 +153,7 @@ class Garage(object):
             self.unavailable = False
             self.error = None
             self.last_received = None
+            self.history_clock = None
             self.last_poll = 0
             self.refresh_pending = False
             self.refresh_serial += 1
@@ -153,6 +162,7 @@ class Garage(object):
             self.feedback.snapshot()
         visible = self.garage() and key is not None
         ready = visible and self.ready()
+        self.expire_history()
         self.view.visible(ready and not self.unavailable and (self.data is not None or self.offline),
                           preserve_draft=visible and not ready and not self.unavailable)
         if visible:
@@ -160,9 +170,9 @@ class Garage(object):
         if visible or getattr(self.view, 'renders_unlinked', False) is True:
             self.view.render(self)
 
-    def url(self):
+    def url(self, history=True):
         return (config.SITE.rstrip('/') + '/api/mod/quest-garage?account_id=%s&region=%s'
-                % (account_number(self.key[0]), config.REGION))
+                % (account_number(self.key[0]), config.REGION)) + ('&history=recent' if history else '')
 
     def poll(self, force=False):
         key = self.identity()
@@ -227,6 +237,9 @@ class Garage(object):
                 # Reload action is the only way to accept its newer version.
                 if not self.conflict:
                     self.data = data
+                    stamp = garage_history.utc_timestamp(data.get('server_time'))
+                    self.history_clock = (stamp, self.now(), garage_history.deadlines(data)) if stamp is not None else None
+                    self.expire_history()
                     if self.feedback is not None and serial == self.refresh_serial:
                         self.feedback.accept(data)
                     if payload is not None and on_saved is not None:
@@ -259,6 +272,7 @@ class Garage(object):
         if (not self.data or self.conflict or self.busy is not None or not self.garage()
                 or self.identity() != self.key or getattr(self.view, 'editing', None) is not None):
             return
+        self.expire_history()
         selected = self.data.get('automatic_selection')
         if selected and selected != self.data['config']['selection']:
             return self.request(self.url().replace('/quest-garage?', '/quest-garage/auto-select?'), self.key,
@@ -267,13 +281,16 @@ class Garage(object):
     def save(self, expected_version=None, on_saved=None, **changes):
         if self.data is None or self.conflict or self.busy is not None or not self.garage():
             return
+        self.expire_history()
         config_data = dict(self.data['config'])
         visible = (self.data.get('selected') or {}).get('key')
         choices = [choice['key'] for choice in self.data['choices']]
         # The server can display the latest finished quest while retaining
         # an obsolete saved ID. An explicit settings save adopts that visible
         # choice; reads alone and explicit selection changes never do.
-        if ('selection' not in changes and config_data['selection']
+        if changes.get('selection') and changes['selection'] not in choices:
+            return
+        if ('selection' not in changes and not self.data.get('selection_hidden') and config_data['selection']
                 and config_data['selection'] not in choices and visible in choices):
             config_data['selection'] = visible
         config_data.update(changes)
@@ -293,7 +310,7 @@ class Garage(object):
             return False
         ticket = object()
         self.search_ticket = ticket
-        url = self.url().replace('/quest-garage?', '/quest-garage/players?') + '&q=' + quote(query.encode('utf-8'))
+        url = self.url(history=False).replace('/quest-garage?', '/quest-garage/players?') + '&q=' + quote(query.encode('utf-8'))
         def answered(response):
             if self.search_ticket is not ticket or self.identity() != key or not self.garage():
                 return
@@ -324,6 +341,7 @@ class Garage(object):
     def next_quest(self):
         if not self.data:
             return
+        self.expire_history()
         keys = [''] + [choice['key'] for choice in tournament_tracking.ordered(self.data['choices'])]
         current = (self.data.get('selected') or {}).get('key', self.data['config']['selection'])
         index = keys.index(current) if current in keys else 0
