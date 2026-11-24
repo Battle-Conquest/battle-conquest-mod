@@ -42,7 +42,12 @@ def _event_types(constants):
     if not _EVENT_BONUS_TYPES:
         return {}
     if constants is None:
-        from constants import ARENA_BONUS_TYPE as constants
+        try:
+            from constants import ARENA_BONUS_TYPE as constants
+        except ImportError:
+            # Linking and sending can advertise the base capabilities before
+            # the client makes its battle constants available.
+            return {}
     types = {}
     for submode, names in _EVENT_BONUS_TYPES.items():
         for name in names:

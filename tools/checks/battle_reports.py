@@ -114,6 +114,10 @@ def check_event_submodes():
         check('ambiguous bonus types stay generic and are not advertised',
               'event_submode' not in report_of(raw, constants=EventBonus)
               and 'event_submodes' not in capabilities())
+        sys.modules['constants'] = type(sys)('constants')
+        caps = capabilities()
+        check('missing game constants leave the base capabilities available',
+              'other' in caps['modes'] and 'event_submodes' not in caps)
     finally:
         modes._EVENT_BONUS_TYPES = saved_registry
         if saved_constants is None:
