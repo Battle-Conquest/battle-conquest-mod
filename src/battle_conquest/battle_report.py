@@ -242,6 +242,10 @@ def report_of(results, mode=None, now=None, constants=None):
         'survived': survived(vehicles),
         'metrics': metrics_of(vehicles),
     }
+    if mode == 'other':
+        submode = modes.event_submode(common.get('bonusType'), constants)
+        if submode is not None:
+            report['event_submode'] = submode
     # Optional in the contract: left out rather than sent empty when unknown.
     tank_id = tank_id_of(results.get('personal'))
     if tank_id is not None:
