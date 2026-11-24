@@ -55,3 +55,20 @@ def check_premium_scoring():
           values['credits_net'] == 14287 and values['free_xp_total'] == 243
           and values['free_xp_premium'] == 81 and values['credits_gross'] == 33706)
     check('1143 assumptions are declared separately', capabilities()['assumed_scenarios'] == fixture['assumptions_not_observed'])
+    with open(os.path.join(REPO, 'tools/checks/fixtures/mod_clan_credits_1143.json')) as handle:
+        clan = json.load(handle)
+    fields = clan['fields']
+    check('1143 observed clan credits and free XP reserve', metrics(fields, 'random') == clan['expected'])
+    personal = dict(fields, accountDBID=int(ACCOUNT), team=2)
+    result = {'arenaUniqueID': 11439, 'personal': {'529': personal},
+              'common': {'bonusType': Bonus.REGULAR, 'arenaCreateTime': 1700000000,
+                         'duration': 606, 'winnerTeam': 1}}
+    report = report_of(result, constants=Bonus)
+    check('1143 clan gains survive capture on a loss', report['outcome'] == 'loss'
+          and report['quest_details']['metrics'] == clan['expected'])
+    for key, invalid in (('orderCredits', None), ('orderCredits', True),
+                         ('orderCredits', -1), ('orderCredits', 14183), ('credits', 96183)):
+        changed = dict(fields)
+        changed[key] = invalid
+        check('1143 invalid clan proof remains unknown: %s %r' % (key, invalid),
+              'credits_total' not in metrics(changed, 'random'))
