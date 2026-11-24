@@ -44,6 +44,12 @@ ZIP SHA-256: `75972470c3225aa68c8de7d619f361eafd4269d866fffd0200a3c6d10754a5de`.
 
 This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
 
+### Changes in this build
+
+- Count clan credits without changing bonus-free bases
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.3
 
 ### Changes in this build
