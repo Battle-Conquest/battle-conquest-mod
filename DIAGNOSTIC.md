@@ -116,19 +116,28 @@ pas ces fichiers. Aucun inventaire complet du compte ni valeur des autres
 joueurs, clé de liaison ou objet client n’est sérialisé. Les fichiers ne sont
 jamais ajoutés à la file d’envoi ni transmis automatiquement au site.
 
-## Collecter Steel Hunter et Black Signal (#1141)
+## Identifier un nouveau mode fun (#1141)
 
 Activer le diagnostic ci-dessus et noter la version exacte du client WoT.
-Pour chaque événement, jouer une bataille, noter le mode sélectionné et relever
+Pour le nouvel événement, jouer une bataille, noter le mode sélectionné et relever
 la ligne du résultat reçu au garage. Ouvrir ensuite le résultat de cette même
 bataille et comparer les observations pour la même arène.
 
 Transmettre pour chaque capture le mode joué, la version du client, `source`,
 `common.bonusType`, `bonus_type_names` et `common.arenaTypeID`. La liste des
 noms comprend les constantes symboliques du client ayant la valeur observée.
-Une liste vide ou une valeur commune aux deux événements demande une nouvelle
-observation. L’identifiant de carte seul ne détermine pas le mode.
-Ces extraits suffisent ; garder les identifiants joueur et arène en local.
+Une liste vide ou une valeur commune à plusieurs modes demande une nouvelle
+observation sur le client. Si le type reste partagé, il faut relever un autre
+champ technique stable avant de classer le résultat.
+Garder les identifiants joueur et arène en local.
+
+Une fois la règle vérifiée, ajouter dans [le registre du mod](src/battle_conquest/modes.py)
+un identifiant stable et les noms exacts vus dans les constantes du client.
+Le rapport envoie cet identifiant dans `event_submode` avec `mode: "other"`.
+Le mod annonce uniquement les modes qu’il peut lire sur le client installé.
+Employer le même identifiant dans le registre et les traductions du serveur.
+Livrer le serveur puis le mod, et vérifier la lecture d’un rapport réel et son
+classement dans la compétition correspondante.
 
 ## Recette en jeu
 

@@ -36,13 +36,18 @@ ECONOMY = ('originalCredits', 'subtotalCredits', 'credits', 'factualCredits', 'p
 
 
 def capabilities():
-    return {'schema': 1, 'fields': ['started_at', 'vehicles', 'economy', 'economy_version'] + list(METRICS),
+    from battle_conquest.modes import supported_event_submodes
+    result = {'schema': 1, 'fields': ['started_at', 'vehicles', 'economy', 'economy_version'] + list(METRICS),
             'modes': list(MODES),
             'verified_scenarios': ['random_single_standard', 'first_win', 'pet_bonus',
                                    'frontline_multi_standard', 'random_single_premium_150', 'negative_net',
                                    'random_single_premium_bonuses', 'free_xp_reserve_200',
                                    'clan_credit_reserve_30'],
             'assumed_scenarios': ['credit_reserve_50']}
+    submodes = supported_event_submodes()
+    if submodes:
+        result['event_submodes'] = submodes
+    return result
 
 
 def header():

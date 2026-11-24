@@ -68,6 +68,63 @@ def check_battle_report_reading():
           report['finished_at'] == '2026-09-25T18:10:00Z')
     check('the outcome rides along', report['outcome'] == 'win')
     check('so does the survival', report['survived'] is True)
+    check_event_submodes()
+
+
+def check_event_submodes():
+    import shutil
+    import sys
+    from battle_conquest import modes
+    from battle_conquest.battle_report import report_of
+    from battle_conquest.quest_details import capabilities
+    from battle_conquest.report_queue import Queue
+    from battle_conquest.report_wire import wire
+
+    class EventBonus(Bonus):
+        SYNTHETIC_EVENT = 8001
+        SYNTHETIC_ALIAS = 8001
+        SYNTHETIC_SECOND = 8002
+
+    constants_module = type(sys)('constants')
+    constants_module.ARENA_BONUS_TYPE = EventBonus
+    saved_constants = sys.modules.get('constants')
+    saved_registry = modes._EVENT_BONUS_TYPES
+    tmp = tempfile.mkdtemp()
+    try:
+        sys.modules['constants'] = constants_module
+        modes._EVENT_BONUS_TYPES = {
+            'fixture_event': ('SYNTHETIC_EVENT', 'SYNTHETIC_ALIAS', 'MISSING_NAME', 'REGULAR'),
+            'fixture_second': ('SYNTHETIC_SECOND',),
+            'fixture_absent': ('UNAVAILABLE',),
+        }
+        raw = results(common={'bonusType': EventBonus.SYNTHETIC_EVENT})
+        report = report_of(raw, constants=EventBonus)
+        check('aliases of the same event preserve the Other family and add the stable slug',
+              report['mode'] == 'other' and report.get('event_submode') == 'fixture_event')
+        check('the mod advertises only resolvable event submodes',
+              capabilities()['event_submodes'] == ['fixture_event', 'fixture_second'])
+        path = os.path.join(tmp, 'event-reports.json')
+        Queue(path).add(owned(report))
+        check('the event slug survives queue reload and the wire projection',
+              wire(Queue(path).all()[0]).get('event_submode') == 'fixture_event')
+        for value in (None, True, 8001.0, 9876, EventBonus.REGULAR):
+            check('missing, invalid, unknown or standard bonus types have no event slug',
+                  'event_submode' not in report_of(results(common={'bonusType': value}), constants=EventBonus))
+        modes._EVENT_BONUS_TYPES['fixture_second'] = ('SYNTHETIC_ALIAS',)
+        check('ambiguous bonus types stay generic and are not advertised',
+              'event_submode' not in report_of(raw, constants=EventBonus)
+              and 'event_submodes' not in capabilities())
+        sys.modules['constants'] = type(sys)('constants')
+        caps = capabilities()
+        check('missing game constants leave the base capabilities available',
+              'other' in caps['modes'] and 'event_submodes' not in caps)
+    finally:
+        modes._EVENT_BONUS_TYPES = saved_registry
+        if saved_constants is None:
+            sys.modules.pop('constants', None)
+        else:
+            sys.modules['constants'] = saved_constants
+        shutil.rmtree(tmp)
 
 
 def check_battle_report_tank():
