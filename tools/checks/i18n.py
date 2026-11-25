@@ -63,6 +63,10 @@ def check_i18n():
               and u'Clôturé - réception des derniers résultats' in texts(panel.content.node))
         check('quest titles and usernames are never translated as interface messages',
               'Reload' in texts(panel.content.node) and 'Save' in texts(panel.content.node))
+        garage.data['pending_progress']['criteria']['damage_dealt'] = -45
+        panel.render(garage)
+        check('negative progress uses a sign available in the native font',
+              u'Dégâts infligés: 350 (-45) / 1 000' in texts(panel.content.node))
         for width, height in ((1280, 720), (1920, 1080), (2560, 1440)):
             resolution[:] = width, height
             panel.render(garage)

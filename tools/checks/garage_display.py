@@ -86,7 +86,7 @@ def check_garage_displays():
         values = display.snapshot(True)['criteria'][0]['values']
         check('the viewer sees the pending addition beside the site total', values == {'official': '12465 (+451)'})
         garage.data['pending_progress']['criteria']['damage_dealt'] = -451
-        check('a pending loss keeps its sign', display.snapshot(True)['criteria'][0]['values']['official'] == u'12465 (\u2212451)')
+        check('a pending loss keeps its sign', display.snapshot(True)['criteria'][0]['values']['official'] == '12465 (-451)')
         garage.data['players'][0]['official'] = {'available': False}
         garage.data['pending_progress']['criteria']['damage_dealt'] = None
         values = display.snapshot(True)['criteria'][0]['values']

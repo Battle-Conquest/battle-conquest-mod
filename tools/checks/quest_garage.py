@@ -144,6 +144,14 @@ def check_quest_garage_age():
     clock = [epoch + 3661]
     garage = type('Garage', (object,), {'data': data, 'offline': False, 'now': lambda self: clock[0]})()
     check('the displayed duration still uses the oldest UTC score timestamp', status_line(garage).endswith('01:01:01'))
+    data['criteria'] = [{'criterion_type': 'damage_dealt'}]
+    data['players'][0]['participant'] = True
+    data['players'][0]['official'].update(available=True, totals={'damage_dealt': 1}, updated_at='2026-10-25 01:00:00')
+    data['players'][0]['estimate']['updated_at'] = stamp
+    check('a hidden estimate does not make displayed scores look stale', status_line(garage).endswith('00:01:01'))
+    data['players'][0]['official']['totals']['damage_dealt'] = None
+    check('the visible estimate still contributes to the display age', status_line(garage).endswith('01:01:01'))
+    data.pop('criteria')
     garage.offline = True
     clock[0] += 86400
     check('offline durations continue past one day', 'Offline' in status_line(garage) and status_line(garage).endswith('25:01:01'))

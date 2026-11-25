@@ -11,16 +11,20 @@ def duration(seconds):
 
 
 def status_line(garage):
+    data = garage.data or {}
+    criteria = data.get('criteria', [])
     timestamps = []
-    for player in (garage.data or {}).get('players', [])[:5]:
+    for player in data.get('players', [])[:5]:
         for source in ('official', 'estimate'):
+            if source == 'estimate' and criteria and not any(show_estimate(player, c['criterion_type']) for c in criteria):
+                continue
             stamp = (player.get(source) or {}).get('updated_at')
             if stamp:
                 try:
                     timestamps.append(calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S')))
                 except ValueError:
                     pass
-    stamp = ((garage.data or {}).get('tracking') or {}).get('updated_at')
+    stamp = (data.get('tracking') or {}).get('updated_at')
     if stamp:
         try:
             timestamps.append(calendar.timegm(time.strptime(stamp, '%Y-%m-%d %H:%M:%S')))
@@ -76,7 +80,8 @@ def progress_text(value, pending, key, format_number=unicode):
         if value in (None, u'?'):
             text = tr(u'Unavailable')
         return u'%s \u00b7 %s' % (text, tr(u'Calculation pending'))
-    sign = u'+' if delta > 0 else u'\u2212'
+    # The bundled native font covers ASCII signs.
+    sign = u'+' if delta > 0 else u'-'
     return u'%s (%s%s)' % (text, sign, format_number(abs(delta)))
 
 
