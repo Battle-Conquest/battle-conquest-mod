@@ -43,6 +43,43 @@ def metric_value(score, metric):
     return u'%s + ?' % known if known else u'?'
 
 
+def score_number(value):
+    return isinstance(value, (int, long)) and not isinstance(value, bool)
+
+
+def pending_values(data, tracking=False):
+    pending = data.get('pending_progress')
+    if not isinstance(pending, dict):
+        return {}
+    values = pending if tracking else pending.get('criteria')
+    if not isinstance(values, dict):
+        return {}
+    return dict((key, value) for key, value in values.items()
+                if isinstance(key, basestring) and (value is None or score_number(value)))
+
+
+def full_metric(score, metric):
+    return (score and score.get('available') and score.get('comparable') is not False
+            and score_number(score.get('totals', {}).get(metric)))
+
+
+def show_estimate(player, metric):
+    return not player.get('participant') or not full_metric(player.get('official'), metric)
+
+
+def progress_text(value, pending, key, format_number=unicode):
+    text = format_number(value) if value is not None else tr(u'Unavailable')
+    if key not in pending or pending[key] == 0:
+        return text
+    delta = pending[key]
+    if delta is None or not score_number(value):
+        if value in (None, u'?'):
+            text = tr(u'Unavailable')
+        return u'%s \u00b7 %s' % (text, tr(u'Calculation pending'))
+    sign = u'+' if delta > 0 else u'\u2212'
+    return u'%s (%s%s)' % (text, sign, format_number(abs(delta)))
+
+
 def lines(garage):
     data = garage.data
     if data is None:
@@ -66,7 +103,7 @@ def lines(garage):
             score = player.get(source)
             if score is None:
                 continue
-            label = u'Official' if source == 'official' else u'Mod estimate'
+            label = u'Battle-Conquest' if source == 'official' else u'Mod estimate'
             if not score.get('available'):
                 detail = u'no data'
             elif score.get('comparable') is False:

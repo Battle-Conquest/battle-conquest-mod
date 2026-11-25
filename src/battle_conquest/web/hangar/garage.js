@@ -332,8 +332,9 @@ function render(data) {
             const row = node('div', 'BattleConquestGarage_metric', metrics);
             node('strong', '', row, `${criterion.label} / ${criterion.target}`);
             for (const source of ['official', 'estimate']) {
+                if (criterion.values[source] === undefined) continue;
                 node('div', 'BattleConquestGarage_' + source, row,
-                    `${label(source === 'official' ? 'OFFICIAL' : 'MOD ESTIMATE')}: ${criterion.values[source]}`);
+                    `${label(source === 'official' ? 'Battle-Conquest' : 'MOD ESTIMATE')}: ${criterion.values[source]}`);
             }
         }
         metricsKey = metricKey;

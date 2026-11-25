@@ -80,6 +80,24 @@ def check_garage_displays():
         snapshot = display.snapshot(True)
         check('partial scores remain explicitly unknown', snapshot['criteria'][0]['values']['official'] == '20 + ?')
         check('missing estimates stay unavailable', snapshot['criteria'][0]['values']['estimate'] == 'Unavailable')
+        garage.data['players'][0].update(participant=True, estimate={'available': True, 'totals': {'damage_dealt': 123}})
+        garage.data['players'][0]['official']['totals']['damage_dealt'] = 12465
+        garage.data['pending_progress'] = {'criteria': {'damage_dealt': 451}}
+        values = display.snapshot(True)['criteria'][0]['values']
+        check('the viewer sees the pending addition beside the site total', values == {'official': '12465 (+451)'})
+        garage.data['pending_progress']['criteria']['damage_dealt'] = -451
+        check('a pending loss keeps its sign', display.snapshot(True)['criteria'][0]['values']['official'] == u'12465 (\u2212451)')
+        garage.data['players'][0]['official'] = {'available': False}
+        garage.data['pending_progress']['criteria']['damage_dealt'] = None
+        values = display.snapshot(True)['criteria'][0]['values']
+        check('pending without a site total keeps the only estimate', values == {
+            'official': u'Unavailable \u00b7 Calculation pending', 'estimate': '123'})
+        garage.data['pending_progress']['criteria']['damage_dealt'] = True
+        check('malformed optional progress leaves the site unavailable message intact',
+              display.snapshot(True)['criteria'][0]['values']['official'] == 'Unavailable')
+        garage.data.pop('pending_progress')
+        check('older server responses omit any pending amount',
+              display.snapshot(True)['criteria'][0]['values']['official'] == 'Unavailable')
         check('Gameface never receives secrets or followed players', 'Other' not in json.dumps(snapshot) and destination.secret not in json.dumps(snapshot))
         check('French catalogue covers the card controls', all(label in i18n.MESSAGES for label in garage_display.LABELS))
         display.command({'scope': display.scope, 'action': 'close'})

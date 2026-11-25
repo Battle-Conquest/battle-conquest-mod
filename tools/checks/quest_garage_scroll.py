@@ -62,8 +62,8 @@ def check_quest_garage_scroll():
                 result.extend(texts(child))
             return result
         text = u'\n'.join(texts(panel.content.node))
-        check('compact cards retain both score sources and remove duplicated quest lists and raw dates',
-              'OFFICIAL' in text and 'MOD ESTIMATE' in text and '350 / 1 000' in text
+        check('compact cards show site values once and remove duplicated quest lists and raw dates',
+              'Battle-Conquest' in text and 'MOD ESTIMATE' not in text and '350 / 1 000' in text
               and 'Other quest' not in text and '2026-10-25' not in text and panel.content.height < 1500)
         for width, height in ((1024, 480), (1280, 720), (1920, 1080), (2560, 1440)):
             resolution[:] = width, height

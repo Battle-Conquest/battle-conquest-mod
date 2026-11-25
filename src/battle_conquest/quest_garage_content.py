@@ -2,7 +2,7 @@
 import json
 import math
 
-from battle_conquest.quest_garage_text import clean, metric_value
+from battle_conquest.quest_garage_text import clean, metric_value, pending_values, progress_text, show_estimate
 from battle_conquest.i18n import locale, tr
 from battle_conquest.quest_garage_widgets import label, place, surface, wrapped
 
@@ -61,20 +61,23 @@ class Card(object):
         self.index += 1
         self.y += 7
 
-    def source(self, title, score, criteria, color, localized=True):
-        if score is None:
-            return
+    def source(self, title, score, criteria, color, localized, pending):
         self.text(title, color)
-        if not score.get('available'):
+        score = score or {}
+        available = score.get('available') and score.get('comparable') is not False
+        if not score.get('available') and not pending:
             self.text(u'No data for this period.', 'muted')
-        elif score.get('comparable') is False:
+        elif score.get('comparable') is False and not pending:
             self.text(u'Not comparable with this quest.', 'muted')
         else:
             for criterion in criteria:
                 metric, target = criterion['criterion_type'], criterion['target_value']
                 name = (criterion.get('label') if localized else None) or tr(NAMES.get(metric, metric.replace('_', ' ').capitalize()))
-                self.text(u'%s:  %s / %s' % (name, number(metric_value(score, metric)), number(target)))
-                self.progress(score.get('totals', {}).get(metric), target, color)
+                value = metric_value(score, metric) if available else None
+                self.text(u'%s:  %s / %s' % (name, progress_text(value, pending, metric, number), number(target)),
+                          translate=False)
+                if available:
+                    self.progress(score['totals'].get(metric), target, color)
             if not criteria:
                 self.text(u'No objectives to display.', 'muted')
         if score.get('battles') is not None:
@@ -92,7 +95,7 @@ class Card(object):
 STAGES = {'retrieving': u'Waiting for the WoT result...', 'queued': u'Waiting to send...',
           'sending': u'Sending to Battle-Conquest...', 'waiting': u'Delivery pending - result retained',
           'confirming': u'Awaiting Battle-Conquest confirmation...', 'rejected': u'Battle rejected by Battle-Conquest',
-          'received': u'Received by Battle-Conquest - official progress below'}
+          'received': u'Battle received by Battle-Conquest'}
 
 
 def battle_card(parent, width, y, data):
@@ -133,7 +136,8 @@ class Content(object):
             self.node.visible = visible
 
     def render(self, data, width):
-        shown = dict((name, (data or {}).get(name)) for name in ('selected', 'criteria', 'players', 'language', 'battle_feedback', 'tracking'))
+        shown = dict((name, (data or {}).get(name)) for name in
+                     ('selected', 'criteria', 'players', 'language', 'battle_feedback', 'tracking', 'pending_progress'))
         key = (json.dumps(shown, sort_keys=True), width, locale())
         if key == self.key:
             return False
@@ -156,7 +160,7 @@ class Content(object):
         if data and data.get('tracking'):
             from battle_conquest.tournament_tracking import lines
             card = Card(self.node, 'tournament', width, y, 'official')
-            for line in lines(data['tracking']):
+            for line in lines(data['tracking'], pending_values(data, tracking=True)):
                 card.text(line, translate=False)
             y += card.finish()
         if data and not data.get('tracking'):
@@ -166,17 +170,22 @@ class Content(object):
                 if not player['participant']:
                     card.text(u'Followed only - no rewards', 'muted')
                 localized = data.get('language', 'en') == locale()
-                sources = [(title, player.get(source_key), color) for title, source_key, color in
-                           ((u'OFFICIAL', 'official', 'official'), (u'MOD ESTIMATE', 'estimate', 'estimate'))
-                           if player.get(source_key) is not None]
+                criteria = data.get('criteria', [])
+                pending = pending_values(data) if index == 0 and player['participant'] else {}
+                estimates = [c for c in criteria if show_estimate(player, c['criterion_type'])]
+                sources = []
+                if player.get('official') is not None or pending:
+                    sources.append((u'Battle-Conquest', player.get('official'), criteria, 'official', pending))
+                if player.get('estimate') is not None and (estimates or not criteria):
+                    sources.append((u'MOD ESTIMATE', player['estimate'], estimates, 'estimate', {}))
                 top, bottoms = card.y, [card.y]
                 column = (width - 36) / 2 if len(sources) == 2 else width - 24
-                for source_index, (title, score, color) in enumerate(sources):
+                for source_index, (title, score, metrics, color, pending) in enumerate(sources):
                     card.x, card.text_width, card.y = 12 + source_index * (column + 12), column, top
-                    card.source(title, score, data.get('criteria', []), color, localized)
+                    card.source(title, score, metrics, color, localized, pending)
                     bottoms.append(card.y)
                 card.x, card.text_width, card.y = 12, width - 24, max(bottoms)
-                if player.get('official') is None and player.get('estimate') is None:
+                if not sources:
                     card.text(u'No results for this period.', 'muted')
                 y += card.finish()
         self.height = max(0, y - 8)

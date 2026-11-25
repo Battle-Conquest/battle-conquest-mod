@@ -105,8 +105,8 @@ def check_quest_garage():
     account.account = '500999999'
     garage.tick()
     check('account switch clears the previous configuration and values', garage.data is None and view.resets == 2)
-    stale(_Response(200, data))
-    check('late response cannot restore previous account', garage.data is None)
+    stale(_Response(200, dict(data, pending_progress={'criteria': {'damage_dealt': 451}})))
+    check('late response cannot restore the previous account or its pending score', garage.data is None)
     session.sent.pop(0)['answer'](_Response(200, newer))
     in_garage[0] = False
     clock[0] += 15

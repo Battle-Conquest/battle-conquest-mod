@@ -45,6 +45,7 @@ def check_i18n():
                 'config': {'version': 1, 'selection': 'individual:1', 'mode': 'manual', 'manual_ids': [2]},
                 'choices': [], 'selected': {'title': 'Reload', 'status': 'receiving'},
                 'criteria': [{'criterion_type': 'damage_dealt', 'target_value': 1000, 'label': u'Dégâts infligés'}],
+                'pending_progress': {'criteria': {'damage_dealt': 45}},
                 'players': [{'username': 'Save', 'participant': True,
                              'official': {'available': True, 'battles': 3, 'totals': {'damage_dealt': 350}}}]}
         garage.poll(force=True)
@@ -57,8 +58,8 @@ def check_i18n():
         check('a garage refresh adopts the authenticated site language without relinking', i18n.locale() == 'fr')
         check('French captions, source labels and server criterion names render in the native window',
               panel.button_labels[0].text == u'Quête suivante' and panel.fold_label.text == u'Replier'
-              and u'OFFICIEL' in texts(panel.content.node) and u'3 batailles' in texts(panel.content.node)
-              and u'Dégâts infligés: 350 / 1 000' in texts(panel.content.node)
+              and u'Battle-Conquest' in texts(panel.content.node) and u'3 batailles' in texts(panel.content.node)
+              and u'Dégâts infligés: 350 (+45) / 1 000' in texts(panel.content.node)
               and u'Clôturé - réception des derniers résultats' in texts(panel.content.node))
         check('quest titles and usernames are never translated as interface messages',
               'Reload' in texts(panel.content.node) and 'Save' in texts(panel.content.node))
