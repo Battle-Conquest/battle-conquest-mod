@@ -301,6 +301,7 @@ function render(data) {
     const choices = JSON.stringify([data.scope, data.choices, data.selected && data.selected.key, data.labels]);
     if (choices !== choicesKey) {
         const wasOpen = options.style.display !== 'none';
+        const hadFocus = wasOpen && options.contains(document.activeElement);
         while (options.firstChild) options.removeChild(options.firstChild);
         function option(row, parent) {
             const title = row.title + (row.game_mode ? ` [${label(row.game_mode)}]` : '') + (row.status ? ` — ${row.status}` : '');
@@ -319,7 +320,10 @@ function render(data) {
             node('strong', 'BattleConquestGarage_groupTitle', group, label(title));
             for (const row of rows) option(row, group);
         }
-        if (wasOpen) hideOptions();
+        if (wasOpen) {
+            hideOptions();
+            if (hadFocus) choose.focus();
+        }
         choicesKey = choices;
     }
     tournament.textContent = '';

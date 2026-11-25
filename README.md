@@ -510,10 +510,15 @@ requirements, current opponent or map tile and role where applicable. Unknown
 values stay unavailable; these figures are never computed by the client.
 Map owners who have not entered a tournament are not listed as participants.
 
-A valid saved selection remains selected. With no valid saved selection, a single
-ongoing objective across all categories can be selected automatically; waiting
-and eliminated participations are excluded. Tournament choices disappear after
-closure or withdrawal. Existing quest/challenge history behavior is unchanged.
+A valid saved selection remains selected. Both garage displays retain resolved
+quests and closed challenges for 24 hours and settled tournament participations
+for one hour. The countdown starts when a quest resolves, when play closes for
+a challenge (including during result collection), or at official tournament
+closure. A cancellation or withdrawal removes the corresponding choice.
+
+When the saved objective expires, the mod temporarily displays the sole ongoing
+objective, then falls back to the latest visible quest or challenge result, or
+prompts you to choose. Your saved selection changes when you choose an objective.
 The detailed native window can cycle through every category using Change quest.
 
 Deploy the compatible site's garage API before this mod. Older snapshots without

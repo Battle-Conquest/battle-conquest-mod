@@ -5,7 +5,7 @@ CATEGORIES = (('individual', u'Quests'), ('session', u'Challenges'), ('bffa', u'
               ('event', u'Tournaments'), ('tile', u'Map'))
 STATES = {'waiting': u'Waiting', 'active': u'In progress', 'qualification': u'Qualification',
           'match': u'Match', 'receiving': u'Awaiting final results', 'eliminated': u'Eliminated',
-          'advanced': u'Qualified for the next round', 'bye': u'Bye'}
+          'advanced': u'Qualified for the next round', 'bye': u'Bye', 'settled': u'Closed - final results'}
 FIELDS = (('score', u'Score'), ('rank', u'Rank'), ('battles', u'Battles'),
           ('battle_min', u'Minimum battles'), ('battle_cap', u'Battle cap'),
           ('round', u'Round'), ('opponent', u'Opponent'), ('opponent_score', u'Opponent score'))
@@ -18,7 +18,8 @@ def category(choice):
 def choice_status(choice):
     state = choice.get('status', '')
     title = {'upcoming': u'Waiting', 'scheduled': u'Scheduled', 'registration': u'Registration open',
-             'qualification': u'Qualification', 'bracket': u'Matches', 'closing': u'Awaiting final results'}.get(state, state)
+             'qualification': u'Qualification', 'bracket': u'Matches', 'closing': u'Awaiting final results',
+             'settled': u'Closed - final results'}.get(state, state)
     return tr(title)
 
 
