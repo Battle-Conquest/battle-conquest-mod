@@ -50,6 +50,14 @@ This refresh keeps the same version and prerelease status. Download the ZIP agai
 
 This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
 
+### Changes in this build
+
+- Classify fun modes from a versioned registry
+- Afficher les résultats récents dans le garage
+- Afficher les gains de bataille en attente dans le garage
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.3
 
 ### Changes in this build
