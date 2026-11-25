@@ -109,10 +109,27 @@ class Garage(object):
 
     def expire_history(self):
         if self.data is not None and self.history_clock is not None:
-            server_time, received_at, deadlines = self.history_clock
-            self.data = garage_history.expire(self.data, deadlines, server_time + max(0, self.now() - received_at))
-            if not deadlines:
-                self.history_clock = None
+            _, _, deadlines = self.history_clock
+            if deadlines:
+                self.data = garage_history.expire(self.data, deadlines, self.estimated_server_time(self.now()))
+
+    def estimated_server_time(self, now):
+        server_time, received_at, _ = self.history_clock
+        return server_time + max(0, now - received_at)
+
+    def remember_history(self, data, started_at, received_at):
+        stamp = garage_history.utc_timestamp(data.get('server_time'))
+        if stamp is None:
+            self.history_clock = None
+            return
+        if self.history_clock is not None:
+            # The server stamped the snapshot during the request, to the
+            # nearest second below. Keep the previous estimate within that
+            # interval so a delayed reply cannot reset a running countdown.
+            elapsed = max(0, min(config.API_TIMEOUT, received_at - started_at))
+            stamp = max(stamp, min(self.estimated_server_time(received_at), stamp + elapsed + 1))
+        self.history_clock = (stamp, received_at, garage_history.deadlines(data))
+        self.expire_history()
 
     def refresh_after_delivery(self):
         self.refresh_serial += 1
@@ -197,7 +214,7 @@ class Garage(object):
             self.refresh_pending = False
         ticket = object()
         self.busy = ticket
-        self.last_poll = self.now()
+        started_at = self.last_poll = self.now()
 
         def answered(response):
             if self.busy is not ticket or self.identity() != key or self.key != key:
@@ -237,9 +254,7 @@ class Garage(object):
                 # Reload action is the only way to accept its newer version.
                 if not self.conflict:
                     self.data = data
-                    stamp = garage_history.utc_timestamp(data.get('server_time'))
-                    self.history_clock = (stamp, self.now(), garage_history.deadlines(data)) if stamp is not None else None
-                    self.expire_history()
+                    self.remember_history(data, started_at, self.now())
                     if self.feedback is not None and serial == self.refresh_serial:
                         self.feedback.accept(data)
                     if payload is not None and on_saved is not None:
