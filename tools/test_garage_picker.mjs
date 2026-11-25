@@ -94,8 +94,22 @@ try {
         await choose.click();
         await page.keyboard.press('Tab');
         assert.equal(await options.count(), 0, 'Tab closes the menu and returns to the card tab order');
-        assert.equal(await card.getByRole('button', {name: 'Details', exact: true})
-            .evaluate(el => el === document.activeElement), true);
+        const details = card.getByRole('button', {name: 'Details', exact: true});
+        assert.equal(await details.evaluate(el => el === document.activeElement), true);
+
+        await choose.focus();
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowDown');
+        assert.equal(await page.getByRole('option').nth(1).evaluate(el => el === document.activeElement), true);
+        await page.evaluate(() => update({choices: payload.choices.slice(1), selected: null}));
+        assert.equal(await options.count(), 0, 'an expiration closes the previous list');
+        assert.equal(await choose.evaluate(el => el === document.activeElement), true, 'the picker regains keyboard focus');
+        await page.keyboard.press('ArrowDown');
+        assert.equal(await options.count(), 1, 'the picker can immediately reopen from the keyboard');
+        await details.focus();
+        await page.evaluate(() => update({choices: payload.choices.slice(1)}));
+        assert.equal(await options.count(), 0);
+        assert.equal(await details.evaluate(el => el === document.activeElement), true, 'refresh leaves outside focus intact');
 
         await page.evaluate(() => {
             document.querySelector('.QuestCard_base_test').style.height = `${innerHeight - 350}px`;
