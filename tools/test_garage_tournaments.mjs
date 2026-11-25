@@ -19,7 +19,7 @@ try {
                 'Choose an objective': 'Choisir un objectif'} : {};
             window.payload = {scope: 'account-a', language, shown: true, linked: true, running: false, has_data: true,
                 busy: false, blocked: false, selected: choices[16], choices, criteria: [], labels,
-                tracking: ['OFFICIAL', 'Score: 0', 'Rank: Unavailable', 'Opponent: <rival>'], status: 'Online'};
+                tracking: ['Battle-Conquest', 'Score: 12465 (+451)', 'Rank: Unavailable', 'Opponent: <rival>'], status: 'Online'};
             window.model = {model: {snapshot: JSON.stringify(window.payload), onAction: action => commands.push(action)}};
             window.card = new Function('api', script)({model: window.model, report: message => {throw new Error(message);}});
             window.update = patch => {Object.assign(payload, patch); model.model.snapshot = JSON.stringify(payload);};
@@ -27,7 +27,10 @@ try {
         const card = page.locator('.BattleConquestGarage');
         await card.waitFor({state: 'visible'});
         assert.equal(await card.locator('script').count(), 0);
-        assert.match(await card.locator('.BattleConquestGarage_tournament').innerText(), /Score: 0/);
+        assert.match(await card.locator('.BattleConquestGarage_tournament').innerText(), /Score: 12465 \(\+451\)/);
+        await page.evaluate(() => update({tracking: ['Battle-Conquest', 'Score: 12916', 'Opponent: <rival>']}));
+        await card.getByText('Score: 12916', {exact: true}).waitFor();
+        assert.equal(await card.getByText('Score: 12465 (+451)', {exact: true}).count(), 0);
         assert.match(await card.locator('.BattleConquestGarage_tournament').innerText(), /<rival>/);
         const choose = card.locator('.BattleConquestGarage_choose');
         await choose.click();

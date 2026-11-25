@@ -29,7 +29,7 @@ try {
             window.commands = [];
             const labels = language === 'fr' ? {'Details': 'Détails', 'Close': 'Fermer', 'Settings': 'Réglages',
                 'Choose a quest': 'Choisir une quête', 'Link my account': 'Lier mon compte', 'MOD ESTIMATE': 'MOD (indicatif)',
-                'OFFICIAL': 'OFFICIEL', 'Reload': 'Actualiser'} : {};
+                'Reload': 'Actualiser'} : {};
             window.payload = {scope: 'A', shown: true, linked: false, running: false, labels,
                 selected: null, choices: [], automatic: false, criteria: [], status: 'Online', has_data: false};
             window.model = {model: {snapshot: JSON.stringify(window.payload), onAction: action => window.commands.push(action)}};
@@ -58,13 +58,15 @@ try {
         await page.evaluate(() => update({linked: true, has_data: true,
             selected: {key: 'individual:1', title: '<script>quest</script>'},
             choices: [{key: 'individual:1', title: '<script>quest</script>', status: 'active'}, {key: 'session:2', title: 'Finished challenge', status: 'settled'}],
-            criteria: Array.from({length: 6}, (_, i) => ({label: `Objective ${i}`, target: 100,
-                values: {official: i === 0 ? '20 + ?' : String(i), estimate: 'Unavailable'}}))}));
-        await page.waitForFunction(() => document.querySelectorAll('.BattleConquestGarage_metric').length === 6);
+            criteria: Array.from({length: 9}, (_, i) => ({label: `Objective ${i}`, target: 100,
+                values: i === 0 ? {official: '20 + ?', estimate: 'Unavailable'} : {official: i === 1 ? '100 (+25)' : String(i)}}))}));
+        await page.waitForFunction(() => document.querySelectorAll('.BattleConquestGarage_metric').length === 9);
         assert.equal(await card.locator('script').count(), 0);
         assert.match(await card.textContent(), /20 \+ \?/);
+        assert.match(await card.textContent(), /Battle-Conquest: 100 \(\+25\)/);
+        assert.equal(await card.locator('.BattleConquestGarage_estimate').count(), 1);
         assert.deepEqual(await card.locator('.BattleConquestGarage_metric strong').evaluateAll(items =>
-            items.map(el => getComputedStyle(el).fontWeight)), Array(6).fill('400'));
+            items.map(el => getComputedStyle(el).fontWeight)), Array(9).fill('400'));
         for (const button of await card.getByRole('button').all()) {
             if (await button.isVisible()) assert.equal(await button.locator('.BattleConquestGarage_buttonText')
                 .evaluate(el => getComputedStyle(el).color), titleColor);

@@ -7,7 +7,7 @@ from battle_conquest import config, tournament_tracking
 from battle_conquest.display_preferences import Preferences
 from battle_conquest.garage_ready import garage_ready
 from battle_conquest.i18n import locale, tr
-from battle_conquest.quest_garage_text import status_line, metric_value
+from battle_conquest.quest_garage_text import metric_value, pending_values, progress_text, show_estimate, status_line
 from battle_conquest.report_sender import account_number, at_garage
 
 _logger = logging.getLogger('battle_conquest.garage_display')
@@ -15,7 +15,7 @@ _active = None
 CARD_LOADING_GRACE = 30.0
 
 LABELS = ('Link my account', 'Account: confirm in your browser', 'Cancel', 'Details',
-          'Settings', 'Close', 'No active quest', 'Choose a quest', 'OFFICIAL', 'MOD ESTIMATE',
+          'Settings', 'Close', 'No active quest', 'Choose a quest', 'Battle-Conquest', 'MOD ESTIMATE',
           'random', 'ranked', 'stronghold', 'onslaught', 'frontline', 'training', 'other',
           'Quests', 'Challenges', 'Battle FFA', 'Tournaments', 'Map', 'Choose an objective',
           'Unavailable', 'Reload', 'Scroll', 'Sending: paused', 'Quest tracking unavailable',
@@ -121,15 +121,22 @@ class Displays(object):
         # The server orders the authenticated viewer first. Never expose the
         # following players, link secrets or unrelated preferences to Gameface.
         player = (data.get('players') or [{}])[0]
+        pending = pending_values(data) if player.get('participant') else {}
         criteria = []
         for criterion in data.get('criteria', []):
             metric = criterion['criterion_type']
             values = {}
             for source in ('official', 'estimate'):
+                if source == 'estimate' and not show_estimate(player, metric):
+                    continue
                 score = player.get(source)
                 valid = score and score.get('available') and score.get('comparable') is not False
-                values[source] = unicode(metric_value(score, metric)) if valid else tr('Unavailable')
+                value = metric_value(score, metric) if valid else None
+                values[source] = progress_text(value, pending if source == 'official' else {}, metric)
             criteria.append({'label': criterion.get('label', metric), 'target': criterion['target_value'], 'values': values})
+        incomplete = bool((player.get('official') or {}).get('incomplete')
+                          or ((player.get('estimate') or {}).get('incomplete')
+                              and any('estimate' in row['values'] for row in criteria)))
         current = self.places.current
         linked = self.places.linked and current is not None and not current.blocked
         notice = (garage.error or ('Link suspended: link this account again. Reports retained.' if current and current.blocked else
@@ -141,10 +148,10 @@ class Displays(object):
                 'labels': dict((label, tr(label)) for label in LABELS),
                 'selected': data.get('selected'), 'choices': [dict(row, status=tournament_tracking.choice_status(row)) for row in tournament_tracking.ordered(data.get('choices', []))],
                 'automatic': data.get('automatic_selection') is not None,
-                'tracking': tournament_tracking.lines(data.get('tracking')),
+                'tracking': tournament_tracking.lines(data.get('tracking'), pending_values(data, tracking=True)),
                 'criteria': criteria, 'status': tr(notice) if notice else status_line(garage),
                 'blocked': garage.conflict, 'has_data': garage.data is not None,
-                'incomplete': any((player.get(source) or {}).get('incomplete') for source in ('official', 'estimate')),
+                'incomplete': incomplete,
                 'incomplete_label': tr('Incomplete data (?)')}
 
     def accepts(self, payload):

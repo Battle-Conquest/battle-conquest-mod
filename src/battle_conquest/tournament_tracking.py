@@ -1,5 +1,6 @@
-"""Tournament summaries are official server data, never local quest estimates."""
+"""Tournament summaries from the server."""
 from battle_conquest.i18n import tr
+from battle_conquest.quest_garage_text import progress_text
 
 CATEGORIES = (('individual', u'Quests'), ('session', u'Challenges'), ('bffa', u'Battle FFA'),
               ('event', u'Tournaments'), ('tile', u'Map'))
@@ -29,19 +30,21 @@ def ordered(choices):
     return sorted(choices, key=lambda row: order.get(category(row), len(order)))
 
 
-def lines(tracking):
+def lines(tracking, pending=None):
     if not tracking:
         return []
-    result = [tr(u'OFFICIAL'), tr(STATES.get(tracking.get('state'), u'Unavailable'))]
+    result = [tr(u'Battle-Conquest'), tr(STATES.get(tracking.get('state'), u'Unavailable'))]
     for key, title in FIELDS:
-        if key not in tracking:
+        if key not in tracking and (key != 'score' or key not in (pending or {})):
             continue
-        value = tracking[key]
+        value = tracking.get(key)
         if key in ('battle_min', 'battle_cap') and value is None:
             continue
         if key == 'battle_cap' and value == 0:
             value = tr(u'Unlimited')
-        result.append(u'%s: %s' % (tr(title), unicode(value) if value is not None else tr(u'Unavailable')))
+        text = progress_text(value, pending or {}, key) if key == 'score' else (
+            unicode(value) if value is not None else tr(u'Unavailable'))
+        result.append(u'%s: %s' % (tr(title), text))
     if tracking.get('third_place'):
         result.append(tr(u'Third-place match'))
     if tracking.get('role'):

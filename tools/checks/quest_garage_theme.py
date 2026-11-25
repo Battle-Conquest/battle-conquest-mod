@@ -64,7 +64,7 @@ def check_quest_garage_theme():
         texts = [component.text for component in nodes if not component.window]
         text = u'\n'.join(texts)
         check('the selected quest, player names, official values and estimates have separate cards and labels',
-              'A selected quest' in text and 'Self' in text and 'OFFICIAL' in text and 'MOD ESTIMATE' in text
+              'A selected quest' in text and 'Self' in text and 'Battle-Conquest' in text and 'MOD ESTIMATE' in text
               and len(content.node.children) == 3)
         check('unknown, partial, incomparable and followed-player states keep their meaning',
               '-10 + ? / 50' in text and 'Not comparable' in text and 'Incomplete data' in text
