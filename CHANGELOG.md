@@ -23,6 +23,12 @@ Battle-Conquest for World of Tanks EU. The installation ZIP targets the `mods/2.
 
 See the [installation guide](https://github.com/Battle-Conquest/battle-conquest-mod/blob/v1.3.0/README.md#install) if your game uses a different version folder.
 
+### Changes in this build
+
+- Maintenance updates to the mod and its release tooling.
+
+This refresh keeps the same version and prerelease status. Download the ZIP again to replace an earlier build. In-game acceptance must be repeated.
+
 ## 1.2.3
 
 ### Changes in this build
