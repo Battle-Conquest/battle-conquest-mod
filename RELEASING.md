@@ -80,10 +80,26 @@ compilé mais ne remplace pas ce test en jeu.
 Une prérelease représente un test en cours. Chaque actualisation impose de
 **télécharger de nouveau le ZIP**, même si son numéro est identique ; les alertes
 du mod fondées sur les numéros ne distinguent pas ces reconstructions. Refaire
-la recette pertinente sur ce ZIP. Après acceptation, promouvoir manuellement :
+la recette pertinente sur ce ZIP. Actualiser la note GitHub avec le commit et le
+SHA-256 du ZIP indiqués par le reçu `release-build.json` courant et les points à
+recetter. Les détails des builds successifs servent à la recette.
+
+### Promouvoir une prérelease
+
+Après acceptation du ZIP courant, réécrire la section de la version dans
+`CHANGELOG.md` en anglais. Présenter une seule fois les fonctionnalités,
+corrections, conditions d'utilisation et instructions d'installation qui
+s'appliquent à la version livrée. Retirer de cette section les états successifs
+de la prérelease, les rappels de nouveau téléchargement entre builds et les
+détails de recette.
+
+Copier cette section dans un fichier de notes et remplacer le texte GitHub dans
+la même opération que le passage en stable, en conservant le tag et les
+fichiers du build validé.
 
 ```bash
-gh release edit vX.Y.Z --repo Battle-Conquest/battle-conquest-mod --prerelease=false --latest
+gh release edit vX.Y.Z --repo Battle-Conquest/battle-conquest-mod \
+  --notes-file release-notes.md --prerelease=false --latest
 ```
 
 Une promotion intervenue pendant la revue bloque une ancienne proposition qui
