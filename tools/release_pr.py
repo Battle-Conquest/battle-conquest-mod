@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 
+from build_release import GAME_VERSION
 from release import SUBJECT, TOLD
 from release_state import (BRANCH, PLAN, REPO, REPOSITORY, api, choose, notes,
                            pending, releases, run, validate)
@@ -73,7 +74,7 @@ def body(plan, previous=""):
     report = (START + "\n" + action % plan["version"] +
               "\n\nLa fusion **manuelle** construit et vérifie le paquet avant publication. "
               "Les notes viennent de `CHANGELOG.md` ; les relire dans cette PR. "
-              "Le dossier WoT du ZIP reste inchangé ; le joueur l’adapte si nécessaire.\n" + END)
+              f"Le ZIP cible le dossier `mods/{GAME_VERSION}/`.\n" + END)
     if not previous:
         return report + ("\n\n- [ ] Relire les changements et les notes de version."
                          "\n- [ ] Valider les contrôles et la recette en jeu utile avant de fusionner.")
