@@ -89,7 +89,7 @@ The source is mounted read-only in the test container, with networking disabled.
 ```bash
 python tools/build_release.py --version x.y.z
 python2.7 tools/release_check.py dist/eu.battle-conquest_x.y.z.wotmod
-python3 tools/bundle_check.py dist/battle-conquest-mod_x.y.z.zip dist/eu.battle-conquest_x.y.z.wotmod --game-version 2.4.1.1
+python3 tools/bundle_check.py dist/battle-conquest-mod_x.y.z.zip dist/eu.battle-conquest_x.y.z.wotmod --game-version 2.4.2.0
 ```
 
 ## Pull requests

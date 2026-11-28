@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import release_pr as proposer
 import release_state as shared
+from build_release import GAME_VERSION
 from release_publish import validate_checkout
 
 
@@ -146,6 +147,7 @@ class ReleaseNotesTests(unittest.TestCase):
         before = "Introduction\n" + proposer.body(planned()) + "\n- [x] Checked\nKeep my note"
         result = proposer.body(planned(True), before)
         self.assertIn("prérelease **1.2.2**", result)
+        self.assertIn(f"`mods/{GAME_VERSION}/`", result)
         self.assertTrue(result.startswith("Introduction\n"))
         self.assertTrue(result.endswith("\n- [x] Checked\nKeep my note"))
         self.assertEqual(result.count("- [ ]"), before.count("- [ ]"))

@@ -15,26 +15,27 @@ Not affiliated with Wargaming.net. Derived from
 1. Link your Wargaming account on [battle-conquest.eu](https://battle-conquest.eu)
    first: until it is, every battle the mod sends is refused.
 2. Prefer the **Wargaming-approved version on WGMods**, linked from the
-   [Battle-Conquest mod page](https://battle-conquest.eu/my-mod). Extract its
-   complete installation archive into your World of Tanks folder,
-   or use the WGMods application with all supplied dependencies. For versions
-   **1.2.1 and later**, the integrated card requires the shared OpenWG Gameface
-   package described below; installing only the Battle-Conquest `.wotmod` does
-   not provide it. Older approved versions can have different requirements.
+   [Battle-Conquest mod page](https://battle-conquest.eu/my-mod). Download its
+   complete installation archive or use the WGMods application with all supplied
+   dependencies. For versions **1.2.1 and later**, the integrated card requires
+   the shared OpenWG Gameface package described below. Older approved versions
+   can have different requirements.
    For the very latest version, download `battle-conquest-mod_<version>.zip`
-   from the [latest GitHub release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest)
-   and unzip the complete archive into your World of Tanks folder. It contains
-   `mods/<game version>/eu.battle-conquest_<version>.wotmod`, the pinned Gameface
-   dependency under `mods/<game version>/net.openwg/`, and its licence. Preserve
-   that shared dependency path and restart the client. GitHub may be ahead
-   while Wargaming reviews the WGMods submission; the site shows both versions
-   when they are available.
-   After a WoT update, the ZIP may still name an older game folder. With the
-   game closed, move `eu.battle-conquest_<version>.wotmod` and its `net.openwg/`
-   dependency into the current `mods/<game version>/` folder, preserving their
-   relative paths and keeping only one Battle-Conquest package there. Leave
-   `mods/configs/battle_conquest/` in place. A folder change alone does not need
-   a new mod release; changes to the game's APIs may still require a mod fix.
+   from the [latest GitHub release](https://github.com/Battle-Conquest/battle-conquest-mod/releases/latest).
+   This ZIP includes the Battle-Conquest WOTMOD, the pinned OpenWG Gameface
+   WOTMOD in the shared `net.openwg/` subfolder, and its licence. The site shows
+   both versions when available, including during WGMods review.
+
+   In `mods/x.x.x.x/`, `x.x.x.x` is your installed World of Tanks version.
+   Close the game and check the ZIP's version folder under `mods/`. When it
+   matches your installed version, extract the complete ZIP into your World of
+   Tanks folder.
+   If the ZIP still targets an older version, extract it to a temporary folder.
+   Copy the Battle-Conquest WOTMOD into your current `mods/x.x.x.x/` folder and
+   keep one copy there. If the ZIP includes OpenWG, keep its WOTMOD under
+   `mods/x.x.x.x/net.openwg/`. Leave `mods/configs/battle_conquest/` in place.
+   A folder change alone does not need a new mod release. Changes to the game's
+   APIs may still require a mod fix.
 3. Start the game. Once in the garage, a notification says the game is not
    linked yet: click **Link my account** in it. Your browser opens on the site,
    you confirm, and the mod writes its configuration itself. Nothing to type.
@@ -46,8 +47,9 @@ Not affiliated with Wargaming.net. Derived from
 Fully close the game. Back up `mods/configs/battle_conquest/` privately and leave
 it in place: it contains the account link, queues and display preferences.
 Remove only the previous Battle-Conquest `.wotmod` and disable any development
-bootstrap, then extract the complete ZIP. Keep one Battle-Conquest package in
-the current game folder. The shared dependency is exactly
+bootstrap, then [install the complete ZIP for your game version](#install).
+Keep one Battle-Conquest package in the current game folder. The shared
+dependency is exactly
 `mods/<game version>/net.openwg/net.openwg.gameface_1.2.2.wotmod` (MIT); both its
 Python module and JavaScript libraries are inside that file. It is included in
 the **ZIP**, not inside `eu.battle-conquest_<version>.wotmod`.
