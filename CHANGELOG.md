@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+### Changes in this build
+
+- Maintenance updates to the mod and its release tooling.
+
 ## 1.3.0
 
 Battle-Conquest for World of Tanks EU. The installation ZIP targets the `mods/2.4.1.1/` folder.
