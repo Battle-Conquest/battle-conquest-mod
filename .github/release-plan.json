@@ -1,8 +1,8 @@
 {
-  "version": "1.3.0",
-  "prerelease": true,
-  "source": "4d14cded20504d27babdae64a7d376618f28b038",
+  "version": "1.3.1",
+  "prerelease": false,
+  "source": "9a83ace45236caf1e09ce6c3bbb28da3e5ef8375",
   "base_tag": "v1.3.0",
   "release_id": 452918030,
-  "base_ref": "a7e0373eca204fa49350ca6d910f62a58775fdce"
+  "base_ref": "cfc6378599f230b15d78473be6527e2f08fe6d54"
 }
