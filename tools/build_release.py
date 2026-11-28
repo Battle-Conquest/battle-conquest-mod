@@ -48,7 +48,7 @@ ARCHIVE = 'battle-conquest-mod'
 GAMEFACE = REPO / 'vendor' / 'openwg'
 
 # The client the package is built for: its mods/ folder in the zip.
-GAME_VERSION = '2.4.1.1'
+GAME_VERSION = '2.4.2.0'
 NAME = 'Battle-Conquest'
 DESCRIPTION = 'Sends your battles to Battle-Conquest, for the tournaments and quests that score them.'
 

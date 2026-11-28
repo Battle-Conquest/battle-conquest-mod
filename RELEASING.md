@@ -185,7 +185,7 @@ python3 -B -m unittest discover -s tools -p 'test_*.py'
 python2.7 -B tools/selftest.py
 python3 tools/build_release.py --version X.Y.Z --python27 /chemin/vers/python2.7
 python2.7 -B tools/release_check.py dist/eu.battle-conquest_X.Y.Z.wotmod
-python3 -B tools/bundle_check.py dist/battle-conquest-mod_X.Y.Z.zip dist/eu.battle-conquest_X.Y.Z.wotmod --game-version 2.4.1.1
+python3 -B tools/bundle_check.py dist/battle-conquest-mod_X.Y.Z.zip dist/eu.battle-conquest_X.Y.Z.wotmod --game-version 2.4.2.0
 ```
 
 La prévisualisation ne modifie aucun fichier ni GitHub. Le script historique
@@ -209,8 +209,8 @@ au client de recette ; après un changement WoT, refaire la recette du ZIP desti
 
 ```text
 battle-conquest-mod_X.Y.Z.zip
-├── mods/2.4.1.1/eu.battle-conquest_X.Y.Z.wotmod
-├── mods/2.4.1.1/net.openwg/net.openwg.gameface_1.2.2.wotmod
+├── mods/2.4.2.0/eu.battle-conquest_X.Y.Z.wotmod
+├── mods/2.4.2.0/net.openwg/net.openwg.gameface_1.2.2.wotmod
 └── LICENSE-openwg-gameface.txt
 ```
 

@@ -146,7 +146,7 @@ Si le packaging, les ressources ou les points d'entrée changent :
 ```bash
 rtk proxy python3 -B tools/build_release.py --version X.Y.Z --python27 /chemin/vers/python2.7
 rtk proxy python2.7 -B tools/release_check.py dist/eu.battle-conquest_X.Y.Z.wotmod
-rtk proxy python3 -B tools/bundle_check.py dist/battle-conquest-mod_X.Y.Z.zip dist/eu.battle-conquest_X.Y.Z.wotmod --game-version 2.4.1.1
+rtk proxy python3 -B tools/bundle_check.py dist/battle-conquest-mod_X.Y.Z.zip dist/eu.battle-conquest_X.Y.Z.wotmod --game-version 2.4.2.0
 ```
 
 Adapter le dernier argument au `GAME_VERSION` des sources. Pour la carte,
